@@ -37,7 +37,7 @@ jobs:
         uses: actions/upload-pages-artifact@v3
         with:
           # Upload privacy policy directory
-          path: '.'  # 指向包含隐私政策的目录
+          path: './private-policy.html'  # 指向包含隐私政策的目录
       - name: fidroid
         id: deployment
         uses: actions/deploy-pages@v4
