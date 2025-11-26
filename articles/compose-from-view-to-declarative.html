@@ -1,0 +1,415 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>从 View 到 Compose：重新理解 Android UI 心智模型 - Fidroid</title>
+    <meta name="description" content="通过经典 View 系统与 Jetpack Compose 的对比，重新构建 Android UI 的心智模型，理解声明式 UI 如何改变状态驱动视图的方式。">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Open Sans', 'Helvetica Neue', sans-serif;
+            line-height: 1.7;
+            color: #e5e7eb;
+            background: radial-gradient(circle at top, #0f172a, #020617);
+        }
+
+        .container {
+            max-width: 900px;
+            margin: 0 auto;
+            padding: 0 20px 60px;
+        }
+
+        header {
+            padding: 20px 0 10px;
+        }
+
+        .logo {
+            font-weight: 700;
+            font-size: 1.1rem;
+            letter-spacing: 0.12em;
+            text-transform: uppercase;
+            color: #38bdf8;
+        }
+
+        .back-link {
+            display: inline-flex;
+            align-items: center;
+            margin-top: 8px;
+            font-size: 0.85rem;
+            color: #9ca3af;
+            text-decoration: none;
+        }
+
+        .back-link span {
+            margin-right: 6px;
+        }
+
+        .back-link:hover {
+            color: #e5e7eb;
+        }
+
+        .article-header {
+            margin-top: 26px;
+            padding: 26px 22px 20px;
+            border-radius: 18px;
+            border: 1px solid rgba(30,64,175,0.8);
+            background: radial-gradient(circle at top left, #1d283a, #020617);
+            box-shadow: 0 22px 60px rgba(15,23,42,0.9);
+        }
+
+        .article-title {
+            font-size: 1.8rem;
+            margin-bottom: 10px;
+            color: #f9fafb;
+        }
+
+        .article-meta {
+            font-size: 0.85rem;
+            color: #9ca3af;
+            display: flex;
+            flex-wrap: wrap;
+            gap: 1rem;
+            margin-bottom: 4px;
+        }
+
+        .article-tags {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 0.4rem;
+            margin-top: 8px;
+        }
+
+        .tag {
+            font-size: 0.75rem;
+            padding: 2px 8px;
+            border-radius: 999px;
+            border: 1px solid rgba(148,163,184,0.6);
+            color: #9ca3af;
+        }
+
+        .lead {
+            margin-top: 14px;
+            font-size: 0.98rem;
+            color: #d1d5db;
+        }
+
+        main {
+            margin-top: 28px;
+            padding: 26px 22px 26px;
+            border-radius: 18px;
+            border: 1px solid rgba(31,41,55,0.9);
+            background: radial-gradient(circle at top, #020617, #020617);
+            box-shadow: 0 18px 55px rgba(15,23,42,1);
+        }
+
+        h2 {
+            margin-top: 26px;
+            margin-bottom: 12px;
+            font-size: 1.25rem;
+            color: #f9fafb;
+        }
+
+        h3 {
+            margin-top: 20px;
+            margin-bottom: 8px;
+            font-size: 1.02rem;
+            color: #e5e7eb;
+        }
+
+        p {
+            margin-bottom: 12px;
+            font-size: 0.96rem;
+            color: #d1d5db;
+        }
+
+        ul {
+            margin: 6px 0 14px 1.2rem;
+        }
+
+        li {
+            margin-bottom: 6px;
+            font-size: 0.95rem;
+            color: #d1d5db;
+        }
+
+        .note {
+            margin: 16px 0;
+            padding: 10px 12px;
+            border-radius: 10px;
+            border-left: 3px solid #38bdf8;
+            background: rgba(15,23,42,0.85);
+            font-size: 0.9rem;
+            color: #cbd5f5;
+        }
+
+        pre {
+            margin: 14px 0;
+            padding: 12px 14px;
+            border-radius: 12px;
+            background: rgba(15,23,42,0.96);
+            overflow-x: auto;
+            font-size: 0.82rem;
+            border: 1px solid rgba(30,64,175,0.8);
+        }
+
+        code {
+            font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+        }
+
+        .inline-code {
+            padding: 0 4px;
+            border-radius: 4px;
+            background: rgba(15,23,42,0.9);
+            border: 1px solid rgba(31,41,55,0.9);
+            font-size: 0.88em;
+        }
+
+        a {
+            color: #38bdf8;
+            text-decoration: none;
+        }
+
+        a:hover {
+            text-decoration: underline;
+        }
+
+        footer {
+            margin-top: 26px;
+            font-size: 0.8rem;
+            color: #6b7280;
+            text-align: left;
+        }
+
+        @media (max-width: 768px) {
+            .article-header,
+            main {
+                padding: 20px 16px 20px;
+            }
+
+            .article-title {
+                font-size: 1.5rem;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <div class="logo">Fidroid</div>
+            <a href="../index.html#blog" class="back-link">
+                <span>←</span> 返回首页
+            </a>
+        </header>
+
+        <section class="article-header">
+            <div class="article-meta">
+                <span>2024-03-25</span>
+                <span>阅读时间 · 约 15 分钟</span>
+            </div>
+            <h1 class="article-title">从 View 到 Compose：重新理解 Android UI 心智模型</h1>
+            <div class="article-tags">
+                <span class="tag">Jetpack Compose</span>
+                <span class="tag">声明式 UI</span>
+                <span class="tag">Android</span>
+                <span class="tag">工程实践</span>
+            </div>
+            <p class="lead">
+                很多团队在引入 Jetpack Compose 时的第一反应是「把 XML 换成 Kotlin」，但真正的迁移难点从来不在语法，
+                而在于你如何理解 UI 与状态的关系。本文希望通过与经典 View 系统的对比，帮助你建立一套清晰的 Compose 心智模型。
+            </p>
+        </section>
+
+        <main>
+            <h2>1. 经典 View 系统的隐形复杂度</h2>
+            <p>
+                在经典的 View 系统里，我们习惯通过 <span class="inline-code">findViewById</span> 或 ViewBinding 拿到具体 View 引用，
+                然后在各种生命周期节点里调用 <span class="inline-code">setText</span>、<span class="inline-code">setVisibility</span>、
+                <span class="inline-code">setEnabled</span> 等方法去「命令式」地修改 UI。
+            </p>
+            <p>这种模式有几个常见问题：</p>
+            <ul>
+                <li>UI 与状态强耦合在 Activity / Fragment 中，逻辑容易变成「上帝类」。</li>
+                <li>View 的中间状态很多，例如「半初始化」「已经被回收但还持有引用」。</li>
+                <li>随着需求增长，<span class="inline-code">if-else</span> 与 <span class="inline-code">setXxx</span> 散落在各处，很难追踪状态变化链路。</li>
+            </ul>
+
+            <div class="note">
+                一句话概括：经典 View 模式是「我告诉系统你现在要长成什么样」，而不是「我描述在某个状态下你应该是什么样」。
+            </div>
+
+            <h2>2. Compose 的核心：状态驱动 UI</h2>
+            <p>
+                Jetpack Compose 是一个典型的声明式 UI 框架：你不再直接操作 View 层级，而是描述
+                「在某个状态下 UI 应该长成什么样」。当状态发生变化时，Compose 会自动触发 Recomposition，
+                重新执行对应的 <span class="inline-code">@Composable</span> 函数来更新 UI。
+            </p>
+
+            <h3>2.1 从「操作 View」到「组合函数」</h3>
+            <pre><code>// 经典 View 写法（伪代码）
+textView = findViewById(R.id.title)
+button = findViewById(R.id.btn)
+
+fun render(isLoading: Boolean) {
+    if (isLoading) {
+        button.isEnabled = false
+        textView.text = "Loading..."
+    } else {
+        button.isEnabled = true
+        textView.text = "Loaded"
+    }
+}</code></pre>
+
+            <pre><code>// Compose 写法
+@Composable
+fun TitleWithButton(isLoading: Boolean, onClick: () -&gt; Unit) {
+    Column {
+        Text(text = if (isLoading) "Loading..." else "Loaded")
+        Button(
+            enabled = !isLoading,
+            onClick = onClick
+        ) {
+            Text("刷新")
+        }
+    }
+}</code></pre>
+
+            <p>
+                在 Compose 中，我们不再关心「这个 Button 已经被 disable 过几次」，而是只关心
+                「当前 <span class="inline-code">isLoading</span> 为 true 时 Button 应该 disabled」。
+                状态成为了 UI 的唯一输入来源。
+            </p>
+
+            <h3>2.2 Recomposition 并不是重新创建 View</h3>
+            <p>
+                很多人初看 Compose 时会担心：<em>每次状态变化都重新执行 Composable，会不会非常耗性能？</em>
+                这里需要记住一个关键点：<strong>Recomposition 不是重新创建整个视图树，而是对比前后状态，做「差量更新」。</strong>
+            </p>
+            <p>
+                Compose 内部维护了一份 Slot Table（可以粗略理解为 UI 结构的有序记录），
+                当状态变化时，它会根据你写的 Composable 树计算出需要更新的部分，而不是暴力重建。
+            </p>
+
+            <h2>3. 状态应该放在哪里？</h2>
+            <p>
+                用好 Compose 的关键在于：<strong>把状态放在「恰好够用」的地方</strong>。这和经典 View 时代「尽量少地持有引用」类似，
+                只是现在的单位从 View 变成了「状态 + Composable」。
+            </p>
+
+            <h3>3.1 UI 状态：remember 与 rememberSaveable</h3>
+            <pre><code>@Composable
+fun SearchBar(
+    modifier: Modifier = Modifier,
+    onSearch: (String) -&gt; Unit
+) {
+    var keyword by rememberSaveable { mutableStateOf("") }
+
+    TextField(
+        value = keyword,
+        onValueChange = { newValue -&gt;
+            keyword = newValue
+        },
+        modifier = modifier.fillMaxWidth(),
+        placeholder = { Text("搜索文章...") },
+        trailingIcon = {
+            IconButton(onClick = { onSearch(keyword) }) {
+                Icon(Icons.Default.Search, contentDescription = null)
+            }
+        }
+    )
+}</code></pre>
+
+            <p>
+                这里的 <span class="inline-code">keyword</span> 就是典型的「UI 状态」，
+                它只在 Composable 内部有意义，因此使用 <span class="inline-code">rememberSaveable</span>
+                即可，同时还能在配置变化（如旋转）后自动恢复。
+            </p>
+
+            <h3>3.2 屏幕级状态：ViewModel + UDF</h3>
+            <p>
+                对于一个完整的页面，推荐使用 ViewModel 来承载屏幕级状态，并通过单向数据流（UDF）暴露给 Compose：
+            </p>
+
+            <pre><code>data class ArticleUiState(
+    val isLoading: Boolean = false,
+    val articles: List&lt;Article&gt; = emptyList(),
+    val error: String? = null
+)
+
+class ArticleViewModel(
+    private val repository: ArticleRepository
+) : ViewModel() {
+
+    private val _uiState = MutableStateFlow(ArticleUiState())
+    val uiState: StateFlow&lt;ArticleUiState&gt; = _uiState.asStateFlow()
+
+    fun load() {
+        viewModelScope.launch {
+            _uiState.update { it.copy(isLoading = true, error = null) }
+            runCatching { repository.fetchArticles() }
+                .onSuccess { list -&gt;
+                    _uiState.update { it.copy(isLoading = false, articles = list) }
+                }
+                .onFailure { throwable -&gt;
+                    _uiState.update { it.copy(isLoading = false, error = throwable.message) }
+                }
+        }
+    }
+}</code></pre>
+
+            <pre><code>@Composable
+fun ArticleScreen(
+    viewModel: ArticleViewModel = viewModel()
+) {
+    val uiState by viewModel.uiState.collectAsState()
+
+    ArticleScreen(uiState = uiState, onRetry = { viewModel.load() })
+}</code></pre>
+
+            <p>
+                在这个模式下，Compose 完全「订阅」于 ViewModel 暴露的状态，
+                使得 UI 变成一个「纯函数」：相同的输入总是渲染出相同的视图。
+            </p>
+
+            <h2>4. 渐进式迁移：不必一次性「推翻重来」</h2>
+            <p>
+                引入 Compose 并不意味着你要立刻抛弃所有 XML 布局。更现实的做法是：
+            </p>
+            <ul>
+                <li>从局部组件开始，比如列表 item、弹窗、表单等可独立复用的 UI 模块。</li>
+                <li>在 Fragment 中通过 <span class="inline-code">ComposeView</span> 或 Activity 中通过 <span class="inline-code">setContent</span> 逐步扩展覆盖范围。</li>
+                <li>为新模块设计基于 Compose 的 Design System，让「新老 UI」在视觉上保持一致。</li>
+            </ul>
+
+            <div class="note">
+                一个简单的经验法则：<br>
+                <strong>当你在 XML 里写复杂的自定义 View 时，往往就是可以考虑用 Compose 重写的好时机。</strong>
+            </div>
+
+            <h2>5. 总结：用正确的心智模型拥抱 Compose</h2>
+            <p>可以用三句话来总结本文的核心观点：</p>
+            <ul>
+                <li>不要把 Compose 当成「写 UI 的另一种语法」，而是一个完整的声明式 UI 框架。</li>
+                <li>UI 不再是「被命令驱动的对象」，而是「被状态描述的结果」。</li>
+                <li>通过合理划分状态边界（Composable 内部 / 屏幕级 / 应用级），可以让复杂 UI 在 Compose 下保持清晰可维护。</li>
+            </ul>
+
+            <p>
+                后续文章会进一步展开如何在真实项目中基于 Compose 搭建架构（包含 Navigation、状态容器、Design System 等主题），
+                欢迎在首页继续浏览 Compose 系列内容。
+            </p>
+        </main>
+
+        <footer>
+            本文首发于 Fidroid · Android &amp; Jetpack Compose 博客。
+        </footer>
+    </div>
+</body>
+</html>
+
+
