@@ -1,0 +1,361 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Compose 性能优化深度指南：Recomposition 与渲染优化 - Fidroid</title>
+    <meta name="description" content="深入理解 Compose 的 Recomposition 机制，掌握 derivedStateOf、remember、Stable 等优化技巧，打造 60fps 流畅体验。">
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
+            line-height: 1.8;
+            color: #e5e7eb;
+            background: #020617;
+        }
+        .navbar {
+            background: rgba(15,23,42,0.98);
+            backdrop-filter: blur(10px);
+            position: fixed;
+            top: 0;
+            width: 100%;
+            z-index: 1000;
+        }
+        .nav-container {
+            max-width: 900px;
+            margin: 0 auto;
+            padding: 1rem 20px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .logo {
+            font-size: 1.5rem;
+            font-weight: bold;
+            color: #38bdf8;
+            text-decoration: none;
+            letter-spacing: 0.08em;
+            text-transform: uppercase;
+        }
+        .back-link {
+            color: #9ca3af;
+            text-decoration: none;
+            font-size: 0.9rem;
+        }
+        .back-link:hover { color: #38bdf8; }
+
+        .article-header {
+            padding: 120px 20px 60px;
+            background: radial-gradient(circle at top left, #ef4444 0, transparent 50%),
+                        radial-gradient(circle at bottom right, #22c55e 0, transparent 55%),
+                        #020617;
+            text-align: center;
+        }
+        .article-header h1 {
+            max-width: 800px;
+            margin: 0 auto 1rem;
+            font-size: 2.5rem;
+            font-weight: 800;
+            letter-spacing: -0.03em;
+            color: #fff;
+        }
+        .article-meta {
+            color: #9ca3af;
+            font-size: 0.9rem;
+            margin-bottom: 1.5rem;
+        }
+        .article-tags {
+            display: flex;
+            justify-content: center;
+            flex-wrap: wrap;
+            gap: 0.5rem;
+        }
+        .article-tag {
+            padding: 0.25rem 0.75rem;
+            border-radius: 999px;
+            font-size: 0.75rem;
+            background: rgba(15,23,42,0.85);
+            border: 1px solid rgba(239,68,68,0.4);
+            color: #fca5a5;
+        }
+
+        .article-content {
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 60px 20px 80px;
+        }
+        .article-content h2 {
+            font-size: 1.6rem;
+            margin: 2.5rem 0 1rem;
+            color: #f9fafb;
+            border-left: 4px solid #ef4444;
+            padding-left: 1rem;
+        }
+        .article-content h3 {
+            font-size: 1.25rem;
+            margin: 2rem 0 0.75rem;
+            color: #e5e7eb;
+        }
+        .article-content p {
+            margin-bottom: 1.25rem;
+            color: #d1d5db;
+        }
+        .article-content ul, .article-content ol {
+            margin: 1rem 0 1.5rem 1.5rem;
+            color: #d1d5db;
+        }
+        .article-content li { margin-bottom: 0.5rem; }
+        .article-content strong { color: #f9fafb; }
+        .article-content a { color: #38bdf8; text-decoration: underline; }
+
+        pre {
+            background: #0f172a;
+            border: 1px solid rgba(239,68,68,0.3);
+            border-radius: 12px;
+            padding: 1.25rem;
+            overflow-x: auto;
+            margin: 1.5rem 0;
+            font-size: 0.85rem;
+            line-height: 1.6;
+        }
+        code {
+            font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+            color: #e5e7eb;
+        }
+        .code-keyword { color: #c084fc; }
+        .code-func { color: #38bdf8; }
+        .code-type { color: #4ade80; }
+        .code-string { color: #fb7185; }
+        .code-comment { color: #6b7280; font-style: italic; }
+        .code-number { color: #fbbf24; }
+
+        .callout {
+            background: rgba(239,68,68,0.1);
+            border: 1px solid rgba(239,68,68,0.3);
+            border-radius: 12px;
+            padding: 1.25rem 1.5rem;
+            margin: 1.5rem 0;
+        }
+        .callout-title {
+            font-weight: 600;
+            color: #fca5a5;
+            margin-bottom: 0.5rem;
+        }
+        .callout p { margin-bottom: 0; color: #d1d5db; }
+
+        .footer {
+            background: #020617;
+            border-top: 1px solid #111827;
+            padding: 2rem;
+            text-align: center;
+            color: #6b7280;
+        }
+        .footer a { color: #38bdf8; text-decoration: none; }
+    </style>
+</head>
+<body>
+    <nav class="navbar">
+        <div class="nav-container">
+            <a href="../index.html" class="logo">Fidroid</a>
+            <a href="../index.html#blog" class="back-link">← 返回博客列表</a>
+        </div>
+    </nav>
+
+    <header class="article-header">
+        <h1>Compose 性能优化深度指南：Recomposition 与渲染优化</h1>
+        <p class="article-meta">2024-04-01 · 25 min · 性能优化</p>
+        <div class="article-tags">
+            <span class="article-tag">Recomposition</span>
+            <span class="article-tag">Stable</span>
+            <span class="article-tag">derivedStateOf</span>
+            <span class="article-tag">Profiling</span>
+        </div>
+    </header>
+
+    <article class="article-content">
+        <p>Compose 的声明式 UI 模型带来了开发效率的提升，但也引入了新的性能考量。理解 Recomposition 机制并掌握优化技巧，是打造流畅 Compose 应用的关键。</p>
+
+        <h2>一、理解 Compose 的三个阶段</h2>
+        <p>Compose 渲染一帧分为三个阶段：</p>
+        <ul>
+            <li><strong>Composition（组合）</strong>：执行 @Composable 函数，构建 UI 树</li>
+            <li><strong>Layout（布局）</strong>：测量和放置 UI 元素</li>
+            <li><strong>Drawing（绘制）</strong>：将 UI 绘制到屏幕</li>
+        </ul>
+        <p>性能优化的核心是：<strong>尽量减少不必要的 Composition，并将变化推迟到 Layout 或 Drawing 阶段</strong>。</p>
+
+        <h2>二、Recomposition 触发条件</h2>
+        <p>Recomposition 发生在状态变化时。Compose 会智能地只重组受影响的部分，但前提是你正确使用了状态 API：</p>
+
+<pre><code><span class="code-comment">// ✅ 正确：状态变化只触发读取它的 Composable 重组</span>
+<span class="code-keyword">@Composable</span>
+<span class="code-keyword">fun</span> <span class="code-func">Counter</span>() {
+    <span class="code-keyword">var</span> count <span class="code-keyword">by</span> <span class="code-func">remember</span> { <span class="code-func">mutableStateOf</span>(<span class="code-number">0</span>) }
+
+    <span class="code-func">Column</span> {
+        <span class="code-func">Text</span>(<span class="code-string">"Count: $count"</span>)  <span class="code-comment">// 只有这行会重组</span>
+        <span class="code-func">Button</span>(onClick = { count++ }) {
+            <span class="code-func">Text</span>(<span class="code-string">"Increment"</span>)  <span class="code-comment">// 这里不会重组</span>
+        }
+    }
+}</code></pre>
+
+        <h2>三、使用 remember 避免重复计算</h2>
+
+<pre><code><span class="code-comment">// ❌ 每次重组都会重新计算</span>
+<span class="code-keyword">@Composable</span>
+<span class="code-keyword">fun</span> <span class="code-func">ExpensiveList</span>(items: <span class="code-type">List</span>&lt;<span class="code-type">Item</span>&gt;) {
+    <span class="code-keyword">val</span> sortedItems = items.<span class="code-func">sortedBy</span> { it.name }  <span class="code-comment">// 每次都排序！</span>
+    <span class="code-func">LazyColumn</span> { ... }
+}
+
+<span class="code-comment">// ✅ 只在 items 变化时重新计算</span>
+<span class="code-keyword">@Composable</span>
+<span class="code-keyword">fun</span> <span class="code-func">ExpensiveList</span>(items: <span class="code-type">List</span>&lt;<span class="code-type">Item</span>&gt;) {
+    <span class="code-keyword">val</span> sortedItems = <span class="code-func">remember</span>(items) {
+        items.<span class="code-func">sortedBy</span> { it.name }
+    }
+    <span class="code-func">LazyColumn</span> { ... }
+}</code></pre>
+
+        <h2>四、derivedStateOf：派生状态优化</h2>
+        <p>当你需要从其他状态派生出新状态，且派生结果不是每次都变化时，使用 <code>derivedStateOf</code>：</p>
+
+<pre><code><span class="code-keyword">@Composable</span>
+<span class="code-keyword">fun</span> <span class="code-func">SearchResults</span>(query: <span class="code-type">String</span>, items: <span class="code-type">List</span>&lt;<span class="code-type">Item</span>&gt;) {
+    <span class="code-comment">// 只在过滤结果实际变化时才触发重组</span>
+    <span class="code-keyword">val</span> filteredItems <span class="code-keyword">by</span> <span class="code-func">remember</span>(query, items) {
+        <span class="code-func">derivedStateOf</span> {
+            items.<span class="code-func">filter</span> { it.name.<span class="code-func">contains</span>(query, ignoreCase = <span class="code-keyword">true</span>) }
+        }
+    }
+
+    <span class="code-func">LazyColumn</span> {
+        <span class="code-func">items</span>(filteredItems) { item ->
+            <span class="code-func">ItemRow</span>(item)
+        }
+    }
+}</code></pre>
+
+        <div class="callout">
+            <p class="callout-title">⚠️ 何时使用 derivedStateOf</p>
+            <p>当输入状态变化频繁，但派生结果变化较少时使用。例如：滚动位置 → 是否显示"返回顶部"按钮。</p>
+        </div>
+
+        <h2>五、Stable 与 Immutable 注解</h2>
+        <p>Compose 编译器会分析参数的稳定性来决定是否跳过重组。对于自定义类，可以使用注解帮助编译器：</p>
+
+<pre><code><span class="code-comment">// 不可变数据类，Compose 可以安全跳过重组</span>
+<span class="code-keyword">@Immutable</span>
+<span class="code-keyword">data class</span> <span class="code-type">User</span>(
+    <span class="code-keyword">val</span> id: <span class="code-type">String</span>,
+    <span class="code-keyword">val</span> name: <span class="code-type">String</span>,
+    <span class="code-keyword">val</span> avatar: <span class="code-type">String</span>
+)
+
+<span class="code-comment">// 稳定类：内部状态可变，但 Compose 可以通过 equals 判断是否变化</span>
+<span class="code-keyword">@Stable</span>
+<span class="code-keyword">class</span> <span class="code-type">PagingState</span>(
+    <span class="code-keyword">val</span> items: <span class="code-type">List</span>&lt;<span class="code-type">Item</span>&gt;,
+    <span class="code-keyword">val</span> isLoading: <span class="code-type">Boolean</span>,
+    <span class="code-keyword">val</span> error: <span class="code-type">String</span>?
+)</code></pre>
+
+        <h2>六、Lambda 稳定性优化</h2>
+        <p>Lambda 表达式默认是不稳定的，可能导致不必要的重组：</p>
+
+<pre><code><span class="code-comment">// ❌ 每次重组都创建新的 lambda</span>
+<span class="code-keyword">@Composable</span>
+<span class="code-keyword">fun</span> <span class="code-func">ItemList</span>(viewModel: <span class="code-type">ItemViewModel</span>) {
+    <span class="code-func">LazyColumn</span> {
+        <span class="code-func">items</span>(viewModel.items) { item ->
+            <span class="code-func">ItemRow</span>(
+                item = item,
+                onClick = { viewModel.<span class="code-func">onItemClick</span>(item) }  <span class="code-comment">// 新 lambda！</span>
+            )
+        }
+    }
+}
+
+<span class="code-comment">// ✅ 使用 remember 缓存 lambda</span>
+<span class="code-keyword">@Composable</span>
+<span class="code-keyword">fun</span> <span class="code-func">ItemList</span>(viewModel: <span class="code-type">ItemViewModel</span>) {
+    <span class="code-keyword">val</span> onItemClick = <span class="code-func">remember</span>(viewModel) {
+        { item: <span class="code-type">Item</span> -> viewModel.<span class="code-func">onItemClick</span>(item) }
+    }
+
+    <span class="code-func">LazyColumn</span> {
+        <span class="code-func">items</span>(viewModel.items) { item ->
+            <span class="code-func">ItemRow</span>(item = item, onClick = { <span class="code-func">onItemClick</span>(item) })
+        }
+    }
+}</code></pre>
+
+        <h2>七、使用 key 优化列表</h2>
+
+<pre><code><span class="code-func">LazyColumn</span> {
+    <span class="code-func">items</span>(
+        items = users,
+        key = { user -> user.id }  <span class="code-comment">// 帮助 Compose 识别 item 身份</span>
+    ) { user ->
+        <span class="code-func">UserRow</span>(user)
+    }
+}</code></pre>
+
+        <h2>八、graphicsLayer 避免重组</h2>
+        <p>对于纯视觉变换（alpha、scale、rotation），使用 <code>graphicsLayer</code> 将变化限制在绘制阶段：</p>
+
+<pre><code><span class="code-comment">// ✅ 只影响 Drawing 阶段，不触发重组</span>
+<span class="code-func">Box</span>(
+    modifier = <span class="code-type">Modifier</span>.<span class="code-func">graphicsLayer</span> {
+        alpha = animatedAlpha
+        scaleX = animatedScale
+        scaleY = animatedScale
+        rotationZ = animatedRotation
+    }
+)
+
+<span class="code-comment">// ❌ 会触发重组</span>
+<span class="code-func">Box</span>(
+    modifier = <span class="code-type">Modifier</span>
+        .<span class="code-func">alpha</span>(animatedAlpha)
+        .<span class="code-func">scale</span>(animatedScale)
+)</code></pre>
+
+        <h2>九、使用 Layout Inspector 调试</h2>
+        <p>Android Studio 的 Layout Inspector 可以显示 Recomposition 计数：</p>
+        <ol>
+            <li>运行应用（Debug 模式）</li>
+            <li>打开 Tools → Layout Inspector</li>
+            <li>在 Component Tree 中查看 Recomposition 次数</li>
+            <li>高频重组的组件需要优化</li>
+        </ol>
+
+        <h2>十、性能优化清单</h2>
+        <ul>
+            <li>✅ 使用 <code>remember</code> 缓存计算结果</li>
+            <li>✅ 使用 <code>derivedStateOf</code> 处理派生状态</li>
+            <li>✅ 为数据类添加 <code>@Immutable</code> 或 <code>@Stable</code></li>
+            <li>✅ 使用 <code>key</code> 参数优化列表</li>
+            <li>✅ 用 <code>graphicsLayer</code> 处理视觉变换</li>
+            <li>✅ 避免在 Composable 中创建新对象</li>
+            <li>✅ 将状态下沉到最小作用域</li>
+            <li>✅ 使用 Layout Inspector 监控重组</li>
+        </ul>
+
+        <h2>总结</h2>
+        <p>Compose 性能优化的核心原则：</p>
+        <ul>
+            <li><strong>减少 Composition 范围</strong>：让状态变化只影响必要的组件</li>
+            <li><strong>推迟到后续阶段</strong>：能在 Layout/Drawing 阶段处理的，不要在 Composition 阶段处理</li>
+            <li><strong>帮助编译器</strong>：通过注解和正确的代码结构，让编译器能够跳过不必要的重组</li>
+        </ul>
+        <p>掌握这些技巧，你的 Compose 应用将获得丝滑的 60fps 体验。</p>
+    </article>
+
+    <footer class="footer">
+        <p>&copy; 2024 Fidroid. <a href="../index.html">返回首页</a></p>
+    </footer>
+</body>
+</html>
+

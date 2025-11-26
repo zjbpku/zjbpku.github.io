@@ -1,0 +1,647 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Compose Navigation 最佳实践：路由、参数与深层链接 - Fidroid</title>
+    <meta name="description" content="深入探讨 Navigation Compose 的使用方式，包括路由设计、参数传递、嵌套导航、深层链接以及与 ViewModel 的集成。">
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
+            line-height: 1.8;
+            color: #e5e7eb;
+            background: #020617;
+        }
+        .navbar {
+            background: rgba(15,23,42,0.98);
+            backdrop-filter: blur(10px);
+            box-shadow: 0 2px 4px rgba(15,23,42,0.6);
+            position: fixed;
+            top: 0;
+            width: 100%;
+            z-index: 1000;
+        }
+        .nav-container {
+            max-width: 900px;
+            margin: 0 auto;
+            padding: 1rem 20px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .logo {
+            font-size: 1.5rem;
+            font-weight: bold;
+            color: #38bdf8;
+            text-decoration: none;
+            letter-spacing: 0.08em;
+            text-transform: uppercase;
+        }
+        .back-link {
+            color: #9ca3af;
+            text-decoration: none;
+            font-size: 0.9rem;
+        }
+        .back-link:hover { color: #38bdf8; }
+
+        .article-header {
+            padding: 120px 20px 60px;
+            background: radial-gradient(circle at top left, #8b5cf6 0, transparent 50%),
+                        radial-gradient(circle at bottom right, #22c55e 0, transparent 55%),
+                        #020617;
+            text-align: center;
+        }
+        .article-header h1 {
+            max-width: 800px;
+            margin: 0 auto 1rem;
+            font-size: 2.5rem;
+            font-weight: 800;
+            letter-spacing: -0.03em;
+            color: #fff;
+        }
+        .article-meta {
+            color: #9ca3af;
+            font-size: 0.9rem;
+            margin-bottom: 1.5rem;
+        }
+        .article-tags {
+            display: flex;
+            justify-content: center;
+            flex-wrap: wrap;
+            gap: 0.5rem;
+        }
+        .article-tag {
+            padding: 0.25rem 0.75rem;
+            border-radius: 999px;
+            font-size: 0.75rem;
+            background: rgba(15,23,42,0.85);
+            border: 1px solid rgba(139,92,246,0.4);
+            color: #c4b5fd;
+        }
+
+        .article-content {
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 60px 20px 80px;
+        }
+        .article-content h2 {
+            font-size: 1.6rem;
+            margin: 2.5rem 0 1rem;
+            color: #f9fafb;
+            border-left: 4px solid #8b5cf6;
+            padding-left: 1rem;
+        }
+        .article-content h3 {
+            font-size: 1.25rem;
+            margin: 2rem 0 0.75rem;
+            color: #e5e7eb;
+        }
+        .article-content p {
+            margin-bottom: 1.25rem;
+            color: #d1d5db;
+        }
+        .article-content ul, .article-content ol {
+            margin: 1rem 0 1.5rem 1.5rem;
+            color: #d1d5db;
+        }
+        .article-content li { margin-bottom: 0.5rem; }
+        .article-content strong { color: #f9fafb; }
+        .article-content a {
+            color: #38bdf8;
+            text-decoration: underline;
+        }
+
+        pre {
+            background: #0f172a;
+            border: 1px solid rgba(139,92,246,0.3);
+            border-radius: 12px;
+            padding: 1.25rem;
+            overflow-x: auto;
+            margin: 1.5rem 0;
+            font-size: 0.85rem;
+            line-height: 1.6;
+        }
+        code {
+            font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+            color: #e5e7eb;
+        }
+        .code-keyword { color: #c084fc; }
+        .code-func { color: #38bdf8; }
+        .code-type { color: #4ade80; }
+        .code-string { color: #fb7185; }
+        .code-comment { color: #6b7280; font-style: italic; }
+        .code-number { color: #fbbf24; }
+
+        .callout {
+            background: rgba(139,92,246,0.1);
+            border: 1px solid rgba(139,92,246,0.3);
+            border-radius: 12px;
+            padding: 1.25rem 1.5rem;
+            margin: 1.5rem 0;
+        }
+        .callout-title {
+            font-weight: 600;
+            color: #c4b5fd;
+            margin-bottom: 0.5rem;
+        }
+        .callout p { margin-bottom: 0; color: #d1d5db; }
+
+        .comparison-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 1.5rem 0;
+            font-size: 0.9rem;
+        }
+        .comparison-table th, .comparison-table td {
+            border: 1px solid rgba(148,163,184,0.3);
+            padding: 0.75rem 1rem;
+            text-align: left;
+        }
+        .comparison-table th {
+            background: rgba(15,23,42,0.8);
+            color: #f9fafb;
+        }
+        .comparison-table td { color: #d1d5db; }
+
+        .footer {
+            background: #020617;
+            border-top: 1px solid #111827;
+            padding: 2rem;
+            text-align: center;
+            color: #6b7280;
+        }
+        .footer a { color: #38bdf8; text-decoration: none; }
+    </style>
+</head>
+<body>
+    <nav class="navbar">
+        <div class="nav-container">
+            <a href="../index.html" class="logo">Fidroid</a>
+            <a href="../index.html#blog" class="back-link">← 返回博客列表</a>
+        </div>
+    </nav>
+
+    <header class="article-header">
+        <h1>Compose Navigation 最佳实践：路由、参数与深层链接</h1>
+        <p class="article-meta">2024-03-30 · 22 min · 架构与导航</p>
+        <div class="article-tags">
+            <span class="article-tag">Navigation</span>
+            <span class="article-tag">Deep Link</span>
+            <span class="article-tag">Type-Safe Routes</span>
+            <span class="article-tag">ViewModel</span>
+        </div>
+    </header>
+
+    <article class="article-content">
+        <p>导航是每个 Android 应用的核心组成部分。Navigation Compose 提供了一套声明式的导航 API，与 Compose 的编程模型完美契合。本文将深入探讨如何设计清晰的路由结构、传递参数、处理深层链接，以及如何与 ViewModel 优雅集成。</p>
+
+        <h2>一、Navigation Compose 基础设置</h2>
+        <p>首先添加依赖并创建基本的导航结构：</p>
+
+<pre><code><span class="code-comment">// build.gradle.kts</span>
+dependencies {
+    implementation(<span class="code-string">"androidx.navigation:navigation-compose:2.7.7"</span>)
+}</code></pre>
+
+<pre><code><span class="code-keyword">@Composable</span>
+<span class="code-keyword">fun</span> <span class="code-func">AppNavigation</span>() {
+    <span class="code-keyword">val</span> navController = <span class="code-func">rememberNavController</span>()
+
+    <span class="code-func">NavHost</span>(
+        navController = navController,
+        startDestination = <span class="code-string">"home"</span>
+    ) {
+        <span class="code-func">composable</span>(<span class="code-string">"home"</span>) {
+            <span class="code-func">HomeScreen</span>(
+                onNavigateToDetail = { id ->
+                    navController.<span class="code-func">navigate</span>(<span class="code-string">"detail/$id"</span>)
+                }
+            )
+        }
+
+        <span class="code-func">composable</span>(
+            route = <span class="code-string">"detail/{itemId}"</span>,
+            arguments = <span class="code-func">listOf</span>(
+                <span class="code-func">navArgument</span>(<span class="code-string">"itemId"</span>) { type = NavType.StringType }
+            )
+        ) { backStackEntry ->
+            <span class="code-keyword">val</span> itemId = backStackEntry.arguments?.<span class="code-func">getString</span>(<span class="code-string">"itemId"</span>)
+            <span class="code-func">DetailScreen</span>(itemId = itemId)
+        }
+    }
+}</code></pre>
+
+        <h2>二、类型安全的路由设计</h2>
+        <p>使用字符串拼接路由容易出错。推荐使用 sealed class 或 object 来定义类型安全的路由：</p>
+
+<pre><code><span class="code-keyword">sealed class</span> <span class="code-type">Screen</span>(
+    <span class="code-keyword">val</span> route: <span class="code-type">String</span>
+) {
+    <span class="code-keyword">data object</span> <span class="code-type">Home</span> : <span class="code-type">Screen</span>(<span class="code-string">"home"</span>)
+    <span class="code-keyword">data object</span> <span class="code-type">Profile</span> : <span class="code-type">Screen</span>(<span class="code-string">"profile"</span>)
+    <span class="code-keyword">data object</span> <span class="code-type">Settings</span> : <span class="code-type">Screen</span>(<span class="code-string">"settings"</span>)
+
+    <span class="code-comment">// 带参数的路由</span>
+    <span class="code-keyword">data class</span> <span class="code-type">Detail</span>(<span class="code-keyword">val</span> itemId: <span class="code-type">String</span>) : <span class="code-type">Screen</span>(<span class="code-string">"detail/$itemId"</span>) {
+        <span class="code-keyword">companion object</span> {
+            <span class="code-keyword">const val</span> ROUTE_PATTERN = <span class="code-string">"detail/{itemId}"</span>
+            <span class="code-keyword">const val</span> ARG_ITEM_ID = <span class="code-string">"itemId"</span>
+        }
+    }
+
+    <span class="code-comment">// 带可选参数的路由</span>
+    <span class="code-keyword">data class</span> <span class="code-type">Search</span>(
+        <span class="code-keyword">val</span> query: <span class="code-type">String</span>? = <span class="code-keyword">null</span>,
+        <span class="code-keyword">val</span> category: <span class="code-type">String</span>? = <span class="code-keyword">null</span>
+    ) : <span class="code-type">Screen</span>(
+        <span class="code-func">buildString</span> {
+            <span class="code-func">append</span>(<span class="code-string">"search"</span>)
+            <span class="code-keyword">val</span> params = <span class="code-func">mutableListOf</span>&lt;<span class="code-type">String</span>&gt;()
+            query?.<span class="code-func">let</span> { params.<span class="code-func">add</span>(<span class="code-string">"query=$it"</span>) }
+            category?.<span class="code-func">let</span> { params.<span class="code-func">add</span>(<span class="code-string">"category=$it"</span>) }
+            <span class="code-keyword">if</span> (params.<span class="code-func">isNotEmpty</span>()) {
+                <span class="code-func">append</span>(<span class="code-string">"?"</span>)
+                <span class="code-func">append</span>(params.<span class="code-func">joinToString</span>(<span class="code-string">"&"</span>))
+            }
+        }
+    ) {
+        <span class="code-keyword">companion object</span> {
+            <span class="code-keyword">const val</span> ROUTE_PATTERN = <span class="code-string">"search?query={query}&category={category}"</span>
+        }
+    }
+}</code></pre>
+
+        <h3>使用类型安全路由</h3>
+
+<pre><code><span class="code-func">NavHost</span>(
+    navController = navController,
+    startDestination = Screen.Home.route
+) {
+    <span class="code-func">composable</span>(Screen.Home.route) {
+        <span class="code-func">HomeScreen</span>(
+            onItemClick = { itemId ->
+                navController.<span class="code-func">navigate</span>(Screen.<span class="code-func">Detail</span>(itemId).route)
+            }
+        )
+    }
+
+    <span class="code-func">composable</span>(
+        route = Screen.Detail.ROUTE_PATTERN,
+        arguments = <span class="code-func">listOf</span>(
+            <span class="code-func">navArgument</span>(Screen.Detail.ARG_ITEM_ID) {
+                type = NavType.StringType
+            }
+        )
+    ) { backStackEntry ->
+        <span class="code-keyword">val</span> itemId = backStackEntry.arguments
+            ?.<span class="code-func">getString</span>(Screen.Detail.ARG_ITEM_ID) ?: <span class="code-keyword">return</span>@composable
+        <span class="code-func">DetailScreen</span>(itemId = itemId)
+    }
+}</code></pre>
+
+        <h2>三、参数传递的多种方式</h2>
+
+        <table class="comparison-table">
+            <thead>
+                <tr>
+                    <th>方式</th>
+                    <th>语法</th>
+                    <th>适用场景</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr>
+                    <td><strong>路径参数</strong></td>
+                    <td><code>detail/{id}</code></td>
+                    <td>必需参数，如详情页 ID</td>
+                </tr>
+                <tr>
+                    <td><strong>查询参数</strong></td>
+                    <td><code>search?q={query}</code></td>
+                    <td>可选参数，如筛选条件</td>
+                </tr>
+                <tr>
+                    <td><strong>SavedStateHandle</strong></td>
+                    <td>ViewModel 中获取</td>
+                    <td>复杂数据，配合 ViewModel</td>
+                </tr>
+            </tbody>
+        </table>
+
+        <h3>路径参数（必需）</h3>
+
+<pre><code><span class="code-func">composable</span>(
+    route = <span class="code-string">"user/{userId}/post/{postId}"</span>,
+    arguments = <span class="code-func">listOf</span>(
+        <span class="code-func">navArgument</span>(<span class="code-string">"userId"</span>) { type = NavType.LongType },
+        <span class="code-func">navArgument</span>(<span class="code-string">"postId"</span>) { type = NavType.LongType }
+    )
+) { backStackEntry ->
+    <span class="code-keyword">val</span> userId = backStackEntry.arguments?.<span class="code-func">getLong</span>(<span class="code-string">"userId"</span>) ?: <span class="code-number">0L</span>
+    <span class="code-keyword">val</span> postId = backStackEntry.arguments?.<span class="code-func">getLong</span>(<span class="code-string">"postId"</span>) ?: <span class="code-number">0L</span>
+    <span class="code-func">PostDetailScreen</span>(userId, postId)
+}</code></pre>
+
+        <h3>查询参数（可选）</h3>
+
+<pre><code><span class="code-func">composable</span>(
+    route = <span class="code-string">"products?category={category}&sort={sort}"</span>,
+    arguments = <span class="code-func">listOf</span>(
+        <span class="code-func">navArgument</span>(<span class="code-string">"category"</span>) {
+            type = NavType.StringType
+            nullable = <span class="code-keyword">true</span>
+            defaultValue = <span class="code-keyword">null</span>
+        },
+        <span class="code-func">navArgument</span>(<span class="code-string">"sort"</span>) {
+            type = NavType.StringType
+            defaultValue = <span class="code-string">"newest"</span>
+        }
+    )
+) { backStackEntry ->
+    <span class="code-keyword">val</span> category = backStackEntry.arguments?.<span class="code-func">getString</span>(<span class="code-string">"category"</span>)
+    <span class="code-keyword">val</span> sort = backStackEntry.arguments?.<span class="code-func">getString</span>(<span class="code-string">"sort"</span>) ?: <span class="code-string">"newest"</span>
+    <span class="code-func">ProductListScreen</span>(category, sort)
+}</code></pre>
+
+        <h2>四、与 ViewModel 集成</h2>
+        <p>Navigation Compose 与 ViewModel 的集成非常自然。每个导航目的地可以拥有独立的 ViewModel，其生命周期与 BackStack Entry 绑定：</p>
+
+<pre><code><span class="code-func">composable</span>(
+    route = Screen.Detail.ROUTE_PATTERN,
+    arguments = <span class="code-func">listOf</span>(
+        <span class="code-func">navArgument</span>(Screen.Detail.ARG_ITEM_ID) { type = NavType.StringType }
+    )
+) { backStackEntry ->
+    <span class="code-comment">// ViewModel 自动获取路由参数</span>
+    <span class="code-keyword">val</span> viewModel: <span class="code-type">DetailViewModel</span> = <span class="code-func">hiltViewModel</span>()
+    <span class="code-func">DetailScreen</span>(viewModel = viewModel)
+}
+
+<span class="code-comment">// DetailViewModel.kt</span>
+<span class="code-keyword">@HiltViewModel</span>
+<span class="code-keyword">class</span> <span class="code-type">DetailViewModel</span> <span class="code-keyword">@Inject constructor</span>(
+    savedStateHandle: <span class="code-type">SavedStateHandle</span>,
+    <span class="code-keyword">private val</span> repository: <span class="code-type">ItemRepository</span>
+) : <span class="code-type">ViewModel</span>() {
+
+    <span class="code-comment">// 从 SavedStateHandle 获取导航参数</span>
+    <span class="code-keyword">private val</span> itemId: <span class="code-type">String</span> = <span class="code-func">checkNotNull</span>(
+        savedStateHandle[Screen.Detail.ARG_ITEM_ID]
+    )
+
+    <span class="code-keyword">val</span> uiState: <span class="code-type">StateFlow</span>&lt;<span class="code-type">DetailUiState</span>&gt; = repository
+        .<span class="code-func">getItemFlow</span>(itemId)
+        .<span class="code-func">map</span> { item -> <span class="code-func">DetailUiState</span>(item = item) }
+        .<span class="code-func">stateIn</span>(
+            scope = viewModelScope,
+            started = SharingStarted.WhileSubscribed(<span class="code-number">5000</span>),
+            initialValue = <span class="code-func">DetailUiState</span>(isLoading = <span class="code-keyword">true</span>)
+        )
+}</code></pre>
+
+        <h2>五、嵌套导航与 Bottom Navigation</h2>
+        <p>复杂应用通常需要嵌套导航图，比如底部导航栏的每个 Tab 都有独立的导航栈：</p>
+
+<pre><code><span class="code-keyword">@Composable</span>
+<span class="code-keyword">fun</span> <span class="code-func">MainScreen</span>() {
+    <span class="code-keyword">val</span> navController = <span class="code-func">rememberNavController</span>()
+
+    <span class="code-func">Scaffold</span>(
+        bottomBar = {
+            <span class="code-func">NavigationBar</span> {
+                <span class="code-keyword">val</span> navBackStackEntry <span class="code-keyword">by</span> navController.<span class="code-func">currentBackStackEntryAsState</span>()
+                <span class="code-keyword">val</span> currentDestination = navBackStackEntry?.destination
+
+                <span class="code-func">listOf</span>(
+                    BottomNavItem.Home,
+                    BottomNavItem.Search,
+                    BottomNavItem.Profile
+                ).<span class="code-func">forEach</span> { item ->
+                    <span class="code-func">NavigationBarItem</span>(
+                        icon = { <span class="code-func">Icon</span>(item.icon, contentDescription = item.label) },
+                        label = { <span class="code-func">Text</span>(item.label) },
+                        selected = currentDestination?.<span class="code-func">hierarchy</span>?.<span class="code-func">any</span> {
+                            it.route == item.route
+                        } == <span class="code-keyword">true</span>,
+                        onClick = {
+                            navController.<span class="code-func">navigate</span>(item.route) {
+                                <span class="code-comment">// 避免重复创建相同目的地</span>
+                                <span class="code-func">popUpTo</span>(navController.graph.findStartDestination().id) {
+                                    saveState = <span class="code-keyword">true</span>
+                                }
+                                launchSingleTop = <span class="code-keyword">true</span>
+                                restoreState = <span class="code-keyword">true</span>
+                            }
+                        }
+                    )
+                }
+            }
+        }
+    ) { innerPadding ->
+        <span class="code-func">NavHost</span>(
+            navController = navController,
+            startDestination = <span class="code-string">"home_graph"</span>,
+            modifier = <span class="code-type">Modifier</span>.<span class="code-func">padding</span>(innerPadding)
+        ) {
+            <span class="code-comment">// Home Tab 的嵌套导航图</span>
+            <span class="code-func">navigation</span>(
+                startDestination = <span class="code-string">"home"</span>,
+                route = <span class="code-string">"home_graph"</span>
+            ) {
+                <span class="code-func">composable</span>(<span class="code-string">"home"</span>) { <span class="code-func">HomeScreen</span>(navController) }
+                <span class="code-func">composable</span>(<span class="code-string">"home/detail/{id}"</span>) { <span class="code-func">HomeDetailScreen</span>() }
+            }
+
+            <span class="code-comment">// Search Tab 的嵌套导航图</span>
+            <span class="code-func">navigation</span>(
+                startDestination = <span class="code-string">"search"</span>,
+                route = <span class="code-string">"search_graph"</span>
+            ) {
+                <span class="code-func">composable</span>(<span class="code-string">"search"</span>) { <span class="code-func">SearchScreen</span>(navController) }
+                <span class="code-func">composable</span>(<span class="code-string">"search/results"</span>) { <span class="code-func">SearchResultsScreen</span>() }
+            }
+
+            <span class="code-comment">// Profile Tab</span>
+            <span class="code-func">composable</span>(<span class="code-string">"profile"</span>) { <span class="code-func">ProfileScreen</span>() }
+        }
+    }
+}</code></pre>
+
+        <h2>六、深层链接（Deep Links）</h2>
+        <p>Navigation Compose 原生支持深层链接，让用户可以通过 URL 直接跳转到应用内的特定页面：</p>
+
+<pre><code><span class="code-func">composable</span>(
+    route = <span class="code-string">"product/{productId}"</span>,
+    arguments = <span class="code-func">listOf</span>(
+        <span class="code-func">navArgument</span>(<span class="code-string">"productId"</span>) { type = NavType.StringType }
+    ),
+    deepLinks = <span class="code-func">listOf</span>(
+        <span class="code-func">navDeepLink</span> {
+            uriPattern = <span class="code-string">"https://fidroid.com/product/{productId}"</span>
+        },
+        <span class="code-func">navDeepLink</span> {
+            uriPattern = <span class="code-string">"fidroid://product/{productId}"</span>
+        }
+    )
+) { backStackEntry ->
+    <span class="code-keyword">val</span> productId = backStackEntry.arguments?.<span class="code-func">getString</span>(<span class="code-string">"productId"</span>)
+    <span class="code-func">ProductScreen</span>(productId)
+}</code></pre>
+
+        <h3>AndroidManifest.xml 配置</h3>
+
+<pre><code>&lt;<span class="code-type">activity</span> android:name=<span class="code-string">".MainActivity"</span>&gt;
+    &lt;<span class="code-type">intent-filter</span>&gt;
+        &lt;<span class="code-type">action</span> android:name=<span class="code-string">"android.intent.action.VIEW"</span> /&gt;
+        &lt;<span class="code-type">category</span> android:name=<span class="code-string">"android.intent.category.DEFAULT"</span> /&gt;
+        &lt;<span class="code-type">category</span> android:name=<span class="code-string">"android.intent.category.BROWSABLE"</span> /&gt;
+        &lt;<span class="code-type">data</span>
+            android:scheme=<span class="code-string">"https"</span>
+            android:host=<span class="code-string">"fidroid.com"</span> /&gt;
+    &lt;/<span class="code-type">intent-filter</span>&gt;
+    &lt;<span class="code-type">intent-filter</span>&gt;
+        &lt;<span class="code-type">action</span> android:name=<span class="code-string">"android.intent.action.VIEW"</span> /&gt;
+        &lt;<span class="code-type">category</span> android:name=<span class="code-string">"android.intent.category.DEFAULT"</span> /&gt;
+        &lt;<span class="code-type">category</span> android:name=<span class="code-string">"android.intent.category.BROWSABLE"</span> /&gt;
+        &lt;<span class="code-type">data</span> android:scheme=<span class="code-string">"fidroid"</span> /&gt;
+    &lt;/<span class="code-type">intent-filter</span>&gt;
+&lt;/<span class="code-type">activity</span>&gt;</code></pre>
+
+        <h2>七、导航事件与结果回传</h2>
+        <p>有时需要从目标页面返回结果给上一个页面。Navigation Compose 提供了 <code>previousBackStackEntry</code> 来实现：</p>
+
+<pre><code><span class="code-comment">// 发送结果的页面</span>
+<span class="code-keyword">@Composable</span>
+<span class="code-keyword">fun</span> <span class="code-func">SelectColorScreen</span>(navController: <span class="code-type">NavController</span>) {
+    <span class="code-keyword">val</span> colors = <span class="code-func">listOf</span>(Color.Red, Color.Green, Color.Blue)
+
+    <span class="code-func">LazyColumn</span> {
+        <span class="code-func">items</span>(colors) { color ->
+            <span class="code-func">Box</span>(
+                modifier = <span class="code-type">Modifier</span>
+                    .<span class="code-func">fillMaxWidth</span>()
+                    .<span class="code-func">height</span>(<span class="code-number">60</span>.dp)
+                    .<span class="code-func">background</span>(color)
+                    .<span class="code-func">clickable</span> {
+                        <span class="code-comment">// 将结果设置到上一个页面的 SavedStateHandle</span>
+                        navController.previousBackStackEntry
+                            ?.savedStateHandle
+                            ?.<span class="code-func">set</span>(<span class="code-string">"selected_color"</span>, color.<span class="code-func">toArgb</span>())
+                        navController.<span class="code-func">popBackStack</span>()
+                    }
+            )
+        }
+    }
+}
+
+<span class="code-comment">// 接收结果的页面</span>
+<span class="code-keyword">@Composable</span>
+<span class="code-keyword">fun</span> <span class="code-func">SettingsScreen</span>(navController: <span class="code-type">NavController</span>) {
+    <span class="code-keyword">val</span> selectedColor = navController.currentBackStackEntry
+        ?.savedStateHandle
+        ?.<span class="code-func">getStateFlow</span>&lt;<span class="code-type">Int</span>?&gt;(<span class="code-string">"selected_color"</span>, <span class="code-keyword">null</span>)
+        ?.<span class="code-func">collectAsState</span>()
+
+    <span class="code-func">Column</span> {
+        <span class="code-func">Text</span>(<span class="code-string">"当前选中颜色: ${selectedColor?.value}"</span>)
+        <span class="code-func">Button</span>(onClick = { navController.<span class="code-func">navigate</span>(<span class="code-string">"select_color"</span>) }) {
+            <span class="code-func">Text</span>(<span class="code-string">"选择颜色"</span>)
+        }
+    }
+}</code></pre>
+
+        <h2>八、导航动画</h2>
+        <p>Navigation Compose 支持自定义页面切换动画：</p>
+
+<pre><code><span class="code-func">composable</span>(
+    route = <span class="code-string">"detail/{id}"</span>,
+    enterTransition = {
+        <span class="code-func">slideInHorizontally</span>(
+            initialOffsetX = { it },
+            animationSpec = <span class="code-func">tween</span>(<span class="code-number">300</span>)
+        ) + <span class="code-func">fadeIn</span>(animationSpec = <span class="code-func">tween</span>(<span class="code-number">300</span>))
+    },
+    exitTransition = {
+        <span class="code-func">slideOutHorizontally</span>(
+            targetOffsetX = { -it / <span class="code-number">3</span> },
+            animationSpec = <span class="code-func">tween</span>(<span class="code-number">300</span>)
+        ) + <span class="code-func">fadeOut</span>(animationSpec = <span class="code-func">tween</span>(<span class="code-number">300</span>))
+    },
+    popEnterTransition = {
+        <span class="code-func">slideInHorizontally</span>(
+            initialOffsetX = { -it / <span class="code-number">3</span> },
+            animationSpec = <span class="code-func">tween</span>(<span class="code-number">300</span>)
+        ) + <span class="code-func">fadeIn</span>(animationSpec = <span class="code-func">tween</span>(<span class="code-number">300</span>))
+    },
+    popExitTransition = {
+        <span class="code-func">slideOutHorizontally</span>(
+            targetOffsetX = { it },
+            animationSpec = <span class="code-func">tween</span>(<span class="code-number">300</span>)
+        ) + <span class="code-func">fadeOut</span>(animationSpec = <span class="code-func">tween</span>(<span class="code-number">300</span>))
+    }
+) {
+    <span class="code-func">DetailScreen</span>()
+}</code></pre>
+
+        <div class="callout">
+            <p class="callout-title">💡 全局导航动画</p>
+            <p>如果希望所有页面使用统一的动画，可以在 NavHost 级别设置默认的 enterTransition、exitTransition 等参数。</p>
+        </div>
+
+        <h2>九、常见问题与最佳实践</h2>
+
+        <h3>1. 避免在 Composable 中持有 NavController 引用</h3>
+        <p>将导航操作通过回调传递，让 Screen Composable 保持无状态：</p>
+
+<pre><code><span class="code-comment">// ✅ 推荐：通过回调传递导航意图</span>
+<span class="code-keyword">@Composable</span>
+<span class="code-keyword">fun</span> <span class="code-func">HomeScreen</span>(
+    onNavigateToDetail: (String) -> Unit
+) {
+    <span class="code-func">Button</span>(onClick = { <span class="code-func">onNavigateToDetail</span>(<span class="code-string">"item-123"</span>) }) {
+        <span class="code-func">Text</span>(<span class="code-string">"查看详情"</span>)
+    }
+}
+
+<span class="code-comment">// ❌ 避免：直接依赖 NavController</span>
+<span class="code-keyword">@Composable</span>
+<span class="code-keyword">fun</span> <span class="code-func">HomeScreen</span>(navController: <span class="code-type">NavController</span>) {
+    <span class="code-func">Button</span>(onClick = { navController.<span class="code-func">navigate</span>(<span class="code-string">"detail/item-123"</span>) }) {
+        <span class="code-func">Text</span>(<span class="code-string">"查看详情"</span>)
+    }
+}</code></pre>
+
+        <h3>2. 使用 launchSingleTop 避免重复导航</h3>
+
+<pre><code>navController.<span class="code-func">navigate</span>(route) {
+    launchSingleTop = <span class="code-keyword">true</span>  <span class="code-comment">// 如果目标已在栈顶，不会重复创建</span>
+}</code></pre>
+
+        <h3>3. 正确处理系统返回键</h3>
+        <p>Navigation Compose 会自动处理系统返回键。如果需要自定义返回行为：</p>
+
+<pre><code><span class="code-func">BackHandler</span>(enabled = hasUnsavedChanges) {
+    <span class="code-comment">// 显示确认对话框</span>
+    showExitDialog = <span class="code-keyword">true</span>
+}</code></pre>
+
+        <h2>总结</h2>
+        <p>Navigation Compose 提供了一套现代化的声明式导航方案：</p>
+        <ul>
+            <li>使用 <strong>sealed class</strong> 定义类型安全的路由</li>
+            <li>通过 <strong>路径参数</strong>和<strong>查询参数</strong>传递数据</li>
+            <li>利用 <strong>SavedStateHandle</strong> 在 ViewModel 中获取参数</li>
+            <li>使用<strong>嵌套导航图</strong>组织复杂的应用结构</li>
+            <li>配置<strong>深层链接</strong>支持外部跳转</li>
+            <li>自定义<strong>页面切换动画</strong>提升体验</li>
+        </ul>
+        <p>下一步建议：结合 <a href="compose-performance-deep-dive.html">Compose 性能优化</a>，确保导航过程中的流畅体验。</p>
+    </article>
+
+    <footer class="footer">
+        <p>&copy; 2024 Fidroid. <a href="../index.html">返回首页</a></p>
+    </footer>
+</body>
+</html>
+
