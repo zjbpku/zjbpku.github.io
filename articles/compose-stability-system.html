@@ -1,0 +1,660 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Compose 稳定性系统：@Stable、@Immutable 与智能重组 - Fidroid</title>
+    <meta name="description" content="深入理解 Compose 的稳定性推断机制，掌握 @Stable 和 @Immutable 注解的正确使用，避免不必要的重组。">
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            line-height: 1.8;
+            color: #e5e7eb;
+            background: #020617;
+        }
+        .navbar {
+            background: rgba(15,23,42,0.98);
+            backdrop-filter: blur(10px);
+            position: fixed;
+            top: 0;
+            width: 100%;
+            z-index: 1000;
+        }
+        .nav-container {
+            max-width: 900px;
+            margin: 0 auto;
+            padding: 1rem 20px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .logo {
+            font-size: 1.5rem;
+            font-weight: bold;
+            color: #38bdf8;
+            text-decoration: none;
+            letter-spacing: 0.08em;
+            text-transform: uppercase;
+        }
+        .back-link { color: #9ca3af; text-decoration: none; font-size: 0.9rem; }
+        .back-link:hover { color: #38bdf8; }
+
+        .article-header {
+            padding: 120px 20px 60px;
+            background: radial-gradient(circle at top left, #059669 0, transparent 50%),
+                        radial-gradient(circle at bottom right, #7c3aed 0, transparent 55%),
+                        #020617;
+            text-align: center;
+        }
+        .article-header h1 {
+            max-width: 800px;
+            margin: 0 auto 1rem;
+            font-size: 2.5rem;
+            font-weight: 800;
+            letter-spacing: -0.03em;
+            color: #fff;
+        }
+        .article-meta { color: #9ca3af; font-size: 0.9rem; margin-bottom: 1.5rem; }
+        .article-tags { display: flex; justify-content: center; flex-wrap: wrap; gap: 0.5rem; }
+        .article-tag {
+            padding: 0.25rem 0.75rem;
+            border-radius: 999px;
+            font-size: 0.75rem;
+            background: rgba(15,23,42,0.85);
+            border: 1px solid rgba(5,150,105,0.4);
+            color: #6ee7b7;
+        }
+
+        .article-content {
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 60px 20px 80px;
+        }
+        .article-content h2 {
+            font-size: 1.6rem;
+            margin: 2.5rem 0 1rem;
+            color: #f9fafb;
+            border-left: 4px solid #059669;
+            padding-left: 1rem;
+        }
+        .article-content h3 { font-size: 1.25rem; margin: 2rem 0 0.75rem; color: #e5e7eb; }
+        .article-content p { margin-bottom: 1.25rem; color: #d1d5db; }
+        .article-content ul, .article-content ol { margin: 1rem 0 1.5rem 1.5rem; color: #d1d5db; }
+        .article-content li { margin-bottom: 0.5rem; }
+        .article-content strong { color: #f9fafb; }
+        .article-content a { color: #38bdf8; text-decoration: underline; }
+
+        pre {
+            background: #0f172a;
+            border: 1px solid rgba(5,150,105,0.3);
+            border-radius: 12px;
+            padding: 1.25rem;
+            overflow-x: auto;
+            margin: 1.5rem 0;
+            font-size: 0.85rem;
+            line-height: 1.6;
+        }
+        code { font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace; color: #e5e7eb; }
+        .code-keyword { color: #c084fc; }
+        .code-func { color: #38bdf8; }
+        .code-type { color: #4ade80; }
+        .code-string { color: #fb7185; }
+        .code-comment { color: #6b7280; font-style: italic; }
+        .code-number { color: #fbbf24; }
+        .code-annotation { color: #f472b6; }
+
+        .callout {
+            background: rgba(5,150,105,0.1);
+            border: 1px solid rgba(5,150,105,0.3);
+            border-radius: 12px;
+            padding: 1.25rem 1.5rem;
+            margin: 1.5rem 0;
+        }
+        .callout-title { font-weight: 600; color: #6ee7b7; margin-bottom: 0.5rem; }
+        .callout p { margin-bottom: 0; color: #d1d5db; }
+
+        .callout-warning {
+            background: rgba(245,158,11,0.1);
+            border: 1px solid rgba(245,158,11,0.3);
+        }
+        .callout-warning .callout-title { color: #fcd34d; }
+
+        .callout-info {
+            background: rgba(14,165,233,0.1);
+            border: 1px solid rgba(14,165,233,0.3);
+        }
+        .callout-info .callout-title { color: #7dd3fc; }
+
+        .comparison-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 1.5rem 0;
+            font-size: 0.9rem;
+        }
+        .comparison-table th, .comparison-table td {
+            border: 1px solid rgba(148,163,184,0.3);
+            padding: 0.75rem 1rem;
+            text-align: left;
+        }
+        .comparison-table th {
+            background: rgba(15,23,42,0.8);
+            color: #f9fafb;
+        }
+        .comparison-table td { color: #d1d5db; }
+
+        .reference {
+            background: rgba(15,23,42,0.6);
+            border: 1px solid rgba(148,163,184,0.2);
+            border-radius: 8px;
+            padding: 1rem 1.25rem;
+            margin: 1rem 0;
+            font-size: 0.9rem;
+        }
+        .reference-title {
+            font-weight: 600;
+            color: #94a3b8;
+            font-size: 0.75rem;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            margin-bottom: 0.5rem;
+        }
+        .reference a { color: #38bdf8; }
+
+        .diagram {
+            background: #0f172a;
+            border: 1px solid rgba(5,150,105,0.3);
+            border-radius: 12px;
+            padding: 2rem;
+            margin: 1.5rem 0;
+            text-align: center;
+            font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+            font-size: 0.85rem;
+            line-height: 1.8;
+            color: #94a3b8;
+            overflow-x: auto;
+        }
+        .diagram .stable { color: #4ade80; }
+        .diagram .unstable { color: #f87171; }
+        .diagram .highlight { color: #c084fc; font-weight: bold; }
+
+        .footer {
+            background: #020617;
+            border-top: 1px solid #111827;
+            padding: 2rem;
+            text-align: center;
+            color: #6b7280;
+        }
+        .footer a { color: #38bdf8; text-decoration: none; }
+    </style>
+</head>
+<body>
+    <nav class="navbar">
+        <div class="nav-container">
+            <a href="../index.html" class="logo">Fidroid</a>
+            <a href="../index.html#blog" class="back-link">← 返回博客列表</a>
+        </div>
+    </nav>
+
+    <header class="article-header">
+        <h1>Compose 稳定性系统：@Stable、@Immutable 与智能重组</h1>
+        <p class="article-meta">2024-04-28 · 28 min · 原理深度解析</p>
+        <div class="article-tags">
+            <span class="article-tag">Stability</span>
+            <span class="article-tag">@Stable</span>
+            <span class="article-tag">@Immutable</span>
+            <span class="article-tag">Smart Recomposition</span>
+        </div>
+    </header>
+
+    <article class="article-content">
+        <p>为什么有些 Composable 会被跳过重组，而有些却每次都重新执行？答案在于 Compose 的<strong>稳定性系统（Stability System）</strong>。理解这个系统是优化 Compose 性能的关键。本文将深入探讨稳定性推断的原理、<code>@Stable</code> 和 <code>@Immutable</code> 注解的区别，以及如何诊断和修复稳定性问题。</p>
+
+        <div class="reference">
+            <div class="reference-title">📚 官方参考</div>
+            <a href="https://developer.android.com/jetpack/compose/performance/stability" target="_blank">Stability in Compose - Android Developers</a><br>
+            <a href="https://github.com/androidx/androidx/blob/androidx-main/compose/compiler/design/compiler-metrics.md" target="_blank">Compose Compiler Metrics</a>
+        </div>
+
+        <h2>一、什么是稳定性？</h2>
+
+        <p>在 Compose 中，<strong>稳定性</strong>指的是编译器能否安全地假设：如果一个值的 <code>equals()</code> 返回 true，那么这个值在两次组合之间没有发生变化。</p>
+
+        <p>这个假设非常重要，因为它决定了 Compose 能否<strong>跳过重组</strong>：</p>
+
+<pre><code><span class="code-keyword">@Composable</span>
+<span class="code-keyword">fun</span> <span class="code-func">UserCard</span>(user: <span class="code-type">User</span>) {
+    <span class="code-comment">// 如果 user 是"稳定的"，且 equals() 返回 true</span>
+    <span class="code-comment">// Compose 可以跳过这个函数的执行</span>
+    <span class="code-func">Text</span>(user.name)
+    <span class="code-func">Text</span>(user.email)
+}</code></pre>
+
+        <h3>稳定性的三个条件</h3>
+
+        <p>一个类型被认为是<strong>稳定的</strong>，需要满足以下条件：</p>
+
+        <ol>
+            <li><strong>equals() 一致性</strong>：对于相同的两个实例，<code>equals()</code> 的结果永远相同</li>
+            <li><strong>公开属性变化通知</strong>：如果公开属性发生变化，Composition 会被通知（通过 Snapshot 系统）</li>
+            <li><strong>公开属性也是稳定的</strong>：所有公开属性的类型也必须是稳定的</li>
+        </ol>
+
+        <div class="callout callout-info">
+            <p class="callout-title">💡 核心洞察</p>
+            <p>稳定性不是关于"值是否会变化"，而是关于"<strong>如果值变化了，Compose 能否知道</strong>"。一个 <code>MutableState</code> 是稳定的，因为它的变化会通过 Snapshot 系统通知 Compose。</p>
+        </div>
+
+        <h2>二、编译器的稳定性推断</h2>
+
+        <p>Compose 编译器会自动分析类型的稳定性。以下类型被自动认为是稳定的：</p>
+
+        <table class="comparison-table">
+            <thead>
+                <tr>
+                    <th>类型</th>
+                    <th>稳定性</th>
+                    <th>原因</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr>
+                    <td>基本类型 (Int, Float, Boolean...)</td>
+                    <td>✅ 稳定</td>
+                    <td>不可变</td>
+                </tr>
+                <tr>
+                    <td>String</td>
+                    <td>✅ 稳定</td>
+                    <td>不可变</td>
+                </tr>
+                <tr>
+                    <td>函数类型 (Lambda)</td>
+                    <td>✅ 稳定</td>
+                    <td>函数本身不变</td>
+                </tr>
+                <tr>
+                    <td>MutableState&lt;T&gt;</td>
+                    <td>✅ 稳定</td>
+                    <td>变化会通知 Snapshot</td>
+                </tr>
+                <tr>
+                    <td>只含不可变属性的 data class</td>
+                    <td>✅ 稳定</td>
+                    <td>编译器推断</td>
+                </tr>
+                <tr>
+                    <td>List, Set, Map</td>
+                    <td>❌ 不稳定</td>
+                    <td>可能是可变实现</td>
+                </tr>
+                <tr>
+                    <td>外部模块的类</td>
+                    <td>❌ 不稳定</td>
+                    <td>编译器无法分析</td>
+                </tr>
+            </tbody>
+        </table>
+
+        <h3>为什么 List 不稳定？</h3>
+
+        <p>这是一个常见的困惑点。虽然 Kotlin 的 <code>List</code> 接口是只读的，但它可能指向一个 <code>MutableList</code> 实例：</p>
+
+<pre><code><span class="code-keyword">val</span> mutableList = <span class="code-func">mutableListOf</span>(<span class="code-number">1</span>, <span class="code-number">2</span>, <span class="code-number">3</span>)
+<span class="code-keyword">val</span> list: <span class="code-type">List</span>&lt;<span class="code-type">Int</span>&gt; = mutableList  <span class="code-comment">// 类型是 List，但实际是 MutableList</span>
+
+mutableList.<span class="code-func">add</span>(<span class="code-number">4</span>)  <span class="code-comment">// 修改了！但 Compose 不知道</span>
+
+<span class="code-comment">// list.equals(list) 仍然返回 true</span>
+<span class="code-comment">// 但内容已经变了，Compose 无法检测到</span></code></pre>
+
+        <p>因为编译器无法保证 <code>List</code> 的实际实现是不可变的，所以它保守地将其标记为不稳定。</p>
+
+        <div class="reference">
+            <div class="reference-title">📚 深入阅读</div>
+            <a href="https://kotlinlang.org/api/latest/jvm/stdlib/kotlin.collections/-list/" target="_blank">Kotlin List Interface</a> - 注意它只是"只读"而非"不可变"
+        </div>
+
+        <h2>三、@Stable 与 @Immutable 注解</h2>
+
+        <p>当编译器无法自动推断稳定性时，你可以使用注解来手动声明：</p>
+
+        <h3>@Immutable</h3>
+
+        <p><code>@Immutable</code> 表示一个类型是<strong>完全不可变的</strong>：创建后，所有属性的值永远不会改变。</p>
+
+<pre><code><span class="code-annotation">@Immutable</span>
+<span class="code-keyword">data class</span> <span class="code-type">User</span>(
+    <span class="code-keyword">val</span> id: <span class="code-type">String</span>,
+    <span class="code-keyword">val</span> name: <span class="code-type">String</span>,
+    <span class="code-keyword">val</span> email: <span class="code-type">String</span>
+)
+
+<span class="code-comment">// 使用 @Immutable 的承诺：</span>
+<span class="code-comment">// 1. 所有属性都是 val（不可变）</span>
+<span class="code-comment">// 2. 属性的类型也是不可变的</span>
+<span class="code-comment">// 3. 创建后永远不会被修改</span></code></pre>
+
+        <h3>@Stable</h3>
+
+        <p><code>@Stable</code> 是一个更宽松的契约：值<strong>可以变化</strong>，但变化会通过 Compose 的 Snapshot 系统被追踪。</p>
+
+<pre><code><span class="code-annotation">@Stable</span>
+<span class="code-keyword">class</span> <span class="code-type">UserState</span>(
+    initialName: <span class="code-type">String</span>
+) {
+    <span class="code-keyword">var</span> name <span class="code-keyword">by</span> <span class="code-func">mutableStateOf</span>(initialName)
+        <span class="code-keyword">private set</span>
+    
+    <span class="code-keyword">fun</span> <span class="code-func">updateName</span>(newName: <span class="code-type">String</span>) {
+        name = newName  <span class="code-comment">// 变化会被 Snapshot 追踪</span>
+    }
+}
+
+<span class="code-comment">// 使用 @Stable 的承诺：</span>
+<span class="code-comment">// 1. equals() 结果一致（相同实例总是返回 true）</span>
+<span class="code-comment">// 2. 属性变化会通知 Composition</span>
+<span class="code-comment">// 3. 所有公开属性也是稳定的</span></code></pre>
+
+        <h3>选择哪个注解？</h3>
+
+        <div class="diagram">
+<pre>
+<span class="highlight">决策流程</span>
+
+                    ┌───────────────────┐
+                    │ 类的所有属性都是  │
+                    │ val 且不可变？    │
+                    └─────────┬─────────┘
+                              │
+              ┌───────────────┴───────────────┐
+              │                               │
+              ▼                               ▼
+        ┌─────────┐                     ┌─────────┐
+        │   是    │                     │   否    │
+        └────┬────┘                     └────┬────┘
+             │                               │
+             ▼                               ▼
+    ┌────────────────┐            ┌────────────────────┐
+    │ <span class="stable">@Immutable</span>     │            │ 可变属性是否通过    │
+    │                │            │ MutableState 管理？ │
+    └────────────────┘            └──────────┬─────────┘
+                                             │
+                              ┌──────────────┴──────────────┐
+                              │                             │
+                              ▼                             ▼
+                        ┌─────────┐                   ┌─────────┐
+                        │   是    │                   │   否    │
+                        └────┬────┘                   └────┬────┘
+                             │                             │
+                             ▼                             ▼
+                    ┌────────────────┐           ┌────────────────┐
+                    │ <span class="stable">@Stable</span>        │           │ <span class="unstable">不要使用注解</span>    │
+                    │                │           │ <span class="unstable">重构代码</span>        │
+                    └────────────────┘           └────────────────┘
+</pre>
+        </div>
+
+        <div class="callout callout-warning">
+            <p class="callout-title">⚠️ 注解是契约，不是魔法</p>
+            <p>这些注解是你对编译器的<strong>承诺</strong>。如果你标记了 <code>@Immutable</code> 但实际上类是可变的，Compose 会做出错误的跳过决策，导致 UI 不更新。编译器不会验证你的承诺！</p>
+        </div>
+
+        <h2>四、诊断稳定性问题</h2>
+
+        <h3>使用 Compose Compiler Reports</h3>
+
+        <p>Compose 编译器可以生成详细的稳定性报告：</p>
+
+<pre><code><span class="code-comment">// build.gradle.kts</span>
+composeCompiler {
+    reportsDestination = <span class="code-func">layout</span>.buildDirectory.dir(<span class="code-string">"compose_reports"</span>)
+    metricsDestination = <span class="code-func">layout</span>.buildDirectory.dir(<span class="code-string">"compose_metrics"</span>)
+}</code></pre>
+
+        <p>运行编译后，你会在 <code>build/compose_reports/</code> 目录下找到：</p>
+
+        <ul>
+            <li><code>*-classes.txt</code>：每个类的稳定性分析</li>
+            <li><code>*-composables.txt</code>：每个 Composable 的可跳过性分析</li>
+            <li><code>*-composables.csv</code>：CSV 格式的数据，便于分析</li>
+        </ul>
+
+        <h3>解读报告</h3>
+
+<pre><code><span class="code-comment">// 示例：classes.txt</span>
+<span class="unstable">unstable</span> <span class="code-keyword">class</span> <span class="code-type">UserProfile</span> {
+    <span class="stable">stable</span> <span class="code-keyword">val</span> id: <span class="code-type">String</span>
+    <span class="stable">stable</span> <span class="code-keyword">val</span> name: <span class="code-type">String</span>
+    <span class="unstable">unstable</span> <span class="code-keyword">val</span> friends: <span class="code-type">List</span>&lt;<span class="code-type">User</span>&gt;  <span class="code-comment">// ← 这里导致整个类不稳定！</span>
+}
+
+<span class="code-comment">// 示例：composables.txt</span>
+<span class="unstable">restartable</span> <span class="code-keyword">fun</span> <span class="code-func">UserCard</span>(
+    <span class="unstable">unstable</span> user: <span class="code-type">UserProfile</span>  <span class="code-comment">// 参数不稳定，无法跳过</span>
+)
+
+<span class="stable">restartable skippable</span> <span class="code-keyword">fun</span> <span class="code-func">SimpleText</span>(
+    <span class="stable">stable</span> text: <span class="code-type">String</span>  <span class="code-comment">// 参数稳定，可以跳过</span>
+)</code></pre>
+
+        <h3>使用 Layout Inspector</h3>
+
+        <p>Android Studio 的 Layout Inspector 可以实时显示 Recomposition 次数：</p>
+
+        <ol>
+            <li>以 Debug 模式运行应用</li>
+            <li>打开 Tools → Layout Inspector</li>
+            <li>启用 "Show Recomposition Counts"</li>
+            <li>观察哪些组件频繁重组</li>
+        </ol>
+
+        <h2>五、常见稳定性问题与解决方案</h2>
+
+        <h3>问题 1：List/Set/Map 参数</h3>
+
+<pre><code><span class="code-comment">// ❌ 不稳定：List 类型</span>
+<span class="code-keyword">@Composable</span>
+<span class="code-keyword">fun</span> <span class="code-func">UserList</span>(users: <span class="code-type">List</span>&lt;<span class="code-type">User</span>&gt;) { ... }
+
+<span class="code-comment">// ✅ 解决方案 1：使用 Kotlinx Immutable Collections</span>
+<span class="code-keyword">@Composable</span>
+<span class="code-keyword">fun</span> <span class="code-func">UserList</span>(users: <span class="code-type">ImmutableList</span>&lt;<span class="code-type">User</span>&gt;) { ... }
+
+<span class="code-comment">// ✅ 解决方案 2：包装在稳定类中</span>
+<span class="code-annotation">@Immutable</span>
+<span class="code-keyword">data class</span> <span class="code-type">UserListWrapper</span>(<span class="code-keyword">val</span> users: <span class="code-type">List</span>&lt;<span class="code-type">User</span>&gt;)
+
+<span class="code-keyword">@Composable</span>
+<span class="code-keyword">fun</span> <span class="code-func">UserList</span>(wrapper: <span class="code-type">UserListWrapper</span>) { ... }</code></pre>
+
+        <div class="reference">
+            <div class="reference-title">📚 推荐库</div>
+            <a href="https://github.com/Kotlin/kotlinx.collections.immutable" target="_blank">Kotlinx Immutable Collections</a> - Kotlin 官方的不可变集合库
+        </div>
+
+        <h3>问题 2：外部模块的类</h3>
+
+<pre><code><span class="code-comment">// ❌ 外部库的类，编译器无法分析</span>
+<span class="code-keyword">@Composable</span>
+<span class="code-keyword">fun</span> <span class="code-func">DateDisplay</span>(date: <span class="code-type">java.time.LocalDate</span>) { ... }
+
+<span class="code-comment">// ✅ 解决方案：配置稳定性配置文件</span>
+<span class="code-comment">// stability_config.txt</span>
+<span class="code-comment">java.time.LocalDate</span>
+<span class="code-comment">java.time.LocalDateTime</span>
+<span class="code-comment">kotlinx.datetime.*</span>
+
+<span class="code-comment">// build.gradle.kts</span>
+composeCompiler {
+    stabilityConfigurationFile = <span class="code-func">file</span>(<span class="code-string">"stability_config.txt"</span>)
+}</code></pre>
+
+        <h3>问题 3：Lambda 捕获</h3>
+
+<pre><code><span class="code-comment">// ❌ Lambda 捕获了不稳定的值</span>
+<span class="code-keyword">@Composable</span>
+<span class="code-keyword">fun</span> <span class="code-func">ItemList</span>(items: <span class="code-type">List</span>&lt;<span class="code-type">Item</span>&gt;, viewModel: <span class="code-type">ViewModel</span>) {
+    items.<span class="code-func">forEach</span> { item ->
+        <span class="code-func">ItemRow</span>(
+            item = item,
+            onClick = { viewModel.<span class="code-func">onItemClick</span>(item) }  <span class="code-comment">// 每次创建新 lambda</span>
+        )
+    }
+}
+
+<span class="code-comment">// ✅ 解决方案：使用 remember 或方法引用</span>
+<span class="code-keyword">@Composable</span>
+<span class="code-keyword">fun</span> <span class="code-func">ItemList</span>(items: <span class="code-type">List</span>&lt;<span class="code-type">Item</span>&gt;, viewModel: <span class="code-type">ViewModel</span>) {
+    items.<span class="code-func">forEach</span> { item ->
+        <span class="code-func">ItemRow</span>(
+            item = item,
+            onClick = <span class="code-func">remember</span>(item.id) { { viewModel.<span class="code-func">onItemClick</span>(item) } }
+        )
+    }
+}</code></pre>
+
+        <h3>问题 4：含有 var 的 data class</h3>
+
+<pre><code><span class="code-comment">// ❌ 有 var 属性，不稳定</span>
+<span class="code-keyword">data class</span> <span class="code-type">Counter</span>(
+    <span class="code-keyword">var</span> count: <span class="code-type">Int</span>  <span class="code-comment">// var！</span>
+)
+
+<span class="code-comment">// ✅ 解决方案 1：全部改为 val</span>
+<span class="code-keyword">data class</span> <span class="code-type">Counter</span>(
+    <span class="code-keyword">val</span> count: <span class="code-type">Int</span>
+)
+
+<span class="code-comment">// ✅ 解决方案 2：使用 MutableState</span>
+<span class="code-annotation">@Stable</span>
+<span class="code-keyword">class</span> <span class="code-type">CounterState</span> {
+    <span class="code-keyword">var</span> count <span class="code-keyword">by</span> <span class="code-func">mutableStateOf</span>(<span class="code-number">0</span>)
+}</code></pre>
+
+        <h2>六、稳定性与性能的关系</h2>
+
+        <p>让我们用一个实际例子来说明稳定性对性能的影响：</p>
+
+<pre><code><span class="code-comment">// 场景：一个聊天应用的消息列表</span>
+
+<span class="code-comment">// ❌ 不稳定版本</span>
+<span class="code-keyword">data class</span> <span class="code-type">Message</span>(
+    <span class="code-keyword">val</span> id: <span class="code-type">String</span>,
+    <span class="code-keyword">val</span> text: <span class="code-type">String</span>,
+    <span class="code-keyword">val</span> reactions: <span class="code-type">List</span>&lt;<span class="code-type">Reaction</span>&gt;  <span class="code-comment">// List 不稳定！</span>
+)
+
+<span class="code-keyword">@Composable</span>
+<span class="code-keyword">fun</span> <span class="code-func">MessageList</span>(messages: <span class="code-type">List</span>&lt;<span class="code-type">Message</span>&gt;) {
+    <span class="code-func">LazyColumn</span> {
+        <span class="code-func">items</span>(messages, key = { it.id }) { message ->
+            <span class="code-func">MessageItem</span>(message)  <span class="code-comment">// 每次都重组！</span>
+        }
+    }
+}
+
+<span class="code-comment">// 当用户发送新消息时：</span>
+<span class="code-comment">// - 所有 MessageItem 都会重组</span>
+<span class="code-comment">// - 即使它们的内容没有变化</span>
+<span class="code-comment">// - 因为 Message 类不稳定</span></code></pre>
+
+<pre><code><span class="code-comment">// ✅ 稳定版本</span>
+<span class="code-annotation">@Immutable</span>
+<span class="code-keyword">data class</span> <span class="code-type">Message</span>(
+    <span class="code-keyword">val</span> id: <span class="code-type">String</span>,
+    <span class="code-keyword">val</span> text: <span class="code-type">String</span>,
+    <span class="code-keyword">val</span> reactions: <span class="code-type">ImmutableList</span>&lt;<span class="code-type">Reaction</span>&gt;  <span class="code-comment">// 使用不可变集合</span>
+)
+
+<span class="code-keyword">@Composable</span>
+<span class="code-keyword">fun</span> <span class="code-func">MessageList</span>(messages: <span class="code-type">ImmutableList</span>&lt;<span class="code-type">Message</span>&gt;) {
+    <span class="code-func">LazyColumn</span> {
+        <span class="code-func">items</span>(messages, key = { it.id }) { message ->
+            <span class="code-func">MessageItem</span>(message)  <span class="code-comment">// 只有变化的消息才重组</span>
+        }
+    }
+}
+
+<span class="code-comment">// 当用户发送新消息时：</span>
+<span class="code-comment">// - 只有新的 MessageItem 会组合</span>
+<span class="code-comment">// - 旧消息的 MessageItem 被跳过</span>
+<span class="code-comment">// - 性能大幅提升！</span></code></pre>
+
+        <h2>七、Strong Skipping Mode（实验性）</h2>
+
+        <p>Compose 1.5.4+ 引入了 <strong>Strong Skipping Mode</strong>，它改变了稳定性的默认行为：</p>
+
+<pre><code><span class="code-comment">// build.gradle.kts</span>
+composeCompiler {
+    enableStrongSkippingMode = <span class="code-keyword">true</span>
+}</code></pre>
+
+        <p>在 Strong Skipping Mode 下：</p>
+
+        <ul>
+            <li>所有 Composable 函数都可以被跳过（不再要求所有参数都稳定）</li>
+            <li>不稳定参数使用 <strong>实例相等性（===）</strong> 而非 <code>equals()</code> 来比较</li>
+            <li>Lambda 参数会被自动记忆化</li>
+        </ul>
+
+        <div class="callout">
+            <p class="callout-title">🔬 Strong Skipping 的权衡</p>
+            <p>Strong Skipping 减少了对稳定性注解的需求，但也改变了比较语义。如果你依赖 <code>equals()</code> 来判断是否重组，需要注意这个变化。</p>
+        </div>
+
+        <div class="reference">
+            <div class="reference-title">📚 深入阅读</div>
+            <a href="https://android-developers.googleblog.com/2024/02/jetpack-compose-strong-skipping-mode.html" target="_blank">Strong Skipping Mode Explained - Android Developers Blog</a>
+        </div>
+
+        <h2>八、最佳实践总结</h2>
+
+        <h3>DO ✅</h3>
+
+        <ul>
+            <li>优先使用 <code>val</code> 和不可变数据结构</li>
+            <li>为不可变 data class 添加 <code>@Immutable</code></li>
+            <li>为包含 <code>MutableState</code> 的类添加 <code>@Stable</code></li>
+            <li>使用 Kotlinx Immutable Collections 替代标准集合</li>
+            <li>定期检查 Compose Compiler Reports</li>
+            <li>使用 Layout Inspector 监控重组</li>
+        </ul>
+
+        <h3>DON'T ❌</h3>
+
+        <ul>
+            <li>不要为可变类添加 <code>@Immutable</code></li>
+            <li>不要忽略编译器报告中的不稳定警告</li>
+            <li>不要在 Composable 内部创建新的 lambda（除非必要）</li>
+            <li>不要假设所有 data class 都是稳定的</li>
+        </ul>
+
+        <h2>总结</h2>
+
+        <p>Compose 的稳定性系统是智能重组的基础：</p>
+
+        <ul>
+            <li><strong>稳定性</strong>决定了 Compose 能否安全跳过重组</li>
+            <li><strong>@Immutable</strong> 用于完全不可变的类型</li>
+            <li><strong>@Stable</strong> 用于变化可被追踪的类型</li>
+            <li><strong>编译器报告</strong>是诊断问题的最佳工具</li>
+            <li><strong>不可变集合</strong>是解决集合稳定性问题的关键</li>
+        </ul>
+
+        <p>理解并正确使用稳定性系统，可以显著提升 Compose 应用的性能。</p>
+
+        <div class="reference">
+            <div class="reference-title">📚 推荐阅读</div>
+            <a href="https://developer.android.com/jetpack/compose/performance/stability" target="_blank">Stability in Compose - Android Developers</a><br>
+            <a href="https://chris.banes.dev/composable-metrics/" target="_blank">Composable Metrics - Chris Banes</a><br>
+            <a href="https://www.jetpackcompose.app/articles/donut-hole-skipping-in-jetpack-compose" target="_blank">Donut-hole Skipping - Jetpack Compose App</a>
+        </div>
+    </article>
+
+    <footer class="footer">
+        <p>&copy; 2024 Fidroid. <a href="../index.html">返回首页</a></p>
+    </footer>
+</body>
+</html>
+

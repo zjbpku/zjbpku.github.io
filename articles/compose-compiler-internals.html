@@ -1,0 +1,619 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>深入 Compose 编译器：Slot Table 与位置记忆化 - Fidroid</title>
+    <meta name="description" content="深入理解 Jetpack Compose 编译器的工作原理，探索 Slot Table 数据结构、位置记忆化机制、Gap Buffer 算法等核心概念。">
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            line-height: 1.8;
+            color: #e5e7eb;
+            background: #020617;
+        }
+        .navbar {
+            background: rgba(15,23,42,0.98);
+            backdrop-filter: blur(10px);
+            position: fixed;
+            top: 0;
+            width: 100%;
+            z-index: 1000;
+        }
+        .nav-container {
+            max-width: 900px;
+            margin: 0 auto;
+            padding: 1rem 20px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .logo {
+            font-size: 1.5rem;
+            font-weight: bold;
+            color: #38bdf8;
+            text-decoration: none;
+            letter-spacing: 0.08em;
+            text-transform: uppercase;
+        }
+        .back-link { color: #9ca3af; text-decoration: none; font-size: 0.9rem; }
+        .back-link:hover { color: #38bdf8; }
+
+        .article-header {
+            padding: 120px 20px 60px;
+            background: radial-gradient(circle at top left, #7c3aed 0, transparent 50%),
+                        radial-gradient(circle at bottom right, #0ea5e9 0, transparent 55%),
+                        #020617;
+            text-align: center;
+        }
+        .article-header h1 {
+            max-width: 800px;
+            margin: 0 auto 1rem;
+            font-size: 2.5rem;
+            font-weight: 800;
+            letter-spacing: -0.03em;
+            color: #fff;
+        }
+        .article-meta { color: #9ca3af; font-size: 0.9rem; margin-bottom: 1.5rem; }
+        .article-tags { display: flex; justify-content: center; flex-wrap: wrap; gap: 0.5rem; }
+        .article-tag {
+            padding: 0.25rem 0.75rem;
+            border-radius: 999px;
+            font-size: 0.75rem;
+            background: rgba(15,23,42,0.85);
+            border: 1px solid rgba(124,58,237,0.4);
+            color: #c4b5fd;
+        }
+
+        .article-content {
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 60px 20px 80px;
+        }
+        .article-content h2 {
+            font-size: 1.6rem;
+            margin: 2.5rem 0 1rem;
+            color: #f9fafb;
+            border-left: 4px solid #7c3aed;
+            padding-left: 1rem;
+        }
+        .article-content h3 { font-size: 1.25rem; margin: 2rem 0 0.75rem; color: #e5e7eb; }
+        .article-content p { margin-bottom: 1.25rem; color: #d1d5db; }
+        .article-content ul, .article-content ol { margin: 1rem 0 1.5rem 1.5rem; color: #d1d5db; }
+        .article-content li { margin-bottom: 0.5rem; }
+        .article-content strong { color: #f9fafb; }
+        .article-content a { color: #38bdf8; text-decoration: underline; }
+
+        pre {
+            background: #0f172a;
+            border: 1px solid rgba(124,58,237,0.3);
+            border-radius: 12px;
+            padding: 1.25rem;
+            overflow-x: auto;
+            margin: 1.5rem 0;
+            font-size: 0.85rem;
+            line-height: 1.6;
+        }
+        code { font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace; color: #e5e7eb; }
+        .code-keyword { color: #c084fc; }
+        .code-func { color: #38bdf8; }
+        .code-type { color: #4ade80; }
+        .code-string { color: #fb7185; }
+        .code-comment { color: #6b7280; font-style: italic; }
+        .code-number { color: #fbbf24; }
+
+        .callout {
+            background: rgba(124,58,237,0.1);
+            border: 1px solid rgba(124,58,237,0.3);
+            border-radius: 12px;
+            padding: 1.25rem 1.5rem;
+            margin: 1.5rem 0;
+        }
+        .callout-title { font-weight: 600; color: #c4b5fd; margin-bottom: 0.5rem; }
+        .callout p { margin-bottom: 0; color: #d1d5db; }
+
+        .callout-warning {
+            background: rgba(245,158,11,0.1);
+            border: 1px solid rgba(245,158,11,0.3);
+        }
+        .callout-warning .callout-title { color: #fcd34d; }
+
+        .callout-info {
+            background: rgba(14,165,233,0.1);
+            border: 1px solid rgba(14,165,233,0.3);
+        }
+        .callout-info .callout-title { color: #7dd3fc; }
+
+        .diagram {
+            background: #0f172a;
+            border: 1px solid rgba(124,58,237,0.3);
+            border-radius: 12px;
+            padding: 2rem;
+            margin: 1.5rem 0;
+            text-align: center;
+            font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+            font-size: 0.85rem;
+            line-height: 1.8;
+            color: #94a3b8;
+            overflow-x: auto;
+        }
+        .diagram .highlight { color: #c084fc; font-weight: bold; }
+        .diagram .data { color: #4ade80; }
+        .diagram .gap { color: #f87171; }
+
+        .reference {
+            background: rgba(15,23,42,0.6);
+            border: 1px solid rgba(148,163,184,0.2);
+            border-radius: 8px;
+            padding: 1rem 1.25rem;
+            margin: 1rem 0;
+            font-size: 0.9rem;
+        }
+        .reference-title {
+            font-weight: 600;
+            color: #94a3b8;
+            font-size: 0.75rem;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            margin-bottom: 0.5rem;
+        }
+        .reference a { color: #38bdf8; }
+
+        .footer {
+            background: #020617;
+            border-top: 1px solid #111827;
+            padding: 2rem;
+            text-align: center;
+            color: #6b7280;
+        }
+        .footer a { color: #38bdf8; text-decoration: none; }
+    </style>
+</head>
+<body>
+    <nav class="navbar">
+        <div class="nav-container">
+            <a href="../index.html" class="logo">Fidroid</a>
+            <a href="../index.html#blog" class="back-link">← 返回博客列表</a>
+        </div>
+    </nav>
+
+    <header class="article-header">
+        <h1>深入 Compose 编译器：Slot Table 与位置记忆化</h1>
+        <p class="article-meta">2024-04-25 · 30 min · 原理深度解析</p>
+        <div class="article-tags">
+            <span class="article-tag">Compose Compiler</span>
+            <span class="article-tag">Slot Table</span>
+            <span class="article-tag">Gap Buffer</span>
+            <span class="article-tag">Positional Memoization</span>
+        </div>
+    </header>
+
+    <article class="article-content">
+        <p>当你写下一个简单的 <code>@Composable</code> 函数时，Compose 编译器在背后做了大量工作。理解这些底层机制不仅能帮助你写出更高效的代码，还能让你在遇到性能问题时知道从何下手。本文将深入探讨 Compose 编译器的核心：<strong>Slot Table</strong> 数据结构和<strong>位置记忆化（Positional Memoization）</strong>机制。</p>
+
+        <div class="reference">
+            <div class="reference-title">📚 官方参考</div>
+            <a href="https://developer.android.com/jetpack/compose/mental-model" target="_blank">Thinking in Compose - Android Developers</a><br>
+            <a href="https://cs.android.com/androidx/platform/frameworks/support/+/androidx-main:compose/runtime/" target="_blank">Compose Runtime Source Code</a>
+        </div>
+
+        <h2>一、为什么需要 Slot Table？</h2>
+
+        <p>传统的 UI 框架（如 Android View 系统）使用<strong>对象树</strong>来表示 UI 结构。每个 View 是一个对象，持有自己的状态，通过父子引用形成树形结构。这种方式直观但有几个问题：</p>
+
+        <ul>
+            <li><strong>内存开销大</strong>：每个 View 对象都有自己的内存分配</li>
+            <li><strong>GC 压力</strong>：频繁创建/销毁 View 会触发垃圾回收</li>
+            <li><strong>更新效率低</strong>：需要遍历整棵树来找到需要更新的节点</li>
+        </ul>
+
+        <p>Compose 采用了完全不同的方式：它不创建 UI 对象树，而是将所有 UI 信息存储在一个扁平的数组结构中——这就是 <strong>Slot Table</strong>。</p>
+
+        <div class="callout callout-info">
+            <p class="callout-title">💡 核心洞察</p>
+            <p>Slot Table 本质上是一个<strong>线性化的 UI 描述</strong>。它把树形结构"压扁"成数组，用位置信息来隐式表达父子关系。这种设计借鉴了编译器和数据库领域的技术。</p>
+        </div>
+
+        <h2>二、Slot Table 的数据结构</h2>
+
+        <p>Slot Table 由两个主要数组组成：</p>
+
+        <ol>
+            <li><strong>Groups Array</strong>：存储结构信息（哪些 Composable 被调用、它们的层级关系）</li>
+            <li><strong>Slots Array</strong>：存储数据（状态值、remember 的值、参数等）</li>
+        </ol>
+
+        <div class="diagram">
+<pre>
+┌─────────────────────────────────────────────────────────────┐
+│                      <span class="highlight">Slot Table</span>                            │
+├─────────────────────────────────────────────────────────────┤
+│  <span class="data">Groups Array</span> (结构信息)                                    │
+│  ┌────┬────┬────┬────┬────┬────┬────┬────┬────┬────┐       │
+│  │ G0 │ G1 │ G2 │ G3 │<span class="gap">    │    │    │</span>G4 │ G5 │ G6 │       │
+│  └────┴────┴────┴────┴────┴────┴────┴────┴────┴────┘       │
+│                        <span class="gap">↑ Gap</span>                               │
+├─────────────────────────────────────────────────────────────┤
+│  <span class="data">Slots Array</span> (数据)                                         │
+│  ┌────┬────┬────┬────┬────┬────┬────┬────┬────┬────┐       │
+│  │ S0 │ S1 │ S2 │<span class="gap">    │    │    │</span>S3 │ S4 │ S5 │ S6 │       │
+│  └────┴────┴────┴────┴────┴────┴────┴────┴────┴────┘       │
+│                   <span class="gap">↑ Gap</span>                                    │
+└─────────────────────────────────────────────────────────────┘
+</pre>
+        </div>
+
+        <h3>Group 的结构</h3>
+
+        <p>每个 Group 代表一次 Composable 调用或一个逻辑分组，包含以下信息：</p>
+
+<pre><code><span class="code-comment">// 简化的 Group 结构（实际实现更复杂）</span>
+<span class="code-keyword">internal class</span> <span class="code-type">Group</span> {
+    <span class="code-keyword">val</span> key: <span class="code-type">Int</span>           <span class="code-comment">// 唯一标识符，用于匹配</span>
+    <span class="code-keyword">val</span> dataAnchor: <span class="code-type">Int</span>    <span class="code-comment">// 指向 Slots Array 中数据的起始位置</span>
+    <span class="code-keyword">val</span> parentAnchor: <span class="code-type">Int</span>  <span class="code-comment">// 父 Group 的索引</span>
+    <span class="code-keyword">val</span> size: <span class="code-type">Int</span>          <span class="code-comment">// 子 Group 的数量</span>
+    <span class="code-keyword">val</span> nodeCount: <span class="code-type">Int</span>     <span class="code-comment">// 包含的 LayoutNode 数量</span>
+}</code></pre>
+
+        <div class="reference">
+            <div class="reference-title">📚 源码参考</div>
+            <a href="https://cs.android.com/androidx/platform/frameworks/support/+/androidx-main:compose/runtime/runtime/src/commonMain/kotlin/androidx/compose/runtime/SlotTable.kt" target="_blank">SlotTable.kt - Compose Runtime</a>
+        </div>
+
+        <h2>三、Gap Buffer 算法</h2>
+
+        <p>Slot Table 使用 <strong>Gap Buffer</strong> 算法来高效处理插入和删除操作。这个算法最初来自文本编辑器（如 Emacs），用于处理光标位置的文本编辑。</p>
+
+        <h3>Gap Buffer 的工作原理</h3>
+
+        <p>Gap Buffer 在数组中维护一个"空隙"（Gap），所有的插入/删除操作都在 Gap 的位置进行：</p>
+
+        <div class="diagram">
+<pre>
+<span class="highlight">初始状态：</span>
+┌───┬───┬───┬<span class="gap">───┬───┬───</span>┬───┬───┬───┐
+│ A │ B │ C │<span class="gap">   │   │   </span>│ D │ E │ F │
+└───┴───┴───┴<span class="gap">───┴───┴───</span>┴───┴───┴───┘
+            <span class="gap">↑ Gap (cursor)</span>
+
+<span class="highlight">在 C 后插入 X：</span>（O(1) 操作）
+┌───┬───┬───┬───┬<span class="gap">───┬───</span>┬───┬───┬───┐
+│ A │ B │ C │ <span class="data">X</span> │<span class="gap">   │   </span>│ D │ E │ F │
+└───┴───┴───┴───┴<span class="gap">───┴───</span>┴───┴───┴───┘
+                <span class="gap">↑ Gap moved</span>
+
+<span class="highlight">移动到 E 后插入 Y：</span>（需要先移动 Gap）
+┌───┬───┬───┬───┬───┬───┬───┬<span class="gap">───</span>┬───┐
+│ A │ B │ C │ X │ D │ E │ <span class="data">Y</span> │<span class="gap">   </span>│ F │
+└───┴───┴───┴───┴───┴───┴───┴<span class="gap">───</span>┴───┘
+                            <span class="gap">↑ Gap</span>
+</pre>
+        </div>
+
+        <p>Gap Buffer 的优势在于：</p>
+        <ul>
+            <li><strong>局部性原则</strong>：连续的插入/删除操作（如 Recomposition 时）通常发生在相邻位置，Gap 不需要频繁移动</li>
+            <li><strong>O(1) 局部操作</strong>：在 Gap 位置的插入/删除是常数时间</li>
+            <li><strong>内存连续</strong>：数据存储在连续内存中，缓存友好</li>
+        </ul>
+
+        <div class="callout">
+            <p class="callout-title">🔬 为什么选择 Gap Buffer？</p>
+            <p>Compose 的 Recomposition 具有很强的<strong>局部性</strong>：当状态变化时，通常只有一小部分 UI 需要更新，而且这些更新往往是连续的。Gap Buffer 正好利用了这一特性，在大多数情况下提供 O(1) 的更新性能。</p>
+        </div>
+
+        <h2>四、位置记忆化（Positional Memoization）</h2>
+
+        <p>这是 Compose 最核心的创新之一。传统的记忆化（Memoization）基于<strong>参数值</strong>来缓存结果，而 Compose 的位置记忆化基于<strong>调用位置</strong>。</p>
+
+        <h3>传统记忆化 vs 位置记忆化</h3>
+
+<pre><code><span class="code-comment">// 传统记忆化：基于参数值</span>
+<span class="code-keyword">val</span> cache = <span class="code-func">mutableMapOf</span>&lt;<span class="code-type">Args</span>, <span class="code-type">Result</span>&gt;()
+<span class="code-keyword">fun</span> <span class="code-func">memoized</span>(args: <span class="code-type">Args</span>): <span class="code-type">Result</span> {
+    <span class="code-keyword">return</span> cache.<span class="code-func">getOrPut</span>(args) { <span class="code-func">compute</span>(args) }
+}
+
+<span class="code-comment">// 位置记忆化：基于调用位置</span>
+<span class="code-keyword">@Composable</span>
+<span class="code-keyword">fun</span> <span class="code-func">Example</span>() {
+    <span class="code-comment">// 即使参数相同，这两个 remember 存储在不同位置</span>
+    <span class="code-keyword">val</span> state1 = <span class="code-func">remember</span> { <span class="code-func">mutableStateOf</span>(<span class="code-number">0</span>) }  <span class="code-comment">// 位置 A</span>
+    <span class="code-keyword">val</span> state2 = <span class="code-func">remember</span> { <span class="code-func">mutableStateOf</span>(<span class="code-number">0</span>) }  <span class="code-comment">// 位置 B</span>
+    <span class="code-comment">// state1 和 state2 是独立的！</span>
+}</code></pre>
+
+        <h3>编译器如何实现位置记忆化</h3>
+
+        <p>Compose 编译器会为每个 <code>@Composable</code> 函数注入额外的参数和代码：</p>
+
+<pre><code><span class="code-comment">// 你写的代码</span>
+<span class="code-keyword">@Composable</span>
+<span class="code-keyword">fun</span> <span class="code-func">Greeting</span>(name: <span class="code-type">String</span>) {
+    <span class="code-func">Text</span>(<span class="code-string">"Hello, $name"</span>)
+}
+
+<span class="code-comment">// 编译器转换后（简化版）</span>
+<span class="code-keyword">fun</span> <span class="code-func">Greeting</span>(
+    name: <span class="code-type">String</span>,
+    <span class="code-type">$composer</span>: <span class="code-type">Composer</span>,    <span class="code-comment">// 注入的 Composer</span>
+    <span class="code-type">$changed</span>: <span class="code-type">Int</span>            <span class="code-comment">// 参数变化标记</span>
+) {
+    <span class="code-type">$composer</span>.<span class="code-func">startRestartGroup</span>(<span class="code-number">123456789</span>)  <span class="code-comment">// 唯一的 Group Key</span>
+    
+    <span class="code-comment">// 检查是否可以跳过</span>
+    <span class="code-keyword">if</span> (<span class="code-type">$changed</span> == <span class="code-number">0</span> && <span class="code-type">$composer</span>.skipping) {
+        <span class="code-type">$composer</span>.<span class="code-func">skipToGroupEnd</span>()
+    } <span class="code-keyword">else</span> {
+        <span class="code-func">Text</span>(<span class="code-string">"Hello, $name"</span>, <span class="code-type">$composer</span>, <span class="code-number">0</span>)
+    }
+    
+    <span class="code-type">$composer</span>.<span class="code-func">endRestartGroup</span>()?.<span class="code-func">updateScope</span> { 
+        <span class="code-func">Greeting</span>(name, <span class="code-type">$composer</span>, <span class="code-type">$changed</span> <span class="code-keyword">or</span> <span class="code-number">1</span>) 
+    }
+}</code></pre>
+
+        <h3>Group Key 的生成</h3>
+
+        <p>编译器为每个 Composable 调用生成唯一的 <strong>Group Key</strong>，这个 Key 基于：</p>
+
+        <ul>
+            <li>源文件路径</li>
+            <li>行号和列号</li>
+            <li>调用顺序</li>
+        </ul>
+
+<pre><code><span class="code-comment">// 这两个 Text 有不同的 Group Key</span>
+<span class="code-keyword">@Composable</span>
+<span class="code-keyword">fun</span> <span class="code-func">TwoTexts</span>() {
+    <span class="code-func">Text</span>(<span class="code-string">"First"</span>)   <span class="code-comment">// Key: hash("TwoTexts.kt:5:4")</span>
+    <span class="code-func">Text</span>(<span class="code-string">"Second"</span>)  <span class="code-comment">// Key: hash("TwoTexts.kt:6:4")</span>
+}</code></pre>
+
+        <div class="callout callout-warning">
+            <p class="callout-title">⚠️ 条件语句的陷阱</p>
+            <p>位置记忆化意味着<strong>调用顺序很重要</strong>。如果在条件语句中调用 Composable，条件变化可能导致位置错乱：</p>
+        </div>
+
+<pre><code><span class="code-comment">// ❌ 危险：条件变化会导致状态错乱</span>
+<span class="code-keyword">@Composable</span>
+<span class="code-keyword">fun</span> <span class="code-func">Problematic</span>(showFirst: <span class="code-type">Boolean</span>) {
+    <span class="code-keyword">if</span> (showFirst) {
+        <span class="code-func">Counter</span>()  <span class="code-comment">// 位置 0</span>
+    }
+    <span class="code-func">Counter</span>()      <span class="code-comment">// showFirst=true 时位置 1，false 时位置 0！</span>
+}
+
+<span class="code-comment">// ✅ 使用 key 明确身份</span>
+<span class="code-keyword">@Composable</span>
+<span class="code-keyword">fun</span> <span class="code-func">Safe</span>(showFirst: <span class="code-type">Boolean</span>) {
+    <span class="code-keyword">if</span> (showFirst) {
+        <span class="code-func">key</span>(<span class="code-string">"first"</span>) { <span class="code-func">Counter</span>() }
+    }
+    <span class="code-func">key</span>(<span class="code-string">"second"</span>) { <span class="code-func">Counter</span>() }
+}</code></pre>
+
+        <h2>五、Recomposition 的执行过程</h2>
+
+        <p>当状态变化触发 Recomposition 时，Compose 执行以下步骤：</p>
+
+        <div class="diagram">
+<pre>
+<span class="highlight">Recomposition 流程</span>
+
+┌─────────────────┐
+│  State Changed  │
+└────────┬────────┘
+         ▼
+┌─────────────────┐
+│ Find Invalid    │  ← 找到读取该状态的 Scope
+│ RecomposeScope  │
+└────────┬────────┘
+         ▼
+┌─────────────────┐
+│ Seek to Group   │  ← 移动 Gap 到对应位置
+│ in Slot Table   │
+└────────┬────────┘
+         ▼
+┌─────────────────┐
+│ Re-execute      │  ← 重新执行 Composable
+│ Composable      │
+└────────┬────────┘
+         ▼
+┌─────────────────┐
+│ Compare & Diff  │  ← 比较新旧数据
+└────────┬────────┘
+         ▼
+┌─────────────────┐
+│ Update Slot     │  ← 更新变化的部分
+│ Table           │
+└────────┬────────┘
+         ▼
+┌─────────────────┐
+│ Apply Changes   │  ← 应用到 LayoutNode
+│ to UI           │
+└─────────────────┘
+</pre>
+        </div>
+
+        <h3>Composer 的读写模式</h3>
+
+        <p>Composer 在执行 Composable 时有两种模式：</p>
+
+<pre><code><span class="code-keyword">internal class</span> <span class="code-type">Composer</span> {
+    <span class="code-keyword">var</span> inserting: <span class="code-type">Boolean</span> = <span class="code-keyword">false</span>
+    
+    <span class="code-comment">// inserting = true: 首次组合，写入新数据</span>
+    <span class="code-comment">// inserting = false: 重组，读取并比较</span>
+    
+    <span class="code-keyword">fun</span> <span class="code-func">remember</span>&lt;<span class="code-type">T</span>&gt;(calculation: () -> <span class="code-type">T</span>): <span class="code-type">T</span> {
+        <span class="code-keyword">return if</span> (inserting) {
+            <span class="code-comment">// 首次：计算并存储</span>
+            <span class="code-keyword">val</span> value = <span class="code-func">calculation</span>()
+            <span class="code-func">updateValue</span>(value)
+            value
+        } <span class="code-keyword">else</span> {
+            <span class="code-comment">// 重组：从 Slot Table 读取</span>
+            <span class="code-func">nextSlot</span>() <span class="code-keyword">as</span> <span class="code-type">T</span>
+        }
+    }
+}</code></pre>
+
+        <h2>六、$changed 参数与跳过优化</h2>
+
+        <p>编译器注入的 <code>$changed</code> 参数是一个位掩码，用于追踪哪些参数发生了变化：</p>
+
+<pre><code><span class="code-comment">// $changed 位掩码结构</span>
+<span class="code-comment">// 每个参数占用 3 位：</span>
+<span class="code-comment">// - bit 0: 是否"脏"（需要检查）</span>
+<span class="code-comment">// - bit 1-2: 稳定性信息</span>
+
+<span class="code-keyword">@Composable</span>
+<span class="code-keyword">fun</span> <span class="code-func">Example</span>(
+    a: <span class="code-type">Int</span>,      <span class="code-comment">// bits 0-2</span>
+    b: <span class="code-type">String</span>,   <span class="code-comment">// bits 3-5</span>
+    c: <span class="code-type">User</span>      <span class="code-comment">// bits 6-8</span>
+)
+
+<span class="code-comment">// 调用时：</span>
+<span class="code-func">Example</span>(
+    a = <span class="code-number">1</span>,
+    b = <span class="code-string">"hello"</span>,
+    c = user,
+    <span class="code-type">$composer</span> = composer,
+    <span class="code-type">$changed</span> = <span class="code-number">0b_000_001_000</span>  <span class="code-comment">// 只有 b 变化了</span>
+)</code></pre>
+
+        <p>通过 <code>$changed</code> 参数，Compose 可以在不执行函数体的情况下判断是否需要重组：</p>
+
+<pre><code><span class="code-comment">// 编译器生成的跳过逻辑</span>
+<span class="code-keyword">if</span> (<span class="code-type">$changed</span> and <span class="code-number">0b111_111_111</span> == <span class="code-number">0</span> && <span class="code-type">$composer</span>.skipping) {
+    <span class="code-comment">// 所有参数都没变，跳过整个函数</span>
+    <span class="code-type">$composer</span>.<span class="code-func">skipToGroupEnd</span>()
+    <span class="code-keyword">return</span>
+}</code></pre>
+
+        <div class="reference">
+            <div class="reference-title">📚 深入阅读</div>
+            <a href="https://jorgecastillo.dev/book/" target="_blank">Jetpack Compose Internals - Jorge Castillo</a><br>
+            <a href="https://medium.com/androiddevelopers/under-the-hood-of-jetpack-compose-part-2-of-2-37b2c20c852" target="_blank">Under the hood of Jetpack Compose - Android Developers Blog</a>
+        </div>
+
+        <h2>七、实际应用：优化你的代码</h2>
+
+        <p>理解了这些原理，我们可以写出更高效的 Compose 代码：</p>
+
+        <h3>1. 利用位置记忆化</h3>
+
+<pre><code><span class="code-comment">// ✅ 好：remember 的值会被正确保留</span>
+<span class="code-keyword">@Composable</span>
+<span class="code-keyword">fun</span> <span class="code-func">GoodExample</span>() {
+    <span class="code-keyword">val</span> state = <span class="code-func">remember</span> { <span class="code-func">ExpensiveObject</span>() }
+    <span class="code-comment">// state 只在首次组合时创建</span>
+}
+
+<span class="code-comment">// ❌ 差：每次重组都创建新对象</span>
+<span class="code-keyword">@Composable</span>
+<span class="code-keyword">fun</span> <span class="code-func">BadExample</span>() {
+    <span class="code-keyword">val</span> state = <span class="code-func">ExpensiveObject</span>()  <span class="code-comment">// 没有 remember！</span>
+}</code></pre>
+
+        <h3>2. 保持调用顺序稳定</h3>
+
+<pre><code><span class="code-comment">// ✅ 好：使用 key 保持身份</span>
+<span class="code-keyword">@Composable</span>
+<span class="code-keyword">fun</span> <span class="code-func">ItemList</span>(items: <span class="code-type">List</span>&lt;<span class="code-type">Item</span>&gt;) {
+    <span class="code-func">Column</span> {
+        items.<span class="code-func">forEach</span> { item ->
+            <span class="code-func">key</span>(item.id) {  <span class="code-comment">// 明确的身份</span>
+                <span class="code-func">ItemRow</span>(item)
+            }
+        }
+    }
+}
+
+<span class="code-comment">// ❌ 差：依赖隐式位置</span>
+<span class="code-keyword">@Composable</span>
+<span class="code-keyword">fun</span> <span class="code-func">ItemList</span>(items: <span class="code-type">List</span>&lt;<span class="code-type">Item</span>&gt;) {
+    <span class="code-func">Column</span> {
+        items.<span class="code-func">forEach</span> { item ->
+            <span class="code-func">ItemRow</span>(item)  <span class="code-comment">// 列表重排序会导致状态错乱</span>
+        }
+    }
+}</code></pre>
+
+        <h3>3. 减少 Group 数量</h3>
+
+<pre><code><span class="code-comment">// ✅ 好：内联简单逻辑</span>
+<span class="code-keyword">@Composable</span>
+<span class="code-keyword">fun</span> <span class="code-func">Efficient</span>(text: <span class="code-type">String</span>) {
+    <span class="code-func">Text</span>(
+        text = text,
+        color = <span class="code-keyword">if</span> (text.<span class="code-func">isEmpty</span>()) Color.Gray <span class="code-keyword">else</span> Color.Black
+    )
+}
+
+<span class="code-comment">// ❌ 差：不必要的嵌套 Composable</span>
+<span class="code-keyword">@Composable</span>
+<span class="code-keyword">fun</span> <span class="code-func">Inefficient</span>(text: <span class="code-type">String</span>) {
+    <span class="code-func">TextWithColor</span>(text)  <span class="code-comment">// 额外的 Group 开销</span>
+}
+
+<span class="code-keyword">@Composable</span>
+<span class="code-keyword">fun</span> <span class="code-func">TextWithColor</span>(text: <span class="code-type">String</span>) {
+    <span class="code-func">Text</span>(
+        text = text,
+        color = <span class="code-keyword">if</span> (text.<span class="code-func">isEmpty</span>()) Color.Gray <span class="code-keyword">else</span> Color.Black
+    )
+}</code></pre>
+
+        <h2>八、调试技巧</h2>
+
+        <h3>查看编译器输出</h3>
+
+        <p>你可以配置 Compose 编译器输出中间代码：</p>
+
+<pre><code><span class="code-comment">// build.gradle.kts</span>
+composeCompiler {
+    reportsDestination = <span class="code-func">layout</span>.buildDirectory.dir(<span class="code-string">"compose_reports"</span>)
+    metricsDestination = <span class="code-func">layout</span>.buildDirectory.dir(<span class="code-string">"compose_metrics"</span>)
+}</code></pre>
+
+        <h3>使用 Layout Inspector</h3>
+
+        <p>Android Studio 的 Layout Inspector 可以显示 Recomposition 计数，帮助你找到频繁重组的组件。</p>
+
+        <h2>总结</h2>
+
+        <p>Compose 编译器的核心设计：</p>
+
+        <ul>
+            <li><strong>Slot Table</strong>：用扁平数组存储 UI 信息，避免对象树的开销</li>
+            <li><strong>Gap Buffer</strong>：利用局部性原则，提供 O(1) 的局部更新</li>
+            <li><strong>位置记忆化</strong>：基于调用位置缓存数据，而非参数值</li>
+            <li><strong>$changed 参数</strong>：位掩码追踪参数变化，支持跳过优化</li>
+        </ul>
+
+        <p>理解这些底层机制，能帮助你：</p>
+        <ul>
+            <li>写出更高效的 Compose 代码</li>
+            <li>避免常见的性能陷阱</li>
+            <li>在遇到问题时知道如何调试</li>
+        </ul>
+
+        <div class="reference">
+            <div class="reference-title">📚 推荐阅读</div>
+            <a href="https://developer.android.com/jetpack/compose/performance" target="_blank">Compose Performance - Android Developers</a><br>
+            <a href="https://www.youtube.com/watch?v=Q9MtlmmN4Q0" target="_blank">Compose Runtime Deep Dive - Android Dev Summit</a><br>
+            <a href="https://jorgecastillo.dev/book/" target="_blank">Jetpack Compose Internals Book</a>
+        </div>
+    </article>
+
+    <footer class="footer">
+        <p>&copy; 2024 Fidroid. <a href="../index.html">返回首页</a></p>
+    </footer>
+</body>
+</html>
+

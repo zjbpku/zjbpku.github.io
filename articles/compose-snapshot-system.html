@@ -1,0 +1,789 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Compose Snapshot 系统：状态观察与事务隔离的秘密 - Fidroid</title>
+    <meta name="description" content="深入解析 Compose Snapshot 系统的工作原理，理解状态变化如何触发重组，掌握 Snapshot 事务和隔离机制。">
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            line-height: 1.8;
+            color: #e5e7eb;
+            background: #020617;
+        }
+        .navbar {
+            background: rgba(15,23,42,0.98);
+            backdrop-filter: blur(10px);
+            position: fixed;
+            top: 0;
+            width: 100%;
+            z-index: 1000;
+        }
+        .nav-container {
+            max-width: 900px;
+            margin: 0 auto;
+            padding: 1rem 20px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .logo {
+            font-size: 1.5rem;
+            font-weight: bold;
+            color: #38bdf8;
+            text-decoration: none;
+            letter-spacing: 0.08em;
+            text-transform: uppercase;
+        }
+        .back-link { color: #9ca3af; text-decoration: none; font-size: 0.9rem; }
+        .back-link:hover { color: #38bdf8; }
+
+        .article-header {
+            padding: 120px 20px 60px;
+            background: radial-gradient(circle at top right, #dc2626 0, transparent 50%),
+                        radial-gradient(circle at bottom left, #2563eb 0, transparent 55%),
+                        #020617;
+            text-align: center;
+        }
+        .article-header h1 {
+            max-width: 800px;
+            margin: 0 auto 1rem;
+            font-size: 2.5rem;
+            font-weight: 800;
+            letter-spacing: -0.03em;
+            color: #fff;
+        }
+        .article-meta { color: #9ca3af; font-size: 0.9rem; margin-bottom: 1.5rem; }
+        .article-tags { display: flex; justify-content: center; flex-wrap: wrap; gap: 0.5rem; }
+        .article-tag {
+            padding: 0.25rem 0.75rem;
+            border-radius: 999px;
+            font-size: 0.75rem;
+            background: rgba(15,23,42,0.85);
+            border: 1px solid rgba(220,38,38,0.4);
+            color: #fca5a5;
+        }
+
+        .article-content {
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 60px 20px 80px;
+        }
+        .article-content h2 {
+            font-size: 1.6rem;
+            margin: 2.5rem 0 1rem;
+            color: #f9fafb;
+            border-left: 4px solid #dc2626;
+            padding-left: 1rem;
+        }
+        .article-content h3 { font-size: 1.25rem; margin: 2rem 0 0.75rem; color: #e5e7eb; }
+        .article-content p { margin-bottom: 1.25rem; color: #d1d5db; }
+        .article-content ul, .article-content ol { margin: 1rem 0 1.5rem 1.5rem; color: #d1d5db; }
+        .article-content li { margin-bottom: 0.5rem; }
+        .article-content strong { color: #f9fafb; }
+        .article-content a { color: #38bdf8; text-decoration: underline; }
+
+        pre {
+            background: #0f172a;
+            border: 1px solid rgba(220,38,38,0.3);
+            border-radius: 12px;
+            padding: 1.25rem;
+            overflow-x: auto;
+            margin: 1.5rem 0;
+            font-size: 0.85rem;
+            line-height: 1.6;
+        }
+        code { font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace; color: #e5e7eb; }
+        .code-keyword { color: #c084fc; }
+        .code-func { color: #38bdf8; }
+        .code-type { color: #4ade80; }
+        .code-string { color: #fb7185; }
+        .code-comment { color: #6b7280; font-style: italic; }
+        .code-number { color: #fbbf24; }
+        .code-annotation { color: #f472b6; }
+
+        .callout {
+            background: rgba(220,38,38,0.1);
+            border: 1px solid rgba(220,38,38,0.3);
+            border-radius: 12px;
+            padding: 1.25rem 1.5rem;
+            margin: 1.5rem 0;
+        }
+        .callout-title { font-weight: 600; color: #fca5a5; margin-bottom: 0.5rem; }
+        .callout p { margin-bottom: 0; color: #d1d5db; }
+
+        .callout-warning {
+            background: rgba(245,158,11,0.1);
+            border: 1px solid rgba(245,158,11,0.3);
+        }
+        .callout-warning .callout-title { color: #fcd34d; }
+
+        .callout-info {
+            background: rgba(14,165,233,0.1);
+            border: 1px solid rgba(14,165,233,0.3);
+        }
+        .callout-info .callout-title { color: #7dd3fc; }
+
+        .diagram {
+            background: #0f172a;
+            border: 1px solid rgba(220,38,38,0.3);
+            border-radius: 12px;
+            padding: 2rem;
+            margin: 1.5rem 0;
+            text-align: center;
+            font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+            font-size: 0.8rem;
+            line-height: 1.6;
+            color: #94a3b8;
+            overflow-x: auto;
+        }
+        .diagram .highlight { color: #f87171; font-weight: bold; }
+        .diagram .state { color: #4ade80; }
+        .diagram .snapshot { color: #38bdf8; }
+        .diagram .observer { color: #c084fc; }
+
+        .reference {
+            background: rgba(15,23,42,0.6);
+            border: 1px solid rgba(148,163,184,0.2);
+            border-radius: 8px;
+            padding: 1rem 1.25rem;
+            margin: 1rem 0;
+            font-size: 0.9rem;
+        }
+        .reference-title {
+            font-weight: 600;
+            color: #94a3b8;
+            font-size: 0.75rem;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            margin-bottom: 0.5rem;
+        }
+        .reference a { color: #38bdf8; }
+
+        .comparison-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 1.5rem 0;
+            font-size: 0.9rem;
+        }
+        .comparison-table th, .comparison-table td {
+            border: 1px solid rgba(148,163,184,0.3);
+            padding: 0.75rem 1rem;
+            text-align: left;
+        }
+        .comparison-table th {
+            background: rgba(15,23,42,0.8);
+            color: #f9fafb;
+        }
+        .comparison-table td { color: #d1d5db; }
+
+        .footer {
+            background: #020617;
+            border-top: 1px solid #111827;
+            padding: 2rem;
+            text-align: center;
+            color: #6b7280;
+        }
+        .footer a { color: #38bdf8; text-decoration: none; }
+    </style>
+</head>
+<body>
+    <nav class="navbar">
+        <div class="nav-container">
+            <a href="../index.html" class="logo">Fidroid</a>
+            <a href="../index.html#blog" class="back-link">← 返回博客列表</a>
+        </div>
+    </nav>
+
+    <header class="article-header">
+        <h1>Compose Snapshot 系统：状态观察与事务隔离的秘密</h1>
+        <p class="article-meta">2024-04-29 · 35 min · 底层原理深度解析</p>
+        <div class="article-tags">
+            <span class="article-tag">Snapshot</span>
+            <span class="article-tag">State Observation</span>
+            <span class="article-tag">Transaction</span>
+            <span class="article-tag">Isolation</span>
+        </div>
+    </header>
+
+    <article class="article-content">
+        <p>Compose 如何知道状态变化了？为什么 <code>mutableStateOf</code> 能触发重组，而普通变量不能？答案藏在 Compose 最核心也最神秘的子系统中——<strong>Snapshot 系统</strong>。本文将揭开它的面纱，深入探讨状态观察、变化追踪和事务隔离的实现原理。</p>
+
+        <div class="reference">
+            <div class="reference-title">📚 官方参考</div>
+            <a href="https://developer.android.com/jetpack/compose/state" target="_blank">State and Jetpack Compose</a><br>
+            <a href="https://github.com/androidx/androidx/tree/androidx-main/compose/runtime/runtime/src/commonMain/kotlin/androidx/compose/runtime/snapshots" target="_blank">Snapshot 源码 - AndroidX</a>
+        </div>
+
+        <h2>一、Snapshot 系统概述</h2>
+
+        <p>Snapshot 系统是 Compose Runtime 的核心组件，它提供了：</p>
+
+        <ul>
+            <li><strong>状态观察</strong>：追踪哪些状态被读取，哪些被修改</li>
+            <li><strong>变化通知</strong>：当状态变化时，通知相关的观察者</li>
+            <li><strong>事务隔离</strong>：类似数据库事务，提供一致性的状态视图</li>
+            <li><strong>并发支持</strong>：允许多线程安全地读写状态</li>
+        </ul>
+
+        <div class="diagram">
+<pre>
+<span class="highlight">Snapshot 系统架构</span>
+
+┌─────────────────────────────────────────────────────────────┐
+│                     Compose Runtime                          │
+├─────────────────────────────────────────────────────────────┤
+│                                                              │
+│  ┌──────────────┐    ┌──────────────┐    ┌──────────────┐  │
+│  │ <span class="state">MutableState</span> │    │ <span class="state">MutableState</span> │    │ <span class="state">MutableState</span> │  │
+│  │   count=5    │    │   name="A"   │    │   list=[...]  │  │
+│  └──────┬───────┘    └──────┬───────┘    └──────┬───────┘  │
+│         │                   │                   │          │
+│         └───────────────────┼───────────────────┘          │
+│                             │                               │
+│                             ▼                               │
+│              ┌─────────────────────────────┐               │
+│              │      <span class="snapshot">Snapshot System</span>        │               │
+│              │  ┌─────────────────────┐    │               │
+│              │  │ State Records       │    │               │
+│              │  │ Read Observers      │    │               │
+│              │  │ Write Observers     │    │               │
+│              │  │ Snapshot Stack      │    │               │
+│              │  └─────────────────────┘    │               │
+│              └─────────────┬───────────────┘               │
+│                            │                                │
+│                            ▼                                │
+│              ┌─────────────────────────────┐               │
+│              │    <span class="observer">Recomposition Trigger</span>    │               │
+│              └─────────────────────────────┘               │
+│                                                              │
+└─────────────────────────────────────────────────────────────┘
+</pre>
+        </div>
+
+        <h3>为什么需要 Snapshot？</h3>
+
+        <p>考虑这个场景：</p>
+
+<pre><code><span class="code-keyword">@Composable</span>
+<span class="code-keyword">fun</span> <span class="code-func">Counter</span>() {
+    <span class="code-keyword">var</span> count <span class="code-keyword">by</span> <span class="code-func">remember</span> { <span class="code-func">mutableStateOf</span>(<span class="code-number">0</span>) }
+    
+    <span class="code-func">Button</span>(onClick = { count++ }) {
+        <span class="code-func">Text</span>(<span class="code-string">"Count: </span>$count<span class="code-string">"</span>)
+    }
+}
+
+<span class="code-comment">// 问题：当 count++ 执行时</span>
+<span class="code-comment">// 1. Compose 如何知道 count 变了？</span>
+<span class="code-comment">// 2. Compose 如何知道哪些 Composable 需要重组？</span>
+<span class="code-comment">// 3. 如果同时有多个状态变化，如何保证一致性？</span></code></pre>
+
+        <p>Snapshot 系统正是为了解决这些问题而设计的。</p>
+
+        <h2>二、StateObject 与 StateRecord</h2>
+
+        <p>理解 Snapshot 系统的第一步是理解它的数据结构。</p>
+
+        <h3>StateObject</h3>
+
+        <p>每个 Compose 状态（如 <code>MutableState</code>）都实现了 <code>StateObject</code> 接口：</p>
+
+<pre><code><span class="code-comment">// 简化的 StateObject 接口</span>
+<span class="code-keyword">interface</span> <span class="code-type">StateObject</span> {
+    <span class="code-comment">// 状态记录链表的头部</span>
+    <span class="code-keyword">val</span> firstStateRecord: <span class="code-type">StateRecord</span>
+    
+    <span class="code-comment">// 添加新的状态记录</span>
+    <span class="code-keyword">fun</span> <span class="code-func">prependStateRecord</span>(value: <span class="code-type">StateRecord</span>)
+}
+
+<span class="code-comment">// MutableState 的简化实现</span>
+<span class="code-keyword">internal class</span> <span class="code-type">SnapshotMutableStateImpl</span>&lt;<span class="code-type">T</span>&gt;(
+    value: <span class="code-type">T</span>
+) : <span class="code-type">StateObject</span>, <span class="code-type">MutableState</span>&lt;<span class="code-type">T</span>&gt; {
+    
+    <span class="code-keyword">override var</span> firstStateRecord: <span class="code-type">StateRecord</span> = 
+        <span class="code-type">StateStateRecord</span>(value)
+    
+    <span class="code-keyword">override var</span> value: <span class="code-type">T</span>
+        <span class="code-keyword">get</span>() {
+            <span class="code-comment">// 读取时通知 Snapshot 系统</span>
+            <span class="code-keyword">return</span> <span class="code-func">readable</span>(firstStateRecord).value
+        }
+        <span class="code-keyword">set</span>(value) {
+            <span class="code-comment">// 写入时通知 Snapshot 系统</span>
+            <span class="code-func">writable</span>(firstStateRecord).value = value
+        }
+}</code></pre>
+
+        <h3>StateRecord：状态的版本链</h3>
+
+        <p>每个 <code>StateObject</code> 维护一个 <code>StateRecord</code> 链表，记录不同时间点的状态值：</p>
+
+        <div class="diagram">
+<pre>
+<span class="highlight">StateRecord 链表结构</span>
+
+StateObject (MutableState)
+    │
+    ▼
+┌─────────────────┐    ┌─────────────────┐    ┌─────────────────┐
+│ StateRecord #3  │───▶│ StateRecord #2  │───▶│ StateRecord #1  │
+│ snapshotId: 15  │    │ snapshotId: 10  │    │ snapshotId: 1   │
+│ value: "C"      │    │ value: "B"      │    │ value: "A"      │
+└─────────────────┘    └─────────────────┘    └─────────────────┘
+      ▲                                              ▲
+      │                                              │
+  最新版本                                        初始版本
+
+<span class="state">当前 Snapshot (id=12) 看到的值是 "B"</span>
+<span class="snapshot">当前 Snapshot (id=16) 看到的值是 "C"</span>
+</pre>
+        </div>
+
+        <p>这种设计允许不同的 Snapshot 看到不同版本的状态，实现了<strong>多版本并发控制（MVCC）</strong>。</p>
+
+        <div class="callout callout-info">
+            <p class="callout-title">💡 MVCC 的优势</p>
+            <p>多版本并发控制让读操作不会阻塞写操作，写操作也不会阻塞读操作。这对于 UI 框架至关重要——我们不希望状态更新阻塞 UI 渲染。</p>
+        </div>
+
+        <h2>三、Snapshot 的读写追踪</h2>
+
+        <p>Snapshot 系统的核心能力是追踪状态的读取和写入。</p>
+
+        <h3>读取追踪</h3>
+
+        <p>当你读取一个 <code>MutableState</code> 时，Snapshot 系统会记录这次读取：</p>
+
+<pre><code><span class="code-comment">// 伪代码：读取追踪机制</span>
+<span class="code-keyword">internal fun</span> &lt;<span class="code-type">T</span>&gt; <span class="code-func">readable</span>(record: <span class="code-type">StateRecord</span>): <span class="code-type">T</span> {
+    <span class="code-comment">// 1. 获取当前 Snapshot</span>
+    <span class="code-keyword">val</span> snapshot = <span class="code-type">Snapshot</span>.current
+    
+    <span class="code-comment">// 2. 找到对当前 Snapshot 可见的记录</span>
+    <span class="code-keyword">val</span> visibleRecord = record.<span class="code-func">findRecord</span>(snapshot.id)
+    
+    <span class="code-comment">// 3. 通知读取观察者（关键！）</span>
+    snapshot.readObserver?.<span class="code-func">invoke</span>(record.stateObject)
+    
+    <span class="code-keyword">return</span> visibleRecord.value
+}</code></pre>
+
+        <p>在 Composition 期间，Compose 设置了读取观察者来收集依赖：</p>
+
+<pre><code><span class="code-comment">// Composition 如何设置读取观察</span>
+<span class="code-keyword">fun</span> <span class="code-func">compose</span>(content: <span class="code-keyword">@Composable</span> () -> <span class="code-type">Unit</span>) {
+    <span class="code-type">Snapshot</span>.<span class="code-func">observe</span>(
+        readObserver = { state ->
+            <span class="code-comment">// 记录：当前 Composable 依赖这个状态</span>
+            currentScope.<span class="code-func">recordRead</span>(state)
+        }
+    ) {
+        <span class="code-func">content</span>()
+    }
+}
+
+<span class="code-comment">// 这就是为什么 Compose 知道哪些 Composable 需要重组！</span></code></pre>
+
+        <h3>写入追踪</h3>
+
+        <p>当你修改一个 <code>MutableState</code> 时：</p>
+
+<pre><code><span class="code-comment">// 伪代码：写入追踪机制</span>
+<span class="code-keyword">internal fun</span> &lt;<span class="code-type">T</span>&gt; <span class="code-func">writable</span>(record: <span class="code-type">StateRecord</span>): <span class="code-type">T</span> {
+    <span class="code-comment">// 1. 获取当前 Snapshot</span>
+    <span class="code-keyword">val</span> snapshot = <span class="code-type">Snapshot</span>.current
+    
+    <span class="code-comment">// 2. 创建新的 StateRecord（Copy-on-Write）</span>
+    <span class="code-keyword">val</span> newRecord = record.<span class="code-func">create</span>()
+    newRecord.snapshotId = snapshot.id
+    
+    <span class="code-comment">// 3. 通知写入观察者</span>
+    snapshot.writeObserver?.<span class="code-func">invoke</span>(record.stateObject)
+    
+    <span class="code-keyword">return</span> newRecord
+}</code></pre>
+
+        <p>全局写入观察者负责触发重组：</p>
+
+<pre><code><span class="code-comment">// Compose 如何响应状态变化</span>
+<span class="code-type">Snapshot</span>.<span class="code-func">registerGlobalWriteObserver</span> { changedStates ->
+    <span class="code-comment">// 当状态变化时，找到依赖这些状态的 Composable</span>
+    changedStates.<span class="code-func">forEach</span> { state ->
+        <span class="code-keyword">val</span> affectedScopes = dependencyTracker.<span class="code-func">getScopesFor</span>(state)
+        affectedScopes.<span class="code-func">forEach</span> { scope ->
+            scope.<span class="code-func">invalidate</span>()  <span class="code-comment">// 标记需要重组</span>
+        }
+    }
+}</code></pre>
+
+        <h2>四、Snapshot 事务</h2>
+
+        <p>Snapshot 系统支持类似数据库的事务操作。</p>
+
+        <h3>MutableSnapshot</h3>
+
+        <p>你可以创建一个可变 Snapshot 来隔离状态变化：</p>
+
+<pre><code><span class="code-keyword">val</span> state = <span class="code-func">mutableStateOf</span>(<span class="code-number">0</span>)
+
+<span class="code-comment">// 在全局 Snapshot 中，state = 0</span>
+
+<span class="code-keyword">val</span> snapshot = <span class="code-type">Snapshot</span>.<span class="code-func">takeMutableSnapshot</span>()
+snapshot.<span class="code-func">enter</span> {
+    <span class="code-comment">// 在这个 Snapshot 中修改</span>
+    state.value = <span class="code-number">42</span>
+    
+    <span class="code-comment">// 在这个 Snapshot 中，state = 42</span>
+    <span class="code-func">println</span>(state.value)  <span class="code-comment">// 输出: 42</span>
+}
+
+<span class="code-comment">// 在全局 Snapshot 中，state 仍然 = 0！</span>
+<span class="code-func">println</span>(state.value)  <span class="code-comment">// 输出: 0</span>
+
+<span class="code-comment">// 提交变化到全局</span>
+snapshot.<span class="code-func">apply</span>()
+
+<span class="code-comment">// 现在全局也是 42 了</span>
+<span class="code-func">println</span>(state.value)  <span class="code-comment">// 输出: 42</span></code></pre>
+
+        <h3>事务隔离的应用</h3>
+
+        <p>Compose 在多个地方使用事务隔离：</p>
+
+        <table class="comparison-table">
+            <thead>
+                <tr>
+                    <th>场景</th>
+                    <th>使用方式</th>
+                    <th>目的</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr>
+                    <td>Composition</td>
+                    <td>ReadonlySnapshot</td>
+                    <td>确保组合期间状态一致</td>
+                </tr>
+                <tr>
+                    <td>状态恢复</td>
+                    <td>MutableSnapshot</td>
+                    <td>批量恢复状态，原子提交</td>
+                </tr>
+                <tr>
+                    <td>测试</td>
+                    <td>MutableSnapshot</td>
+                    <td>隔离测试状态，不影响其他测试</td>
+                </tr>
+                <tr>
+                    <td>动画预览</td>
+                    <td>MutableSnapshot</td>
+                    <td>预览状态变化而不实际提交</td>
+                </tr>
+            </tbody>
+        </table>
+
+        <h3>冲突检测与解决</h3>
+
+        <p>当多个 Snapshot 修改同一状态时，可能产生冲突：</p>
+
+<pre><code><span class="code-keyword">val</span> state = <span class="code-func">mutableStateOf</span>(<span class="code-number">0</span>)
+
+<span class="code-keyword">val</span> snapshot1 = <span class="code-type">Snapshot</span>.<span class="code-func">takeMutableSnapshot</span>()
+<span class="code-keyword">val</span> snapshot2 = <span class="code-type">Snapshot</span>.<span class="code-func">takeMutableSnapshot</span>()
+
+snapshot1.<span class="code-func">enter</span> { state.value = <span class="code-number">1</span> }
+snapshot2.<span class="code-func">enter</span> { state.value = <span class="code-number">2</span> }
+
+snapshot1.<span class="code-func">apply</span>()  <span class="code-comment">// 成功，state = 1</span>
+snapshot2.<span class="code-func">apply</span>()  <span class="code-comment">// 冲突！抛出 SnapshotApplyConflictException</span>
+
+<span class="code-comment">// 解决冲突：使用 applyTo 并处理冲突</span>
+<span class="code-keyword">val</span> result = snapshot2.<span class="code-func">apply</span>()
+<span class="code-keyword">if</span> (result <span class="code-keyword">is</span> <span class="code-type">SnapshotApplyResult.Failure</span>) {
+    <span class="code-comment">// 处理冲突...</span>
+}</code></pre>
+
+        <div class="reference">
+            <div class="reference-title">📚 深入阅读</div>
+            <a href="https://www.droidcon.com/2022/06/28/understanding-jetpack-compose-part-2-of-2/" target="_blank">Understanding Jetpack Compose - Leland Richardson</a>
+        </div>
+
+        <h2>五、snapshotFlow：将 Snapshot 状态转为 Flow</h2>
+
+        <p><code>snapshotFlow</code> 是连接 Snapshot 系统和 Kotlin Flow 的桥梁：</p>
+
+<pre><code><span class="code-keyword">@Composable</span>
+<span class="code-keyword">fun</span> <span class="code-func">SearchScreen</span>(viewModel: <span class="code-type">SearchViewModel</span>) {
+    <span class="code-keyword">var</span> query <span class="code-keyword">by</span> <span class="code-func">remember</span> { <span class="code-func">mutableStateOf</span>(<span class="code-string">""</span>) }
+    
+    <span class="code-comment">// 将 Compose 状态转为 Flow</span>
+    <span class="code-func">LaunchedEffect</span>(<span class="code-type">Unit</span>) {
+        <span class="code-func">snapshotFlow</span> { query }
+            .<span class="code-func">debounce</span>(<span class="code-number">300</span>)
+            .<span class="code-func">distinctUntilChanged</span>()
+            .<span class="code-func">collect</span> { searchQuery ->
+                viewModel.<span class="code-func">search</span>(searchQuery)
+            }
+    }
+    
+    <span class="code-func">TextField</span>(
+        value = query,
+        onValueChange = { query = it }
+    )
+}</code></pre>
+
+        <h3>snapshotFlow 的实现原理</h3>
+
+<pre><code><span class="code-comment">// snapshotFlow 简化实现</span>
+<span class="code-keyword">fun</span> &lt;<span class="code-type">T</span>&gt; <span class="code-func">snapshotFlow</span>(block: () -> <span class="code-type">T</span>): <span class="code-type">Flow</span>&lt;<span class="code-type">T</span>&gt; = <span class="code-func">flow</span> {
+    <span class="code-keyword">var</span> previousValue: <span class="code-type">T</span>? = <span class="code-keyword">null</span>
+    
+    <span class="code-keyword">while</span> (<span class="code-keyword">true</span>) {
+        <span class="code-comment">// 在 Snapshot 中执行 block，同时收集读取的状态</span>
+        <span class="code-keyword">val</span> readStates = <span class="code-func">mutableSetOf</span>&lt;<span class="code-type">StateObject</span>&gt;()
+        <span class="code-keyword">val</span> value = <span class="code-type">Snapshot</span>.<span class="code-func">observe</span>(
+            readObserver = { readStates.<span class="code-func">add</span>(it) }
+        ) {
+            <span class="code-func">block</span>()
+        }
+        
+        <span class="code-comment">// 如果值变化了，发射新值</span>
+        <span class="code-keyword">if</span> (value != previousValue) {
+            <span class="code-func">emit</span>(value)
+            previousValue = value
+        }
+        
+        <span class="code-comment">// 等待任一读取的状态发生变化</span>
+        <span class="code-func">suspendUntilAnyChange</span>(readStates)
+    }
+}</code></pre>
+
+        <h2>六、derivedStateOf：派生状态的优化</h2>
+
+        <p><code>derivedStateOf</code> 利用 Snapshot 系统实现高效的派生状态计算：</p>
+
+<pre><code><span class="code-keyword">@Composable</span>
+<span class="code-keyword">fun</span> <span class="code-func">FilteredList</span>(items: <span class="code-type">List</span>&lt;<span class="code-type">Item</span>&gt;, filter: <span class="code-type">String</span>) {
+    <span class="code-comment">// ❌ 每次重组都重新过滤</span>
+    <span class="code-keyword">val</span> filtered = items.<span class="code-func">filter</span> { it.name.<span class="code-func">contains</span>(filter) }
+    
+    <span class="code-comment">// ✅ 只有当 items 或 filter 变化时才重新计算</span>
+    <span class="code-keyword">val</span> filtered <span class="code-keyword">by</span> <span class="code-func">remember</span>(items, filter) {
+        <span class="code-func">derivedStateOf</span> {
+            items.<span class="code-func">filter</span> { it.name.<span class="code-func">contains</span>(filter) }
+        }
+    }
+}</code></pre>
+
+        <h3>derivedStateOf 的工作原理</h3>
+
+        <div class="diagram">
+<pre>
+<span class="highlight">derivedStateOf 依赖追踪</span>
+
+┌─────────────────────────────────────────────────────────────┐
+│                                                              │
+│  <span class="state">items</span>  ─────────┐                                         │
+│                  │                                          │
+│                  ▼                                          │
+│          ┌─────────────────┐                               │
+│          │ <span class="snapshot">derivedStateOf</span>  │                               │
+│  <span class="state">filter</span> ─▶│                 │──▶ <span class="observer">filteredItems</span>            │
+│          │ 追踪依赖        │                               │
+│          │ 缓存结果        │                               │
+│          └─────────────────┘                               │
+│                                                              │
+│  当 items 或 filter 变化时：                                 │
+│  1. derivedStateOf 收到通知                                 │
+│  2. 重新执行计算                                            │
+│  3. 如果结果变化，通知下游观察者                             │
+│                                                              │
+└─────────────────────────────────────────────────────────────┘
+</pre>
+        </div>
+
+<pre><code><span class="code-comment">// derivedStateOf 简化实现</span>
+<span class="code-keyword">class</span> <span class="code-type">DerivedSnapshotState</span>&lt;<span class="code-type">T</span>&gt;(
+    <span class="code-keyword">private val</span> calculation: () -> <span class="code-type">T</span>
+) : <span class="code-type">State</span>&lt;<span class="code-type">T</span>&gt; {
+    
+    <span class="code-keyword">private var</span> cachedValue: <span class="code-type">T</span>? = <span class="code-keyword">null</span>
+    <span class="code-keyword">private var</span> dependencies = <span class="code-func">setOf</span>&lt;<span class="code-type">StateObject</span>&gt;()
+    <span class="code-keyword">private var</span> isValid = <span class="code-keyword">false</span>
+    
+    <span class="code-keyword">override val</span> value: <span class="code-type">T</span>
+        <span class="code-keyword">get</span>() {
+            <span class="code-keyword">if</span> (!isValid || <span class="code-func">dependenciesChanged</span>()) {
+                <span class="code-comment">// 重新计算，同时追踪新的依赖</span>
+                <span class="code-keyword">val</span> newDeps = <span class="code-func">mutableSetOf</span>&lt;<span class="code-type">StateObject</span>&gt;()
+                cachedValue = <span class="code-type">Snapshot</span>.<span class="code-func">observe</span>(
+                    readObserver = { newDeps.<span class="code-func">add</span>(it) }
+                ) {
+                    <span class="code-func">calculation</span>()
+                }
+                dependencies = newDeps
+                isValid = <span class="code-keyword">true</span>
+            }
+            <span class="code-keyword">return</span> cachedValue!!
+        }
+}</code></pre>
+
+        <div class="callout callout-warning">
+            <p class="callout-title">⚠️ derivedStateOf 的常见误用</p>
+            <p>不要在 <code>derivedStateOf</code> 中引用 Composable 参数，因为参数变化不会触发重新计算。始终使用 <code>remember(key)</code> 来处理参数依赖。</p>
+        </div>
+
+        <h2>七、Snapshot 与线程安全</h2>
+
+        <p>Snapshot 系统天然支持多线程访问。</p>
+
+        <h3>线程本地 Snapshot</h3>
+
+        <p>每个线程可以有自己的 Snapshot 视图：</p>
+
+<pre><code><span class="code-keyword">val</span> state = <span class="code-func">mutableStateOf</span>(<span class="code-number">0</span>)
+
+<span class="code-comment">// 主线程</span>
+<span class="code-func">launch</span>(<span class="code-type">Dispatchers</span>.Main) {
+    state.value = <span class="code-number">1</span>
+    <span class="code-func">println</span>(<span class="code-string">"Main: </span>${state.value}<span class="code-string">"</span>)  <span class="code-comment">// 1</span>
+}
+
+<span class="code-comment">// 后台线程</span>
+<span class="code-func">launch</span>(<span class="code-type">Dispatchers</span>.IO) {
+    <span class="code-comment">// 创建独立的 Snapshot</span>
+    <span class="code-type">Snapshot</span>.<span class="code-func">takeSnapshot</span>().<span class="code-func">enter</span> {
+        <span class="code-func">println</span>(<span class="code-string">"IO: </span>${state.value}<span class="code-string">"</span>)  <span class="code-comment">// 可能是 0 或 1</span>
+    }
+}</code></pre>
+
+        <h3>withMutableSnapshot：线程安全的状态修改</h3>
+
+<pre><code><span class="code-comment">// 在任意线程安全地修改状态</span>
+<span class="code-func">launch</span>(<span class="code-type">Dispatchers</span>.IO) {
+    <span class="code-type">Snapshot</span>.<span class="code-func">withMutableSnapshot</span> {
+        <span class="code-comment">// 这里的修改是原子的</span>
+        state1.value = <span class="code-string">"new value"</span>
+        state2.value = <span class="code-number">42</span>
+    }
+    <span class="code-comment">// 退出时自动 apply</span>
+}</code></pre>
+
+        <h2>八、实战：自定义 StateObject</h2>
+
+        <p>你可以创建自定义的状态类型，参与 Snapshot 系统：</p>
+
+<pre><code><span class="code-comment">// 自定义计数器状态</span>
+<span class="code-keyword">class</span> <span class="code-type">SnapshotCounter</span> : <span class="code-type">StateObject</span> {
+    
+    <span class="code-keyword">private class</span> <span class="code-type">CounterRecord</span> : <span class="code-type">StateRecord</span>() {
+        <span class="code-keyword">var</span> count: <span class="code-type">Int</span> = <span class="code-number">0</span>
+        
+        <span class="code-keyword">override fun</span> <span class="code-func">create</span>() = <span class="code-type">CounterRecord</span>()
+        
+        <span class="code-keyword">override fun</span> <span class="code-func">assign</span>(value: <span class="code-type">StateRecord</span>) {
+            count = (value <span class="code-keyword">as</span> <span class="code-type">CounterRecord</span>).count
+        }
+    }
+    
+    <span class="code-keyword">override var</span> firstStateRecord: <span class="code-type">StateRecord</span> = <span class="code-type">CounterRecord</span>()
+    
+    <span class="code-keyword">override fun</span> <span class="code-func">prependStateRecord</span>(value: <span class="code-type">StateRecord</span>) {
+        value.next = firstStateRecord
+        firstStateRecord = value
+    }
+    
+    <span class="code-keyword">val</span> count: <span class="code-type">Int</span>
+        <span class="code-keyword">get</span>() = <span class="code-func">readable</span>(firstStateRecord).count
+    
+    <span class="code-keyword">fun</span> <span class="code-func">increment</span>() {
+        <span class="code-func">writable</span>(firstStateRecord).count++
+    }
+    
+    <span class="code-keyword">fun</span> <span class="code-func">decrement</span>() {
+        <span class="code-func">writable</span>(firstStateRecord).count--
+    }
+    
+    <span class="code-keyword">private fun</span> <span class="code-func">readable</span>(record: <span class="code-type">StateRecord</span>): <span class="code-type">CounterRecord</span> {
+        <span class="code-keyword">return</span> <span class="code-type">Snapshot</span>.current.<span class="code-func">readable</span>(record, <span class="code-keyword">this</span>) <span class="code-keyword">as</span> <span class="code-type">CounterRecord</span>
+    }
+    
+    <span class="code-keyword">private fun</span> <span class="code-func">writable</span>(record: <span class="code-type">StateRecord</span>): <span class="code-type">CounterRecord</span> {
+        <span class="code-keyword">return</span> <span class="code-type">Snapshot</span>.current.<span class="code-func">writable</span>(record, <span class="code-keyword">this</span>) <span class="code-keyword">as</span> <span class="code-type">CounterRecord</span>
+    }
+}</code></pre>
+
+        <h2>九、调试 Snapshot 系统</h2>
+
+        <h3>使用 Snapshot 监听器</h3>
+
+<pre><code><span class="code-comment">// 监听所有状态变化</span>
+<span class="code-keyword">val</span> handle = <span class="code-type">Snapshot</span>.<span class="code-func">registerGlobalWriteObserver</span> { changedObjects ->
+    changedObjects.<span class="code-func">forEach</span> { obj ->
+        <span class="code-func">println</span>(<span class="code-string">"State changed: </span>$obj<span class="code-string">"</span>)
+    }
+}
+
+<span class="code-comment">// 不再需要时移除</span>
+handle.<span class="code-func">dispose</span>()</code></pre>
+
+        <h3>使用 Composition Tracing</h3>
+
+<pre><code><span class="code-comment">// 在 Debug 构建中启用追踪</span>
+<span class="code-keyword">if</span> (<span class="code-type">BuildConfig</span>.DEBUG) {
+    <span class="code-type">Composer</span>.enableTracing = <span class="code-keyword">true</span>
+}</code></pre>
+
+        <h2>十、最佳实践</h2>
+
+        <h3>DO ✅</h3>
+
+        <ul>
+            <li>使用 <code>mutableStateOf</code> 而非普通变量来存储 UI 状态</li>
+            <li>使用 <code>derivedStateOf</code> 缓存昂贵的计算</li>
+            <li>使用 <code>snapshotFlow</code> 将 Compose 状态连接到 Flow</li>
+            <li>在后台线程修改状态时使用 <code>withMutableSnapshot</code></li>
+        </ul>
+
+        <h3>DON'T ❌</h3>
+
+        <ul>
+            <li>不要在 Composable 外部直接修改状态（除非在正确的 Snapshot 上下文中）</li>
+            <li>不要忽略 <code>snapshotFlow</code> 的收集——它会持续运行</li>
+            <li>不要在 <code>derivedStateOf</code> 中执行副作用</li>
+            <li>不要手动管理 Snapshot 生命周期（除非你知道自己在做什么）</li>
+        </ul>
+
+        <h2>总结</h2>
+
+        <p>Snapshot 系统是 Compose 响应式的基石：</p>
+
+        <ul>
+            <li><strong>StateObject/StateRecord</strong>：多版本状态存储</li>
+            <li><strong>读写追踪</strong>：自动收集依赖和触发更新</li>
+            <li><strong>事务隔离</strong>：确保状态一致性</li>
+            <li><strong>snapshotFlow</strong>：连接 Compose 和 Flow</li>
+            <li><strong>derivedStateOf</strong>：高效的派生状态</li>
+        </ul>
+
+        <p>理解 Snapshot 系统不仅能帮助你写出更高效的 Compose 代码，还能让你在遇到状态相关问题时更容易定位和解决。</p>
+
+        <div class="reference">
+            <div class="reference-title">📚 推荐阅读</div>
+            <a href="https://developer.android.com/jetpack/compose/state" target="_blank">State and Jetpack Compose - Android Developers</a><br>
+            <a href="https://www.youtube.com/watch?v=Q9MtlmmN4Q0" target="_blank">Compose Internals - Leland Richardson (Video)</a><br>
+            <a href="https://jorgecastillo.dev/book/" target="_blank">Jetpack Compose Internals - Jorge Castillo</a>
+        </div>
+    </article>
+
+    <footer class="footer">
+        <p>&copy; 2024 Fidroid. <a href="../index.html">返回首页</a></p>
+    </footer>
+</body>
+</html>
+
