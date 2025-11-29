@@ -1,0 +1,391 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Compose UI 测试实战：从单元测试到端到端 - Fidroid</title>
+    <meta name="description" content="学习如何测试 Jetpack Compose UI，掌握 ComposeTestRule、语义树查询、交互模拟等测试技巧。">
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            line-height: 1.8;
+            color: #e5e7eb;
+            background: #020617;
+        }
+        .navbar {
+            background: rgba(15,23,42,0.98);
+            backdrop-filter: blur(10px);
+            position: fixed;
+            top: 0;
+            width: 100%;
+            z-index: 1000;
+        }
+        .nav-container {
+            max-width: 900px;
+            margin: 0 auto;
+            padding: 1rem 20px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .logo {
+            font-size: 1.5rem;
+            font-weight: bold;
+            color: #38bdf8;
+            text-decoration: none;
+            letter-spacing: 0.08em;
+            text-transform: uppercase;
+        }
+        .back-link { color: #9ca3af; text-decoration: none; font-size: 0.9rem; }
+        .back-link:hover { color: #38bdf8; }
+
+        .article-header {
+            padding: 120px 20px 60px;
+            background: radial-gradient(circle at top left, #22c55e 0, transparent 50%),
+                        radial-gradient(circle at bottom right, #eab308 0, transparent 55%),
+                        #020617;
+            text-align: center;
+        }
+        .article-header h1 {
+            max-width: 800px;
+            margin: 0 auto 1rem;
+            font-size: 2.5rem;
+            font-weight: 800;
+            letter-spacing: -0.03em;
+            color: #fff;
+        }
+        .article-meta { color: #9ca3af; font-size: 0.9rem; margin-bottom: 1.5rem; }
+        .article-tags { display: flex; justify-content: center; flex-wrap: wrap; gap: 0.5rem; }
+        .article-tag {
+            padding: 0.25rem 0.75rem;
+            border-radius: 999px;
+            font-size: 0.75rem;
+            background: rgba(15,23,42,0.85);
+            border: 1px solid rgba(34,197,94,0.4);
+            color: #86efac;
+        }
+
+        .article-content {
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 60px 20px 80px;
+        }
+        .article-content h2 {
+            font-size: 1.6rem;
+            margin: 2.5rem 0 1rem;
+            color: #f9fafb;
+            border-left: 4px solid #22c55e;
+            padding-left: 1rem;
+        }
+        .article-content h3 { font-size: 1.25rem; margin: 2rem 0 0.75rem; color: #e5e7eb; }
+        .article-content p { margin-bottom: 1.25rem; color: #d1d5db; }
+        .article-content ul, .article-content ol { margin: 1rem 0 1.5rem 1.5rem; color: #d1d5db; }
+        .article-content li { margin-bottom: 0.5rem; }
+        .article-content strong { color: #f9fafb; }
+        .article-content a { color: #38bdf8; text-decoration: underline; }
+
+        pre {
+            background: #0f172a;
+            border: 1px solid rgba(34,197,94,0.3);
+            border-radius: 12px;
+            padding: 1.25rem;
+            overflow-x: auto;
+            margin: 1.5rem 0;
+            font-size: 0.85rem;
+            line-height: 1.6;
+        }
+        code { font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace; color: #e5e7eb; }
+        .code-keyword { color: #c084fc; }
+        .code-func { color: #38bdf8; }
+        .code-type { color: #4ade80; }
+        .code-string { color: #fb7185; }
+        .code-comment { color: #6b7280; font-style: italic; }
+        .code-number { color: #fbbf24; }
+
+        .callout {
+            background: rgba(34,197,94,0.1);
+            border: 1px solid rgba(34,197,94,0.3);
+            border-radius: 12px;
+            padding: 1.25rem 1.5rem;
+            margin: 1.5rem 0;
+        }
+        .callout-title { font-weight: 600; color: #86efac; margin-bottom: 0.5rem; }
+        .callout p { margin-bottom: 0; color: #d1d5db; }
+
+        .footer {
+            background: #020617;
+            border-top: 1px solid #111827;
+            padding: 2rem;
+            text-align: center;
+            color: #6b7280;
+        }
+        .footer a { color: #38bdf8; text-decoration: none; }
+    </style>
+</head>
+<body>
+    <nav class="navbar">
+        <div class="nav-container">
+            <a href="../index.html" class="logo">Fidroid</a>
+            <a href="../index.html#blog" class="back-link">← 返回博客列表</a>
+        </div>
+    </nav>
+
+    <header class="article-header">
+        <h1>Compose UI 测试实战：从单元测试到端到端</h1>
+        <p class="article-meta">2024-04-08 · 18 min · 测试</p>
+        <div class="article-tags">
+            <span class="article-tag">Testing</span>
+            <span class="article-tag">ComposeTestRule</span>
+            <span class="article-tag">Semantics</span>
+            <span class="article-tag">Screenshot Test</span>
+        </div>
+    </header>
+
+    <article class="article-content">
+        <p>Compose 的声明式特性让 UI 测试变得更加直观。本文将介绍如何使用 Compose Testing API 编写可靠的 UI 测试。</p>
+
+        <h2>一、测试环境配置</h2>
+
+<pre><code><span class="code-comment">// build.gradle.kts</span>
+dependencies {
+    <span class="code-comment">// Compose 测试</span>
+    androidTestImplementation(<span class="code-string">"androidx.compose.ui:ui-test-junit4"</span>)
+    debugImplementation(<span class="code-string">"androidx.compose.ui:ui-test-manifest"</span>)
+
+    <span class="code-comment">// 可选：Robolectric 支持本地测试</span>
+    testImplementation(<span class="code-string">"org.robolectric:robolectric:4.11"</span>)
+}</code></pre>
+
+        <h2>二、基础测试结构</h2>
+
+<pre><code><span class="code-keyword">class</span> <span class="code-type">LoginScreenTest</span> {
+
+    <span class="code-keyword">@get:Rule</span>
+    <span class="code-keyword">val</span> composeTestRule = <span class="code-func">createComposeRule</span>()
+
+    <span class="code-keyword">@Test</span>
+    <span class="code-keyword">fun</span> <span class="code-func">loginButton_displaysCorrectText</span>() {
+        <span class="code-comment">// 设置要测试的 Composable</span>
+        composeTestRule.<span class="code-func">setContent</span> {
+            <span class="code-func">LoginScreen</span>()
+        }
+
+        <span class="code-comment">// 查找并断言</span>
+        composeTestRule
+            .<span class="code-func">onNodeWithText</span>(<span class="code-string">"登录"</span>)
+            .<span class="code-func">assertIsDisplayed</span>()
+    }
+}</code></pre>
+
+        <h2>三、查找节点的方式</h2>
+
+<pre><code><span class="code-comment">// 通过文本查找</span>
+composeTestRule.<span class="code-func">onNodeWithText</span>(<span class="code-string">"Submit"</span>)
+
+<span class="code-comment">// 通过 contentDescription 查找</span>
+composeTestRule.<span class="code-func">onNodeWithContentDescription</span>(<span class="code-string">"Close button"</span>)
+
+<span class="code-comment">// 通过 testTag 查找（推荐）</span>
+composeTestRule.<span class="code-func">onNodeWithTag</span>(<span class="code-string">"login_button"</span>)
+
+<span class="code-comment">// 组合查找条件</span>
+composeTestRule.<span class="code-func">onNode</span>(
+    <span class="code-func">hasText</span>(<span class="code-string">"Submit"</span>) <span class="code-keyword">and</span> <span class="code-func">hasClickAction</span>()
+)
+
+<span class="code-comment">// 查找多个节点</span>
+composeTestRule.<span class="code-func">onAllNodesWithTag</span>(<span class="code-string">"list_item"</span>)</code></pre>
+
+        <h3>添加 testTag</h3>
+
+<pre><code><span class="code-func">Button</span>(
+    onClick = { },
+    modifier = <span class="code-type">Modifier</span>.<span class="code-func">testTag</span>(<span class="code-string">"login_button"</span>)
+) {
+    <span class="code-func">Text</span>(<span class="code-string">"登录"</span>)
+}</code></pre>
+
+        <h2>四、常用断言</h2>
+
+<pre><code><span class="code-comment">// 显示状态</span>
+.<span class="code-func">assertIsDisplayed</span>()
+.<span class="code-func">assertIsNotDisplayed</span>()
+.<span class="code-func">assertExists</span>()
+.<span class="code-func">assertDoesNotExist</span>()
+
+<span class="code-comment">// 启用状态</span>
+.<span class="code-func">assertIsEnabled</span>()
+.<span class="code-func">assertIsNotEnabled</span>()
+
+<span class="code-comment">// 选中状态</span>
+.<span class="code-func">assertIsSelected</span>()
+.<span class="code-func">assertIsOn</span>()  <span class="code-comment">// for toggles</span>
+.<span class="code-func">assertIsOff</span>()
+
+<span class="code-comment">// 文本断言</span>
+.<span class="code-func">assertTextEquals</span>(<span class="code-string">"Expected text"</span>)
+.<span class="code-func">assertTextContains</span>(<span class="code-string">"partial"</span>)
+
+<span class="code-comment">// 数量断言</span>
+composeTestRule.<span class="code-func">onAllNodesWithTag</span>(<span class="code-string">"item"</span>).<span class="code-func">assertCountEquals</span>(<span class="code-number">5</span>)</code></pre>
+
+        <h2>五、模拟用户交互</h2>
+
+<pre><code><span class="code-comment">// 点击</span>
+.<span class="code-func">performClick</span>()
+
+<span class="code-comment">// 输入文本</span>
+.<span class="code-func">performTextInput</span>(<span class="code-string">"Hello"</span>)
+.<span class="code-func">performTextClearance</span>()
+.<span class="code-func">performTextReplacement</span>(<span class="code-string">"New text"</span>)
+
+<span class="code-comment">// 滚动</span>
+.<span class="code-func">performScrollTo</span>()
+.<span class="code-func">performScrollToIndex</span>(<span class="code-number">10</span>)
+
+<span class="code-comment">// 手势</span>
+.<span class="code-func">performTouchInput</span> {
+    <span class="code-func">swipeLeft</span>()
+    <span class="code-func">swipeUp</span>()
+    <span class="code-func">longClick</span>()
+}</code></pre>
+
+        <h2>六、完整测试示例</h2>
+
+<pre><code><span class="code-keyword">class</span> <span class="code-type">TodoListTest</span> {
+
+    <span class="code-keyword">@get:Rule</span>
+    <span class="code-keyword">val</span> composeTestRule = <span class="code-func">createComposeRule</span>()
+
+    <span class="code-keyword">@Test</span>
+    <span class="code-keyword">fun</span> <span class="code-func">addTodo_showsInList</span>() {
+        composeTestRule.<span class="code-func">setContent</span> {
+            <span class="code-func">TodoApp</span>()
+        }
+
+        <span class="code-comment">// 输入新待办</span>
+        composeTestRule
+            .<span class="code-func">onNodeWithTag</span>(<span class="code-string">"todo_input"</span>)
+            .<span class="code-func">performTextInput</span>(<span class="code-string">"Buy milk"</span>)
+
+        <span class="code-comment">// 点击添加按钮</span>
+        composeTestRule
+            .<span class="code-func">onNodeWithTag</span>(<span class="code-string">"add_button"</span>)
+            .<span class="code-func">performClick</span>()
+
+        <span class="code-comment">// 验证列表中显示新项</span>
+        composeTestRule
+            .<span class="code-func">onNodeWithText</span>(<span class="code-string">"Buy milk"</span>)
+            .<span class="code-func">assertIsDisplayed</span>()
+    }
+
+    <span class="code-keyword">@Test</span>
+    <span class="code-keyword">fun</span> <span class="code-func">completeTodo_showsStrikethrough</span>() {
+        composeTestRule.<span class="code-func">setContent</span> {
+            <span class="code-func">TodoItem</span>(
+                todo = <span class="code-func">Todo</span>(<span class="code-string">"Test"</span>, completed = <span class="code-keyword">false</span>),
+                onToggle = {}
+            )
+        }
+
+        <span class="code-comment">// 点击复选框</span>
+        composeTestRule
+            .<span class="code-func">onNodeWithTag</span>(<span class="code-string">"todo_checkbox"</span>)
+            .<span class="code-func">performClick</span>()
+
+        <span class="code-comment">// 验证状态变化</span>
+        composeTestRule
+            .<span class="code-func">onNodeWithTag</span>(<span class="code-string">"todo_checkbox"</span>)
+            .<span class="code-func">assertIsOn</span>()
+    }
+}</code></pre>
+
+        <h2>七、等待异步操作</h2>
+
+<pre><code><span class="code-keyword">@Test</span>
+<span class="code-keyword">fun</span> <span class="code-func">loadData_showsContent</span>() {
+    composeTestRule.<span class="code-func">setContent</span> {
+        <span class="code-func">DataScreen</span>()
+    }
+
+    <span class="code-comment">// 等待加载完成</span>
+    composeTestRule.<span class="code-func">waitUntil</span>(timeoutMillis = <span class="code-number">5000</span>) {
+        composeTestRule
+            .<span class="code-func">onAllNodesWithTag</span>(<span class="code-string">"data_item"</span>)
+            .<span class="code-func">fetchSemanticsNodes</span>()
+            .isNotEmpty()
+    }
+
+    <span class="code-comment">// 或使用 IdlingResource</span>
+    composeTestRule.<span class="code-func">registerIdlingResource</span>(dataLoadingIdlingResource)
+}</code></pre>
+
+        <h2>八、测试 ViewModel 集成</h2>
+
+<pre><code><span class="code-keyword">@Test</span>
+<span class="code-keyword">fun</span> <span class="code-func">screenWithViewModel_displaysData</span>() {
+    <span class="code-keyword">val</span> fakeViewModel = <span class="code-func">FakeProfileViewModel</span>()
+    fakeViewModel.<span class="code-func">setProfile</span>(
+        <span class="code-func">Profile</span>(name = <span class="code-string">"John"</span>, email = <span class="code-string">"john@example.com"</span>)
+    )
+
+    composeTestRule.<span class="code-func">setContent</span> {
+        <span class="code-func">ProfileScreen</span>(viewModel = fakeViewModel)
+    }
+
+    composeTestRule
+        .<span class="code-func">onNodeWithText</span>(<span class="code-string">"John"</span>)
+        .<span class="code-func">assertIsDisplayed</span>()
+
+    composeTestRule
+        .<span class="code-func">onNodeWithText</span>(<span class="code-string">"john@example.com"</span>)
+        .<span class="code-func">assertIsDisplayed</span>()
+}</code></pre>
+
+        <h2>九、截图测试</h2>
+
+<pre><code><span class="code-keyword">@Test</span>
+<span class="code-keyword">fun</span> <span class="code-func">button_matchesGolden</span>() {
+    composeTestRule.<span class="code-func">setContent</span> {
+        <span class="code-func">PrimaryButton</span>(text = <span class="code-string">"Click me"</span>, onClick = {})
+    }
+
+    composeTestRule
+        .<span class="code-func">onNodeWithTag</span>(<span class="code-string">"primary_button"</span>)
+        .<span class="code-func">captureToImage</span>()
+        .<span class="code-func">assertAgainstGolden</span>(goldenIdentifier = <span class="code-string">"primary_button"</span>)
+}</code></pre>
+
+        <div class="callout">
+            <p class="callout-title">💡 截图测试工具</p>
+            <p>推荐使用 Paparazzi（本地截图测试）或 Shot（设备截图测试）库来实现截图比对。</p>
+        </div>
+
+        <h2>十、测试最佳实践</h2>
+        <ul>
+            <li>✅ 使用 <code>testTag</code> 而非文本查找，避免国际化问题</li>
+            <li>✅ 测试用户可见的行为，而非实现细节</li>
+            <li>✅ 保持测试独立，每个测试只验证一件事</li>
+            <li>✅ 使用 Fake/Mock 隔离外部依赖</li>
+            <li>✅ 为关键用户流程编写端到端测试</li>
+            <li>✅ 使用截图测试保证视觉一致性</li>
+        </ul>
+
+        <h2>总结</h2>
+        <p>Compose 测试的核心流程：</p>
+        <ol>
+            <li><strong>设置</strong>：使用 <code>setContent</code> 渲染 Composable</li>
+            <li><strong>查找</strong>：通过语义树查找节点</li>
+            <li><strong>交互</strong>：模拟用户操作</li>
+            <li><strong>断言</strong>：验证预期结果</li>
+        </ol>
+        <p>编写好的测试能让你更有信心地重构和迭代 UI 代码。</p>
+    </article>
+
+    <footer class="footer">
+        <p>&copy; 2024 Fidroid. <a href="../index.html">返回首页</a></p>
+    </footer>
+</body>
+</html>
+

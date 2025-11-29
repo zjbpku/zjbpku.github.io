@@ -1,0 +1,430 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Compose 状态管理完全指南：从 remember 到 StateFlow - Fidroid</title>
+    <meta name="description" content="深入理解 Compose 状态管理，掌握 remember、mutableStateOf、StateFlow 的正确使用场景，避免常见陷阱。">
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            line-height: 1.8;
+            color: #e5e7eb;
+            background: #020617;
+        }
+        .navbar {
+            background: rgba(15,23,42,0.98);
+            backdrop-filter: blur(10px);
+            position: fixed;
+            top: 0;
+            width: 100%;
+            z-index: 1000;
+        }
+        .nav-container {
+            max-width: 900px;
+            margin: 0 auto;
+            padding: 1rem 20px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .logo {
+            font-size: 1.5rem;
+            font-weight: bold;
+            color: #38bdf8;
+            text-decoration: none;
+            letter-spacing: 0.08em;
+            text-transform: uppercase;
+        }
+        .back-link { color: #9ca3af; text-decoration: none; font-size: 0.9rem; }
+        .back-link:hover { color: #38bdf8; }
+
+        .article-header {
+            padding: 120px 20px 60px;
+            background: radial-gradient(circle at top left, #06b6d4 0, transparent 50%),
+                        radial-gradient(circle at bottom right, #a855f7 0, transparent 55%),
+                        #020617;
+            text-align: center;
+        }
+        .article-header h1 {
+            max-width: 800px;
+            margin: 0 auto 1rem;
+            font-size: 2.5rem;
+            font-weight: 800;
+            letter-spacing: -0.03em;
+            color: #fff;
+        }
+        .article-meta { color: #9ca3af; font-size: 0.9rem; margin-bottom: 1.5rem; }
+        .article-tags { display: flex; justify-content: center; flex-wrap: wrap; gap: 0.5rem; }
+        .article-tag {
+            padding: 0.25rem 0.75rem;
+            border-radius: 999px;
+            font-size: 0.75rem;
+            background: rgba(15,23,42,0.85);
+            border: 1px solid rgba(6,182,212,0.4);
+            color: #67e8f9;
+        }
+
+        .article-content {
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 60px 20px 80px;
+        }
+        .article-content h2 {
+            font-size: 1.6rem;
+            margin: 2.5rem 0 1rem;
+            color: #f9fafb;
+            border-left: 4px solid #06b6d4;
+            padding-left: 1rem;
+        }
+        .article-content h3 { font-size: 1.25rem; margin: 2rem 0 0.75rem; color: #e5e7eb; }
+        .article-content p { margin-bottom: 1.25rem; color: #d1d5db; }
+        .article-content ul, .article-content ol { margin: 1rem 0 1.5rem 1.5rem; color: #d1d5db; }
+        .article-content li { margin-bottom: 0.5rem; }
+        .article-content strong { color: #f9fafb; }
+        .article-content a { color: #38bdf8; text-decoration: underline; }
+
+        pre {
+            background: #0f172a;
+            border: 1px solid rgba(6,182,212,0.3);
+            border-radius: 12px;
+            padding: 1.25rem;
+            overflow-x: auto;
+            margin: 1.5rem 0;
+            font-size: 0.85rem;
+            line-height: 1.6;
+        }
+        code { font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace; color: #e5e7eb; }
+        .code-keyword { color: #c084fc; }
+        .code-func { color: #38bdf8; }
+        .code-type { color: #4ade80; }
+        .code-string { color: #fb7185; }
+        .code-comment { color: #6b7280; font-style: italic; }
+        .code-number { color: #fbbf24; }
+
+        .callout {
+            background: rgba(6,182,212,0.1);
+            border: 1px solid rgba(6,182,212,0.3);
+            border-radius: 12px;
+            padding: 1.25rem 1.5rem;
+            margin: 1.5rem 0;
+        }
+        .callout-title { font-weight: 600; color: #67e8f9; margin-bottom: 0.5rem; }
+        .callout p { margin-bottom: 0; color: #d1d5db; }
+
+        .comparison-table { width: 100%; border-collapse: collapse; margin: 1.5rem 0; font-size: 0.9rem; }
+        .comparison-table th, .comparison-table td { border: 1px solid rgba(148,163,184,0.3); padding: 0.75rem 1rem; text-align: left; }
+        .comparison-table th { background: rgba(15,23,42,0.8); color: #f9fafb; }
+        .comparison-table td { color: #d1d5db; }
+
+        .footer {
+            background: #020617;
+            border-top: 1px solid #111827;
+            padding: 2rem;
+            text-align: center;
+            color: #6b7280;
+        }
+        .footer a { color: #38bdf8; text-decoration: none; }
+    </style>
+</head>
+<body>
+    <nav class="navbar">
+        <div class="nav-container">
+            <a href="../index.html" class="logo">Fidroid</a>
+            <a href="../index.html#blog" class="back-link">← 返回博客列表</a>
+        </div>
+    </nav>
+
+    <header class="article-header">
+        <h1>Compose 状态管理完全指南：从 remember 到 StateFlow</h1>
+        <p class="article-meta">2024-04-05 · 22 min · 状态管理</p>
+        <div class="article-tags">
+            <span class="article-tag">State</span>
+            <span class="article-tag">remember</span>
+            <span class="article-tag">StateFlow</span>
+            <span class="article-tag">ViewModel</span>
+        </div>
+    </header>
+
+    <article class="article-content">
+        <p>状态管理是 Compose 应用的核心。理解何时使用 <code>remember</code>、<code>mutableStateOf</code>、<code>rememberSaveable</code>、<code>StateFlow</code>，是写出健壮 Compose 代码的关键。</p>
+
+        <h2>一、Compose 中的状态是什么？</h2>
+        <p>在 Compose 中，<strong>状态是随时间变化并驱动 UI 更新的数据</strong>。当状态变化时，Compose 会自动重组（Recomposition）读取该状态的 Composable。</p>
+
+<pre><code><span class="code-keyword">@Composable</span>
+<span class="code-keyword">fun</span> <span class="code-func">Counter</span>() {
+    <span class="code-comment">// count 是状态，变化时 UI 自动更新</span>
+    <span class="code-keyword">var</span> count <span class="code-keyword">by</span> <span class="code-func">remember</span> { <span class="code-func">mutableStateOf</span>(<span class="code-number">0</span>) }
+
+    <span class="code-func">Button</span>(onClick = { count++ }) {
+        <span class="code-func">Text</span>(<span class="code-string">"Clicked $count times"</span>)
+    }
+}</code></pre>
+
+        <h2>二、状态 API 速查表</h2>
+
+        <table class="comparison-table">
+            <thead>
+                <tr>
+                    <th>API</th>
+                    <th>作用</th>
+                    <th>生命周期</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr>
+                    <td><code>mutableStateOf</code></td>
+                    <td>创建可观察的状态</td>
+                    <td>需配合 remember</td>
+                </tr>
+                <tr>
+                    <td><code>remember</code></td>
+                    <td>在重组间保持值</td>
+                    <td>Composable 在组合中存在期间</td>
+                </tr>
+                <tr>
+                    <td><code>rememberSaveable</code></td>
+                    <td>保存到 Bundle</td>
+                    <td>跨配置变更、进程死亡</td>
+                </tr>
+                <tr>
+                    <td><code>StateFlow</code></td>
+                    <td>ViewModel 中的状态流</td>
+                    <td>ViewModel 生命周期</td>
+                </tr>
+                <tr>
+                    <td><code>collectAsState</code></td>
+                    <td>将 Flow 转为 Compose State</td>
+                    <td>订阅期间</td>
+                </tr>
+            </tbody>
+        </table>
+
+        <h2>三、remember vs rememberSaveable</h2>
+
+<pre><code><span class="code-comment">// remember：配置变更（如旋转屏幕）后会丢失</span>
+<span class="code-keyword">var</span> count <span class="code-keyword">by</span> <span class="code-func">remember</span> { <span class="code-func">mutableStateOf</span>(<span class="code-number">0</span>) }
+
+<span class="code-comment">// rememberSaveable：配置变更后保留</span>
+<span class="code-keyword">var</span> count <span class="code-keyword">by</span> <span class="code-func">rememberSaveable</span> { <span class="code-func">mutableStateOf</span>(<span class="code-number">0</span>) }</code></pre>
+
+        <div class="callout">
+            <p class="callout-title">💡 何时用 rememberSaveable？</p>
+            <p>用户输入的表单数据、滚动位置、展开/折叠状态等需要跨配置变更保留的 UI 状态。</p>
+        </div>
+
+        <h3>自定义 Saver</h3>
+        <p>对于复杂对象，需要提供自定义 Saver：</p>
+
+<pre><code><span class="code-keyword">data class</span> <span class="code-type">City</span>(<span class="code-keyword">val</span> name: <span class="code-type">String</span>, <span class="code-keyword">val</span> country: <span class="code-type">String</span>)
+
+<span class="code-keyword">val</span> CitySaver = <span class="code-func">Saver</span>&lt;<span class="code-type">City</span>, <span class="code-type">Bundle</span>&gt;(
+    save = { city ->
+        <span class="code-func">Bundle</span>().<span class="code-func">apply</span> {
+            <span class="code-func">putString</span>(<span class="code-string">"name"</span>, city.name)
+            <span class="code-func">putString</span>(<span class="code-string">"country"</span>, city.country)
+        }
+    },
+    restore = { bundle ->
+        <span class="code-func">City</span>(
+            bundle.<span class="code-func">getString</span>(<span class="code-string">"name"</span>) ?: <span class="code-string">""</span>,
+            bundle.<span class="code-func">getString</span>(<span class="code-string">"country"</span>) ?: <span class="code-string">""</span>
+        )
+    }
+)
+
+<span class="code-keyword">@Composable</span>
+<span class="code-keyword">fun</span> <span class="code-func">CityPicker</span>() {
+    <span class="code-keyword">var</span> selectedCity <span class="code-keyword">by</span> <span class="code-func">rememberSaveable</span>(stateSaver = CitySaver) {
+        <span class="code-func">mutableStateOf</span>(<span class="code-func">City</span>(<span class="code-string">"Beijing"</span>, <span class="code-string">"China"</span>))
+    }
+}</code></pre>
+
+        <h2>四、状态提升（State Hoisting）</h2>
+        <p>状态提升是 Compose 的核心模式：将状态移到调用方，让 Composable 变成无状态的纯函数。</p>
+
+<pre><code><span class="code-comment">// ❌ 有状态组件：难以复用和测试</span>
+<span class="code-keyword">@Composable</span>
+<span class="code-keyword">fun</span> <span class="code-func">ExpandableCard</span>() {
+    <span class="code-keyword">var</span> expanded <span class="code-keyword">by</span> <span class="code-func">remember</span> { <span class="code-func">mutableStateOf</span>(<span class="code-keyword">false</span>) }
+    <span class="code-func">Card</span>(onClick = { expanded = !expanded }) { ... }
+}
+
+<span class="code-comment">// ✅ 无状态组件：状态由调用方控制</span>
+<span class="code-keyword">@Composable</span>
+<span class="code-keyword">fun</span> <span class="code-func">ExpandableCard</span>(
+    expanded: <span class="code-type">Boolean</span>,
+    onExpandChange: (<span class="code-type">Boolean</span>) -> <span class="code-type">Unit</span>
+) {
+    <span class="code-func">Card</span>(onClick = { <span class="code-func">onExpandChange</span>(!expanded) }) { ... }
+}
+
+<span class="code-comment">// 调用方控制状态</span>
+<span class="code-keyword">@Composable</span>
+<span class="code-keyword">fun</span> <span class="code-func">CardList</span>() {
+    <span class="code-keyword">var</span> expandedIndex <span class="code-keyword">by</span> <span class="code-func">remember</span> { <span class="code-func">mutableStateOf</span>(-<span class="code-number">1</span>) }
+
+    items.<span class="code-func">forEachIndexed</span> { index, item ->
+        <span class="code-func">ExpandableCard</span>(
+            expanded = index == expandedIndex,
+            onExpandChange = { isExpanded ->
+                expandedIndex = <span class="code-keyword">if</span> (isExpanded) index <span class="code-keyword">else</span> -<span class="code-number">1</span>
+            }
+        )
+    }
+}</code></pre>
+
+        <h2>五、ViewModel 与 StateFlow</h2>
+        <p>对于屏幕级状态和业务逻辑，使用 ViewModel + StateFlow：</p>
+
+<pre><code><span class="code-keyword">class</span> <span class="code-type">ProfileViewModel</span> : <span class="code-type">ViewModel</span>() {
+
+    <span class="code-keyword">private val</span> _uiState = <span class="code-func">MutableStateFlow</span>(<span class="code-func">ProfileUiState</span>())
+    <span class="code-keyword">val</span> uiState: <span class="code-type">StateFlow</span>&lt;<span class="code-type">ProfileUiState</span>&gt; = _uiState.<span class="code-func">asStateFlow</span>()
+
+    <span class="code-keyword">fun</span> <span class="code-func">loadProfile</span>() {
+        viewModelScope.<span class="code-func">launch</span> {
+            _uiState.<span class="code-func">update</span> { it.<span class="code-func">copy</span>(isLoading = <span class="code-keyword">true</span>) }
+
+            <span class="code-keyword">val</span> profile = repository.<span class="code-func">getProfile</span>()
+
+            _uiState.<span class="code-func">update</span> {
+                it.<span class="code-func">copy</span>(isLoading = <span class="code-keyword">false</span>, profile = profile)
+            }
+        }
+    }
+}
+
+<span class="code-keyword">data class</span> <span class="code-type">ProfileUiState</span>(
+    <span class="code-keyword">val</span> isLoading: <span class="code-type">Boolean</span> = <span class="code-keyword">false</span>,
+    <span class="code-keyword">val</span> profile: <span class="code-type">Profile</span>? = <span class="code-keyword">null</span>,
+    <span class="code-keyword">val</span> error: <span class="code-type">String</span>? = <span class="code-keyword">null</span>
+)
+
+<span class="code-keyword">@Composable</span>
+<span class="code-keyword">fun</span> <span class="code-func">ProfileScreen</span>(viewModel: <span class="code-type">ProfileViewModel</span> = <span class="code-func">viewModel</span>()) {
+    <span class="code-keyword">val</span> uiState <span class="code-keyword">by</span> viewModel.uiState.<span class="code-func">collectAsState</span>()
+
+    <span class="code-keyword">when</span> {
+        uiState.isLoading -> <span class="code-func">LoadingIndicator</span>()
+        uiState.error != <span class="code-keyword">null</span> -> <span class="code-func">ErrorMessage</span>(uiState.error)
+        uiState.profile != <span class="code-keyword">null</span> -> <span class="code-func">ProfileContent</span>(uiState.profile)
+    }
+}</code></pre>
+
+        <h2>六、状态分层：UI State vs Domain State</h2>
+
+        <table class="comparison-table">
+            <thead>
+                <tr>
+                    <th>类型</th>
+                    <th>示例</th>
+                    <th>存放位置</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr>
+                    <td><strong>UI 元素状态</strong></td>
+                    <td>TextField 输入、动画进度</td>
+                    <td>remember / rememberSaveable</td>
+                </tr>
+                <tr>
+                    <td><strong>屏幕 UI 状态</strong></td>
+                    <td>加载状态、列表数据、错误信息</td>
+                    <td>ViewModel + StateFlow</td>
+                </tr>
+                <tr>
+                    <td><strong>业务/领域状态</strong></td>
+                    <td>用户登录状态、购物车</td>
+                    <td>Repository / DataStore</td>
+                </tr>
+            </tbody>
+        </table>
+
+        <h2>七、处理副作用</h2>
+        <p>状态变化时需要执行副作用（如网络请求、日志），使用 Effect API：</p>
+
+<pre><code><span class="code-keyword">@Composable</span>
+<span class="code-keyword">fun</span> <span class="code-func">UserProfile</span>(userId: <span class="code-type">String</span>) {
+    <span class="code-keyword">var</span> user <span class="code-keyword">by</span> <span class="code-func">remember</span> { <span class="code-func">mutableStateOf</span>&lt;<span class="code-type">User</span>?&gt;(<span class="code-keyword">null</span>) }
+
+    <span class="code-comment">// userId 变化时重新加载</span>
+    <span class="code-func">LaunchedEffect</span>(userId) {
+        user = repository.<span class="code-func">getUser</span>(userId)
+    }
+
+    user?.<span class="code-func">let</span> { <span class="code-func">UserContent</span>(it) }
+}</code></pre>
+
+        <h3>常用 Effect API</h3>
+        <ul>
+            <li><code>LaunchedEffect</code> - 在协程中执行副作用</li>
+            <li><code>DisposableEffect</code> - 需要清理的副作用</li>
+            <li><code>SideEffect</code> - 每次重组后执行</li>
+            <li><code>rememberCoroutineScope</code> - 获取与 Composable 绑定的 CoroutineScope</li>
+        </ul>
+
+        <h2>八、常见陷阱与解决方案</h2>
+
+        <h3>1. 忘记使用 remember</h3>
+<pre><code><span class="code-comment">// ❌ 每次重组都创建新状态，点击无效</span>
+<span class="code-keyword">@Composable</span>
+<span class="code-keyword">fun</span> <span class="code-func">BrokenCounter</span>() {
+    <span class="code-keyword">var</span> count = <span class="code-func">mutableStateOf</span>(<span class="code-number">0</span>)  <span class="code-comment">// 缺少 remember！</span>
+    <span class="code-func">Button</span>(onClick = { count.value++ }) {
+        <span class="code-func">Text</span>(<span class="code-string">"${count.value}"</span>)
+    }
+}
+
+<span class="code-comment">// ✅ 正确</span>
+<span class="code-keyword">var</span> count <span class="code-keyword">by</span> <span class="code-func">remember</span> { <span class="code-func">mutableStateOf</span>(<span class="code-number">0</span>) }</code></pre>
+
+        <h3>2. 在 remember 中使用不稳定的 key</h3>
+<pre><code><span class="code-comment">// ❌ 每次重组 listOf 都是新对象</span>
+<span class="code-keyword">val</span> items = <span class="code-func">remember</span>(<span class="code-func">listOf</span>(<span class="code-number">1</span>, <span class="code-number">2</span>, <span class="code-number">3</span>)) { ... }
+
+<span class="code-comment">// ✅ 使用稳定的 key 或无 key</span>
+<span class="code-keyword">val</span> items = <span class="code-func">remember</span> { <span class="code-func">listOf</span>(<span class="code-number">1</span>, <span class="code-number">2</span>, <span class="code-number">3</span>) }</code></pre>
+
+        <h3>3. collectAsState 在错误位置</h3>
+<pre><code><span class="code-comment">// ❌ 在 LazyColumn item 中 collect，可能导致问题</span>
+<span class="code-func">LazyColumn</span> {
+    <span class="code-func">items</span>(ids) { id ->
+        <span class="code-keyword">val</span> item <span class="code-keyword">by</span> viewModel.<span class="code-func">getItemFlow</span>(id).<span class="code-func">collectAsState</span>(<span class="code-keyword">null</span>)
+    }
+}
+
+<span class="code-comment">// ✅ 在外层 collect，传递数据给 item</span>
+<span class="code-keyword">val</span> items <span class="code-keyword">by</span> viewModel.itemsFlow.<span class="code-func">collectAsState</span>()
+<span class="code-func">LazyColumn</span> {
+    <span class="code-func">items</span>(items) { item -> <span class="code-func">ItemRow</span>(item) }
+}</code></pre>
+
+        <h2>九、状态管理最佳实践</h2>
+        <ul>
+            <li>✅ UI 元素状态用 <code>remember</code>，需要持久化用 <code>rememberSaveable</code></li>
+            <li>✅ 屏幕级状态放 ViewModel，用 <code>StateFlow</code></li>
+            <li>✅ 尽量使用状态提升，让组件无状态</li>
+            <li>✅ 单一数据源：一个状态只在一个地方修改</li>
+            <li>✅ 状态不可变：使用 <code>copy()</code> 创建新状态</li>
+            <li>✅ 派生状态用 <code>derivedStateOf</code></li>
+        </ul>
+
+        <h2>总结</h2>
+        <p>Compose 状态管理的核心原则：</p>
+        <ul>
+            <li><strong>状态驱动 UI</strong>：UI 是状态的函数</li>
+            <li><strong>状态提升</strong>：让组件可复用、可测试</li>
+            <li><strong>单向数据流</strong>：状态向下流动，事件向上传递</li>
+            <li><strong>选择合适的 API</strong>：根据状态的作用域和生命周期选择</li>
+        </ul>
+    </article>
+
+    <footer class="footer">
+        <p>&copy; 2024 Fidroid. <a href="../index.html">返回首页</a></p>
+    </footer>
+</body>
+</html>
+

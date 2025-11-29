@@ -1,0 +1,415 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Compose 自定义布局与 Modifier 深度解析 - Fidroid</title>
+    <meta name="description" content="深入 Compose 布局系统，学习自定义 Layout、Modifier、intrinsic measurements，打造独特的 UI 效果。">
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            line-height: 1.8;
+            color: #e5e7eb;
+            background: #020617;
+        }
+        .navbar {
+            background: rgba(15,23,42,0.98);
+            backdrop-filter: blur(10px);
+            position: fixed;
+            top: 0;
+            width: 100%;
+            z-index: 1000;
+        }
+        .nav-container {
+            max-width: 900px;
+            margin: 0 auto;
+            padding: 1rem 20px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .logo {
+            font-size: 1.5rem;
+            font-weight: bold;
+            color: #38bdf8;
+            text-decoration: none;
+            letter-spacing: 0.08em;
+            text-transform: uppercase;
+        }
+        .back-link { color: #9ca3af; text-decoration: none; font-size: 0.9rem; }
+        .back-link:hover { color: #38bdf8; }
+
+        .article-header {
+            padding: 120px 20px 60px;
+            background: radial-gradient(circle at top left, #ec4899 0, transparent 50%),
+                        radial-gradient(circle at bottom right, #38bdf8 0, transparent 55%),
+                        #020617;
+            text-align: center;
+        }
+        .article-header h1 {
+            max-width: 800px;
+            margin: 0 auto 1rem;
+            font-size: 2.5rem;
+            font-weight: 800;
+            letter-spacing: -0.03em;
+            color: #fff;
+        }
+        .article-meta { color: #9ca3af; font-size: 0.9rem; margin-bottom: 1.5rem; }
+        .article-tags { display: flex; justify-content: center; flex-wrap: wrap; gap: 0.5rem; }
+        .article-tag {
+            padding: 0.25rem 0.75rem;
+            border-radius: 999px;
+            font-size: 0.75rem;
+            background: rgba(15,23,42,0.85);
+            border: 1px solid rgba(236,72,153,0.4);
+            color: #f9a8d4;
+        }
+
+        .article-content {
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 60px 20px 80px;
+        }
+        .article-content h2 {
+            font-size: 1.6rem;
+            margin: 2.5rem 0 1rem;
+            color: #f9fafb;
+            border-left: 4px solid #ec4899;
+            padding-left: 1rem;
+        }
+        .article-content h3 { font-size: 1.25rem; margin: 2rem 0 0.75rem; color: #e5e7eb; }
+        .article-content p { margin-bottom: 1.25rem; color: #d1d5db; }
+        .article-content ul, .article-content ol { margin: 1rem 0 1.5rem 1.5rem; color: #d1d5db; }
+        .article-content li { margin-bottom: 0.5rem; }
+        .article-content strong { color: #f9fafb; }
+        .article-content a { color: #38bdf8; text-decoration: underline; }
+
+        pre {
+            background: #0f172a;
+            border: 1px solid rgba(236,72,153,0.3);
+            border-radius: 12px;
+            padding: 1.25rem;
+            overflow-x: auto;
+            margin: 1.5rem 0;
+            font-size: 0.85rem;
+            line-height: 1.6;
+        }
+        code { font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace; color: #e5e7eb; }
+        .code-keyword { color: #c084fc; }
+        .code-func { color: #38bdf8; }
+        .code-type { color: #4ade80; }
+        .code-string { color: #fb7185; }
+        .code-comment { color: #6b7280; font-style: italic; }
+        .code-number { color: #fbbf24; }
+
+        .callout {
+            background: rgba(236,72,153,0.1);
+            border: 1px solid rgba(236,72,153,0.3);
+            border-radius: 12px;
+            padding: 1.25rem 1.5rem;
+            margin: 1.5rem 0;
+        }
+        .callout-title { font-weight: 600; color: #f9a8d4; margin-bottom: 0.5rem; }
+        .callout p { margin-bottom: 0; color: #d1d5db; }
+
+        .footer {
+            background: #020617;
+            border-top: 1px solid #111827;
+            padding: 2rem;
+            text-align: center;
+            color: #6b7280;
+        }
+        .footer a { color: #38bdf8; text-decoration: none; }
+    </style>
+</head>
+<body>
+    <nav class="navbar">
+        <div class="nav-container">
+            <a href="../index.html" class="logo">Fidroid</a>
+            <a href="../index.html#blog" class="back-link">← 返回博客列表</a>
+        </div>
+    </nav>
+
+    <header class="article-header">
+        <h1>Compose 自定义布局与 Modifier 深度解析</h1>
+        <p class="article-meta">2024-04-12 · 24 min · 布局系统</p>
+        <div class="article-tags">
+            <span class="article-tag">Custom Layout</span>
+            <span class="article-tag">Modifier</span>
+            <span class="article-tag">Intrinsic</span>
+            <span class="article-tag">SubcomposeLayout</span>
+        </div>
+    </header>
+
+    <article class="article-content">
+        <p>当内置的 Row、Column、Box 无法满足需求时，你需要深入 Compose 的布局系统。本文将带你掌握自定义 Layout 和 Modifier 的核心技术。</p>
+
+        <h2>一、布局基础：Measure → Place</h2>
+        <p>Compose 布局分为两个阶段：</p>
+        <ol>
+            <li><strong>Measure（测量）</strong>：确定每个子元素的大小</li>
+            <li><strong>Place（放置）</strong>：确定每个子元素的位置</li>
+        </ol>
+
+<pre><code><span class="code-keyword">@Composable</span>
+<span class="code-keyword">fun</span> <span class="code-func">SimpleColumn</span>(
+    modifier: <span class="code-type">Modifier</span> = <span class="code-type">Modifier</span>,
+    content: <span class="code-keyword">@Composable</span> () -> <span class="code-type">Unit</span>
+) {
+    <span class="code-func">Layout</span>(
+        content = content,
+        modifier = modifier
+    ) { measurables, constraints ->
+        <span class="code-comment">// 1. 测量所有子元素</span>
+        <span class="code-keyword">val</span> placeables = measurables.<span class="code-func">map</span> { measurable ->
+            measurable.<span class="code-func">measure</span>(constraints)
+        }
+
+        <span class="code-comment">// 2. 计算布局尺寸</span>
+        <span class="code-keyword">val</span> width = placeables.<span class="code-func">maxOfOrNull</span> { it.width } ?: <span class="code-number">0</span>
+        <span class="code-keyword">val</span> height = placeables.<span class="code-func">sumOf</span> { it.height }
+
+        <span class="code-comment">// 3. 放置子元素</span>
+        <span class="code-func">layout</span>(width, height) {
+            <span class="code-keyword">var</span> yPosition = <span class="code-number">0</span>
+            placeables.<span class="code-func">forEach</span> { placeable ->
+                placeable.<span class="code-func">placeRelative</span>(x = <span class="code-number">0</span>, y = yPosition)
+                yPosition += placeable.height
+            }
+        }
+    }
+}</code></pre>
+
+        <h2>二、理解 Constraints</h2>
+        <p><code>Constraints</code> 定义了子元素可用的尺寸范围：</p>
+
+<pre><code><span class="code-keyword">data class</span> <span class="code-type">Constraints</span>(
+    <span class="code-keyword">val</span> minWidth: <span class="code-type">Int</span>,
+    <span class="code-keyword">val</span> maxWidth: <span class="code-type">Int</span>,
+    <span class="code-keyword">val</span> minHeight: <span class="code-type">Int</span>,
+    <span class="code-keyword">val</span> maxHeight: <span class="code-type">Int</span>
+)
+
+<span class="code-comment">// 常用约束操作</span>
+constraints.<span class="code-func">copy</span>(minWidth = <span class="code-number">0</span>)  <span class="code-comment">// 放宽最小宽度</span>
+constraints.<span class="code-func">copy</span>(maxWidth = <span class="code-number">200</span>)  <span class="code-comment">// 限制最大宽度</span>
+<span class="code-type">Constraints</span>.<span class="code-func">fixed</span>(<span class="code-number">100</span>, <span class="code-number">100</span>)  <span class="code-comment">// 固定尺寸</span></code></pre>
+
+        <h2>三、实战：流式布局（FlowRow）</h2>
+
+<pre><code><span class="code-keyword">@Composable</span>
+<span class="code-keyword">fun</span> <span class="code-func">FlowRow</span>(
+    modifier: <span class="code-type">Modifier</span> = <span class="code-type">Modifier</span>,
+    horizontalSpacing: <span class="code-type">Dp</span> = <span class="code-number">8</span>.dp,
+    verticalSpacing: <span class="code-type">Dp</span> = <span class="code-number">8</span>.dp,
+    content: <span class="code-keyword">@Composable</span> () -> <span class="code-type">Unit</span>
+) {
+    <span class="code-func">Layout</span>(content = content, modifier = modifier) { measurables, constraints ->
+        <span class="code-keyword">val</span> hSpacing = horizontalSpacing.<span class="code-func">roundToPx</span>()
+        <span class="code-keyword">val</span> vSpacing = verticalSpacing.<span class="code-func">roundToPx</span>()
+
+        <span class="code-keyword">val</span> placeables = measurables.<span class="code-func">map</span> { it.<span class="code-func">measure</span>(constraints) }
+
+        <span class="code-keyword">var</span> x = <span class="code-number">0</span>
+        <span class="code-keyword">var</span> y = <span class="code-number">0</span>
+        <span class="code-keyword">var</span> rowHeight = <span class="code-number">0</span>
+
+        <span class="code-keyword">val</span> positions = placeables.<span class="code-func">map</span> { placeable ->
+            <span class="code-keyword">if</span> (x + placeable.width > constraints.maxWidth) {
+                x = <span class="code-number">0</span>
+                y += rowHeight + vSpacing
+                rowHeight = <span class="code-number">0</span>
+            }
+            <span class="code-keyword">val</span> pos = <span class="code-func">IntOffset</span>(x, y)
+            x += placeable.width + hSpacing
+            rowHeight = <span class="code-func">maxOf</span>(rowHeight, placeable.height)
+            pos
+        }
+
+        <span class="code-keyword">val</span> totalHeight = y + rowHeight
+        <span class="code-func">layout</span>(constraints.maxWidth, totalHeight) {
+            placeables.<span class="code-func">forEachIndexed</span> { index, placeable ->
+                placeable.<span class="code-func">placeRelative</span>(positions[index])
+            }
+        }
+    }
+}</code></pre>
+
+        <h2>四、自定义 Modifier</h2>
+
+        <h3>基于 composed 的 Modifier</h3>
+<pre><code><span class="code-keyword">fun</span> <span class="code-type">Modifier</span>.<span class="code-func">shimmer</span>(): <span class="code-type">Modifier</span> = <span class="code-func">composed</span> {
+    <span class="code-keyword">val</span> transition = <span class="code-func">rememberInfiniteTransition</span>(label = <span class="code-string">"shimmer"</span>)
+    <span class="code-keyword">val</span> translateX <span class="code-keyword">by</span> transition.<span class="code-func">animateFloat</span>(
+        initialValue = -<span class="code-number">1000f</span>,
+        targetValue = <span class="code-number">1000f</span>,
+        animationSpec = <span class="code-func">infiniteRepeatable</span>(
+            animation = <span class="code-func">tween</span>(<span class="code-number">1200</span>, easing = LinearEasing)
+        ),
+        label = <span class="code-string">"translateX"</span>
+    )
+
+    <span class="code-keyword">val</span> brush = <span class="code-func">Brush</span>.<span class="code-func">linearGradient</span>(
+        colors = <span class="code-func">listOf</span>(
+            Color.LightGray.<span class="code-func">copy</span>(alpha = <span class="code-number">0.6f</span>),
+            Color.LightGray.<span class="code-func">copy</span>(alpha = <span class="code-number">0.2f</span>),
+            Color.LightGray.<span class="code-func">copy</span>(alpha = <span class="code-number">0.6f</span>)
+        ),
+        start = <span class="code-func">Offset</span>(translateX, <span class="code-number">0f</span>),
+        end = <span class="code-func">Offset</span>(translateX + <span class="code-number">500f</span>, <span class="code-number">0f</span>)
+    )
+
+    <span class="code-func">background</span>(brush)
+}</code></pre>
+
+        <h3>基于 layout 的 Modifier</h3>
+<pre><code><span class="code-keyword">fun</span> <span class="code-type">Modifier</span>.<span class="code-func">badgeLayout</span>(): <span class="code-type">Modifier</span> = <span class="code-func">layout</span> { measurable, constraints ->
+    <span class="code-keyword">val</span> placeable = measurable.<span class="code-func">measure</span>(constraints)
+
+    <span class="code-comment">// Badge 偏移到右上角</span>
+    <span class="code-func">layout</span>(placeable.width, placeable.height) {
+        placeable.<span class="code-func">placeRelative</span>(
+            x = placeable.width - <span class="code-number">12</span>,
+            y = -<span class="code-number">12</span>
+        )
+    }
+}</code></pre>
+
+        <h3>基于 drawWithContent 的 Modifier</h3>
+<pre><code><span class="code-keyword">fun</span> <span class="code-type">Modifier</span>.<span class="code-func">fadingEdge</span>(
+    startFade: <span class="code-type">Dp</span> = <span class="code-number">0</span>.dp,
+    endFade: <span class="code-type">Dp</span> = <span class="code-number">16</span>.dp
+): <span class="code-type">Modifier</span> = <span class="code-func">drawWithContent</span> {
+    <span class="code-func">drawContent</span>()
+
+    <span class="code-keyword">val</span> colors = <span class="code-func">listOf</span>(Color.Transparent, Color.Black)
+    <span class="code-func">drawRect</span>(
+        brush = <span class="code-func">Brush</span>.<span class="code-func">horizontalGradient</span>(
+            colors = colors,
+            startX = size.width - endFade.<span class="code-func">toPx</span>(),
+            endX = size.width
+        ),
+        blendMode = BlendMode.DstIn
+    )
+}</code></pre>
+
+        <h2>五、Intrinsic Measurements</h2>
+        <p>当需要在测量前知道子元素的"固有尺寸"时，使用 Intrinsic：</p>
+
+<pre><code><span class="code-keyword">@Composable</span>
+<span class="code-keyword">fun</span> <span class="code-func">TwoTextsWithDivider</span>(text1: <span class="code-type">String</span>, text2: <span class="code-type">String</span>) {
+    <span class="code-func">Row</span>(modifier = <span class="code-type">Modifier</span>.<span class="code-func">height</span>(IntrinsicSize.Min)) {
+        <span class="code-func">Text</span>(text1, modifier = <span class="code-type">Modifier</span>.<span class="code-func">weight</span>(<span class="code-number">1f</span>))
+        <span class="code-func">Divider</span>(
+            modifier = <span class="code-type">Modifier</span>
+                .<span class="code-func">fillMaxHeight</span>()  <span class="code-comment">// 高度等于 Row 的固有高度</span>
+                .<span class="code-func">width</span>(<span class="code-number">1</span>.dp),
+            color = Color.Gray
+        )
+        <span class="code-func">Text</span>(text2, modifier = <span class="code-type">Modifier</span>.<span class="code-func">weight</span>(<span class="code-number">1f</span>))
+    }
+}</code></pre>
+
+        <div class="callout">
+            <p class="callout-title">⚠️ 性能注意</p>
+            <p>Intrinsic 会导致额外的测量 pass，应谨慎使用。优先考虑能否用其他方式实现。</p>
+        </div>
+
+        <h2>六、SubcomposeLayout</h2>
+        <p>当需要根据一个子元素的测量结果来决定另一个子元素的组合时，使用 SubcomposeLayout：</p>
+
+<pre><code><span class="code-keyword">@Composable</span>
+<span class="code-keyword">fun</span> <span class="code-func">AdaptiveText</span>(
+    text: <span class="code-type">String</span>,
+    modifier: <span class="code-type">Modifier</span> = <span class="code-type">Modifier</span>
+) {
+    <span class="code-func">SubcomposeLayout</span>(modifier) { constraints ->
+        <span class="code-comment">// 先测量完整文本</span>
+        <span class="code-keyword">val</span> fullTextPlaceable = <span class="code-func">subcompose</span>(<span class="code-string">"full"</span>) {
+            <span class="code-func">Text</span>(text, maxLines = <span class="code-number">1</span>)
+        }.<span class="code-func">first</span>().<span class="code-func">measure</span>(constraints)
+
+        <span class="code-comment">// 如果放不下，显示省略版本</span>
+        <span class="code-keyword">val</span> placeable = <span class="code-keyword">if</span> (fullTextPlaceable.width > constraints.maxWidth) {
+            <span class="code-func">subcompose</span>(<span class="code-string">"ellipsis"</span>) {
+                <span class="code-func">Text</span>(text, maxLines = <span class="code-number">1</span>, overflow = TextOverflow.Ellipsis)
+            }.<span class="code-func">first</span>().<span class="code-func">measure</span>(constraints)
+        } <span class="code-keyword">else</span> {
+            fullTextPlaceable
+        }
+
+        <span class="code-func">layout</span>(placeable.width, placeable.height) {
+            placeable.<span class="code-func">placeRelative</span>(<span class="code-number">0</span>, <span class="code-number">0</span>)
+        }
+    }
+}</code></pre>
+
+        <h2>七、ParentDataModifier</h2>
+        <p>让子元素向父布局传递数据：</p>
+
+<pre><code><span class="code-keyword">interface</span> <span class="code-type">WeightScope</span> {
+    <span class="code-keyword">fun</span> <span class="code-type">Modifier</span>.<span class="code-func">weight</span>(weight: <span class="code-type">Float</span>): <span class="code-type">Modifier</span>
+}
+
+<span class="code-keyword">private class</span> <span class="code-type">WeightData</span>(<span class="code-keyword">val</span> weight: <span class="code-type">Float</span>) : <span class="code-type">ParentDataModifier</span> {
+    <span class="code-keyword">override fun</span> <span class="code-type">Density</span>.<span class="code-func">modifyParentData</span>(parentData: <span class="code-type">Any</span>?) = <span class="code-keyword">this</span>@WeightData
+}
+
+<span class="code-keyword">@Composable</span>
+<span class="code-keyword">fun</span> <span class="code-func">WeightedRow</span>(
+    modifier: <span class="code-type">Modifier</span> = <span class="code-type">Modifier</span>,
+    content: <span class="code-keyword">@Composable</span> <span class="code-type">WeightScope</span>.() -> <span class="code-type">Unit</span>
+) {
+    <span class="code-keyword">val</span> scope = <span class="code-keyword">object</span> : <span class="code-type">WeightScope</span> {
+        <span class="code-keyword">override fun</span> <span class="code-type">Modifier</span>.<span class="code-func">weight</span>(weight: <span class="code-type">Float</span>) =
+            <span class="code-keyword">this</span>.<span class="code-func">then</span>(<span class="code-func">WeightData</span>(weight))
+    }
+
+    <span class="code-func">Layout</span>(content = { scope.<span class="code-func">content</span>() }, modifier = modifier) { measurables, constraints ->
+        <span class="code-keyword">val</span> totalWeight = measurables.<span class="code-func">sumOf</span> {
+            (it.parentData <span class="code-keyword">as</span>? <span class="code-type">WeightData</span>)?.weight?.<span class="code-func">toDouble</span>() ?: <span class="code-number">1.0</span>
+        }.<span class="code-func">toFloat</span>()
+
+        <span class="code-keyword">val</span> placeables = measurables.<span class="code-func">map</span> { measurable ->
+            <span class="code-keyword">val</span> weight = (measurable.parentData <span class="code-keyword">as</span>? <span class="code-type">WeightData</span>)?.weight ?: <span class="code-number">1f</span>
+            <span class="code-keyword">val</span> width = (constraints.maxWidth * weight / totalWeight).<span class="code-func">toInt</span>()
+            measurable.<span class="code-func">measure</span>(constraints.<span class="code-func">copy</span>(minWidth = width, maxWidth = width))
+        }
+
+        <span class="code-func">layout</span>(constraints.maxWidth, placeables.<span class="code-func">maxOf</span> { it.height }) {
+            <span class="code-keyword">var</span> x = <span class="code-number">0</span>
+            placeables.<span class="code-func">forEach</span> { placeable ->
+                placeable.<span class="code-func">placeRelative</span>(x, <span class="code-number">0</span>)
+                x += placeable.width
+            }
+        }
+    }
+}</code></pre>
+
+        <h2>八、布局性能优化</h2>
+        <ul>
+            <li>✅ 避免在 measure/place 中创建对象</li>
+            <li>✅ 使用 <code>Modifier.layout</code> 而非完整的 Layout 组件</li>
+            <li>✅ 避免不必要的 Intrinsic 测量</li>
+            <li>✅ 使用 <code>LookaheadScope</code> 优化动画布局</li>
+        </ul>
+
+        <h2>总结</h2>
+        <p>自定义布局的核心知识点：</p>
+        <ul>
+            <li><strong>Layout</strong>：完全自定义的布局逻辑</li>
+            <li><strong>Modifier.layout</strong>：修改单个元素的测量和放置</li>
+            <li><strong>Intrinsic</strong>：在测量前获取子元素的固有尺寸</li>
+            <li><strong>SubcomposeLayout</strong>：根据测量结果决定组合内容</li>
+            <li><strong>ParentDataModifier</strong>：子元素向父布局传递数据</li>
+        </ul>
+        <p>掌握这些技术，你可以实现任何复杂的 UI 布局需求。</p>
+    </article>
+
+    <footer class="footer">
+        <p>&copy; 2024 Fidroid. <a href="../index.html">返回首页</a></p>
+    </footer>
+</body>
+</html>
+
