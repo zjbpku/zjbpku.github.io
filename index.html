@@ -1,874 +1,1135 @@
 <!DOCTYPE html>
 <html lang="zh-CN">
-    <head>
+<head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Fidroid - Android & Jetpack Compose 博客</title>
     <meta name="description" content="Fidroid 专注 Android 与 Jetpack Compose 的现代开发实战与最佳实践。">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500&family=Outfit:wght@400;500;600;700;800&display=swap" rel="stylesheet">
     <style>
+        :root {
+            --bg-primary: #0a0a0f;
+            --bg-secondary: #12121a;
+            --bg-card: #16161f;
+            --bg-elevated: #1a1a24;
+            --text-primary: #f4f4f5;
+            --text-secondary: #a1a1aa;
+            --text-muted: #71717a;
+            --accent-green: #22c55e;
+            --accent-cyan: #06b6d4;
+            --accent-purple: #a855f7;
+            --accent-pink: #ec4899;
+            --accent-orange: #f97316;
+            --accent-blue: #3b82f6;
+            --border-subtle: rgba(255,255,255,0.06);
+            --border-hover: rgba(255,255,255,0.12);
+            --glow-green: rgba(34,197,94,0.15);
+            --glow-cyan: rgba(6,182,212,0.15);
+            --glow-purple: rgba(168,85,247,0.15);
+        }
+
         * {
             margin: 0;
             padding: 0;
             box-sizing: border-box;
         }
 
+        html {
+            scroll-behavior: smooth;
+        }
+
         body {
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Open Sans', 'Helvetica Neue', sans-serif;
+            font-family: 'Outfit', -apple-system, BlinkMacSystemFont, sans-serif;
             line-height: 1.6;
-            color: #333;
-            background-color: #020617;
+            color: var(--text-primary);
+            background: var(--bg-primary);
+            overflow-x: hidden;
+        }
+
+        /* Animated Background */
+        .bg-grid {
+            position: fixed;
+            inset: 0;
+            background-image: 
+                linear-gradient(rgba(255,255,255,0.02) 1px, transparent 1px),
+                linear-gradient(90deg, rgba(255,255,255,0.02) 1px, transparent 1px);
+            background-size: 60px 60px;
+            pointer-events: none;
+            z-index: -1;
+        }
+
+        .bg-glow {
+            position: fixed;
+            width: 600px;
+            height: 600px;
+            border-radius: 50%;
+            filter: blur(120px);
+            opacity: 0.4;
+            pointer-events: none;
+            z-index: -1;
+            animation: float 20s ease-in-out infinite;
+        }
+
+        .bg-glow-1 {
+            top: -200px;
+            left: -200px;
+            background: var(--glow-green);
+        }
+
+        .bg-glow-2 {
+            top: 50%;
+            right: -300px;
+            background: var(--glow-purple);
+            animation-delay: -7s;
+        }
+
+        .bg-glow-3 {
+            bottom: -200px;
+            left: 30%;
+            background: var(--glow-cyan);
+            animation-delay: -14s;
+        }
+
+        @keyframes float {
+            0%, 100% { transform: translate(0, 0) scale(1); }
+            33% { transform: translate(30px, -30px) scale(1.05); }
+            66% { transform: translate(-20px, 20px) scale(0.95); }
         }
 
         .container {
-            max-width: 1200px;
+            max-width: 1280px;
             margin: 0 auto;
-            padding: 0 20px;
+            padding: 0 24px;
         }
 
         /* Navigation */
         .navbar {
-            background: rgba(15,23,42,0.98);
-            backdrop-filter: blur(10px);
-            box-shadow: 0 2px 4px rgba(15,23,42,0.6);
             position: fixed;
             top: 0;
             width: 100%;
             z-index: 1000;
+            padding: 16px 0;
+            transition: all 0.3s ease;
         }
 
-        .nav-container {
+        .navbar.scrolled {
+            background: rgba(10,10,15,0.85);
+            backdrop-filter: blur(20px);
+            border-bottom: 1px solid var(--border-subtle);
+        }
+
+        .nav-inner {
             display: flex;
             justify-content: space-between;
             align-items: center;
-            padding: 1rem 0;
         }
 
         .logo {
-            font-size: 1.5rem;
-            font-weight: bold;
-            letter-spacing: 0.08em;
-            text-transform: uppercase;
-            color: #38bdf8;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            text-decoration: none;
+        }
+
+        .logo-icon {
+            width: 40px;
+            height: 40px;
+            background: linear-gradient(135deg, var(--accent-green), var(--accent-cyan));
+            border-radius: 12px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: 800;
+            font-size: 1.1rem;
+            color: var(--bg-primary);
+        }
+
+        .logo-text {
+            font-size: 1.4rem;
+            font-weight: 700;
+            color: var(--text-primary);
+            letter-spacing: -0.02em;
         }
 
         .nav-links {
             display: flex;
             list-style: none;
-            gap: 2rem;
+            gap: 8px;
         }
 
         .nav-links a {
             text-decoration: none;
-            color: #e5e7eb;
+            color: var(--text-secondary);
             font-weight: 500;
-            transition: color 0.3s;
+            font-size: 0.95rem;
+            padding: 10px 18px;
+            border-radius: 10px;
+            transition: all 0.2s ease;
         }
 
         .nav-links a:hover {
-            color: #38bdf8;
+            color: var(--text-primary);
+            background: var(--bg-elevated);
+        }
+
+        .nav-cta {
+            background: linear-gradient(135deg, var(--accent-green), var(--accent-cyan)) !important;
+            color: var(--bg-primary) !important;
+            font-weight: 600 !important;
+        }
+
+        .nav-cta:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 24px var(--glow-green);
         }
 
         /* Hero Section */
         .hero {
-            position: relative;
-            background: radial-gradient(circle at top left, #22c55e22 0, transparent 50%),
-                        radial-gradient(circle at top right, #38bdf822 0, transparent 55%),
-                        radial-gradient(circle at bottom left, #a855f722 0, transparent 55%),
-                        #020617;
-            color: white;
-            padding: 120px 0 80px;
-            overflow: hidden;
-        }
-
-        .hero-inner {
-            display: grid;
-            grid-template-columns: minmax(0, 3fr) minmax(0, 2fr);
-            gap: 3rem;
-            align-items: center;
-        }
-
-        .hero h1 {
-            font-size: 3rem;
-            margin-bottom: 1rem;
-            font-weight: 800;
-            letter-spacing: -0.04em;
-        }
-
-        .hero p {
-            font-size: 1.1rem;
-            margin-bottom: 2rem;
-            max-width: 520px;
-            opacity: 0.85;
-        }
-
-        .cta-button {
-            display: inline-block;
-            background: linear-gradient(135deg, #22c55e, #16a34a);
-            color: white;
-            padding: 12px 30px;
-            border-radius: 25px;
-            text-decoration: none;
-            font-weight: 600;
-            box-shadow: 0 12px 30px rgba(34,197,94,0.35);
-            transition: transform 0.3s, box-shadow 0.3s;
-        }
-
-        .cta-button:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 18px 40px rgba(34,197,94,0.45);
-        }
-
-        .secondary-cta {
-            margin-left: 1.25rem;
-            color: #e5e7eb;
-            text-decoration: none;
-            font-weight: 500;
-            opacity: 0.8;
-        }
-
-        .secondary-cta:hover {
-            opacity: 1;
-        }
-
-        .hero-badge-row {
+            min-height: 100vh;
             display: flex;
-            flex-wrap: wrap;
-            gap: 0.75rem;
-            margin-bottom: 1.5rem;
+            align-items: center;
+            padding: 120px 0 80px;
+            position: relative;
+        }
+
+        .hero-content {
+            max-width: 720px;
         }
 
         .hero-badge {
-            padding: 0.25rem 0.75rem;
-            border-radius: 999px;
-            font-size: 0.75rem;
-            text-transform: uppercase;
-            letter-spacing: 0.08em;
-            background: rgba(15,23,42,0.85);
-            border: 1px solid rgba(56,189,248,0.3);
-            color: #7dd3fc;
-        }
-
-        .hero-metadata {
-            display: flex;
-            flex-wrap: wrap;
-            gap: 1.5rem;
-            margin-top: 2rem;
-            font-size: 0.85rem;
-            color: #9ca3af;
-        }
-
-        .hero-metadata span strong {
-            color: #e5e7eb;
-        }
-
-        .hero-right {
-            position: relative;
-        }
-
-        .hero-card {
-            position: relative;
-            background: radial-gradient(circle at top, #22c55e22 0, transparent 55%),
-                        #020617;
-            border-radius: 24px;
-            padding: 1.5rem 1.75rem;
-            border: 1px solid rgba(148,163,184,0.4);
-            box-shadow: 0 24px 80px rgba(15,23,42,0.8);
-        }
-
-        .hero-card-header {
-            display: flex;
+            display: inline-flex;
             align-items: center;
-            justify-content: space-between;
-            margin-bottom: 1rem;
-        }
-
-        .hero-card-title {
+            gap: 8px;
+            padding: 8px 16px;
+            background: var(--bg-elevated);
+            border: 1px solid var(--border-subtle);
+            border-radius: 100px;
             font-size: 0.85rem;
-            text-transform: uppercase;
-            letter-spacing: 0.16em;
-            color: #9ca3af;
+            color: var(--text-secondary);
+            margin-bottom: 32px;
         }
 
-        .hero-status {
-            padding: 0.15rem 0.6rem;
-            border-radius: 999px;
-            font-size: 0.7rem;
-            background: rgba(22,163,74,0.15);
-            color: #4ade80;
-            border: 1px solid rgba(34,197,94,0.3);
+        .hero-badge-dot {
+            width: 8px;
+            height: 8px;
+            background: var(--accent-green);
+            border-radius: 50%;
+            animation: pulse 2s ease-in-out infinite;
         }
 
-        .hero-snippet {
-            background: rgba(15,23,42,0.9);
-            border-radius: 12px;
-            padding: 1rem 1.1rem;
-            font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
-            font-size: 0.8rem;
-            color: #e5e7eb;
-            border: 1px solid rgba(30,64,175,0.7);
+        @keyframes pulse {
+            0%, 100% { opacity: 1; transform: scale(1); }
+            50% { opacity: 0.5; transform: scale(1.2); }
         }
 
-        .hero-snippet-line {
+        .hero h1 {
+            font-size: clamp(2.5rem, 6vw, 4rem);
+            font-weight: 800;
+            line-height: 1.1;
+            letter-spacing: -0.03em;
+            margin-bottom: 24px;
+        }
+
+        .hero h1 .gradient-text {
+            background: linear-gradient(135deg, var(--accent-green), var(--accent-cyan), var(--accent-purple));
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+
+        .hero-description {
+            font-size: 1.2rem;
+            color: var(--text-secondary);
+            margin-bottom: 40px;
+            max-width: 560px;
+        }
+
+        .hero-actions {
             display: flex;
-            gap: 0.4rem;
-            align-items: baseline;
-            margin-bottom: 0.25rem;
-        }
-
-        .hero-snippet-line span {
-            color: #6b7280;
-            min-width: 1.5rem;
-            text-align: right;
-            user-select: none;
-        }
-
-        .hero-snippet-line code {
-            color: #e5e7eb;
-        }
-
-        .hero-snippet-keyword { color: #a855f7; }
-        .hero-snippet-func { color: #38bdf8; }
-        .hero-snippet-type { color: #4ade80; }
-        .hero-snippet-str { color: #fb7185; }
-        .hero-snippet-ann { color: #9ca3af; font-style: italic; }
-
-        .hero-tags {
-            display: flex;
+            gap: 16px;
             flex-wrap: wrap;
-            gap: 0.5rem;
+            margin-bottom: 64px;
         }
 
-        .hero-tag {
-            border-radius: 999px;
-            padding: 0.25rem 0.6rem;
-            font-size: 0.7rem;
-            background: rgba(15,23,42,0.9);
-            border: 1px solid rgba(148,163,184,0.5);
-            color: #9ca3af;
+        .btn {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            padding: 14px 28px;
+            border-radius: 12px;
+            font-weight: 600;
+            font-size: 1rem;
+            text-decoration: none;
+            transition: all 0.2s ease;
+            cursor: pointer;
+            border: none;
         }
 
-        /* Main Content */
-        .main-content {
+        .btn-primary {
+            background: linear-gradient(135deg, var(--accent-green), var(--accent-cyan));
+            color: var(--bg-primary);
+        }
+
+        .btn-primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 12px 32px var(--glow-green);
+        }
+
+        .btn-secondary {
+            background: var(--bg-elevated);
+            color: var(--text-primary);
+            border: 1px solid var(--border-subtle);
+        }
+
+        .btn-secondary:hover {
+            background: var(--bg-card);
+            border-color: var(--border-hover);
+        }
+
+        .hero-stats {
+            display: flex;
+            gap: 48px;
+        }
+
+        .stat {
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+        }
+
+        .stat-value {
+            font-size: 2rem;
+            font-weight: 700;
+            background: linear-gradient(135deg, var(--text-primary), var(--text-secondary));
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        .stat-label {
+            font-size: 0.9rem;
+            color: var(--text-muted);
+        }
+
+        /* Featured Section */
+        .featured {
             padding: 80px 0;
+        }
+
+        .section-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-end;
+            margin-bottom: 48px;
+            flex-wrap: wrap;
+            gap: 24px;
         }
 
         .section-title {
-            text-align: center;
-            font-size: 2.2rem;
-            margin-bottom: 1rem;
-            color: #e5e7eb;
+            font-size: 2rem;
+            font-weight: 700;
+            letter-spacing: -0.02em;
         }
 
         .section-subtitle {
-            text-align: center;
-            color: #9ca3af;
-            margin-bottom: 3rem;
-            font-size: 0.95rem;
+            color: var(--text-secondary);
+            margin-top: 8px;
+            font-size: 1rem;
         }
 
-        /* Blog Grid */
-        .blog-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(350px, 1fr));
-            gap: 2rem;
-            margin-bottom: 4rem;
-        }
-
-        .blog-card {
-            background: radial-gradient(circle at top, #0f172a, #020617);
-            border-radius: 12px;
-            overflow: hidden;
-            box-shadow: 0 18px 50px rgba(15,23,42,0.85);
-            border: 1px solid rgba(30,64,175,0.7);
-            transition: transform 0.3s, box-shadow 0.3s, border-color 0.3s;
-        }
-
-        .blog-card:hover {
-            transform: translateY(-6px);
-            box-shadow: 0 26px 70px rgba(15,23,42,0.9);
-            border-color: #38bdf8;
-        }
-
-        .blog-image {
-            width: 100%;
-            height: 160px;
-            background: radial-gradient(circle at top left, #22c55e55 0, transparent 60%),
-                        radial-gradient(circle at bottom right, #38bdf855 0, transparent 65%),
-                        #020617;
+        /* Filter Tabs */
+        .filter-tabs {
             display: flex;
-            align-items: center;
-            justify-content: space-between;
-            padding: 1.3rem 1.5rem;
-            color: white;
-            font-size: 1.4rem;
-            font-weight: 600;
-        }
-
-        .blog-chip {
-            padding: 0.25rem 0.7rem;
-            border-radius: 999px;
-            font-size: 0.7rem;
-            background: rgba(15,23,42,0.85);
-            border: 1px solid rgba(148,163,184,0.7);
-            text-transform: uppercase;
-            letter-spacing: 0.12em;
-        }
-
-        .blog-content {
-            padding: 1.5rem 1.75rem 1.6rem;
-        }
-
-        .blog-title {
-            font-size: 1.25rem;
-            margin-bottom: 0.5rem;
-            color: #e5e7eb;
-        }
-
-        .blog-excerpt {
-            color: #9ca3af;
-            margin-bottom: 1rem;
-        }
-
-        .blog-meta {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            font-size: 0.8rem;
-            color: #6b7280;
-        }
-
-        .read-more {
-            color: #38bdf8;
-            text-decoration: none;
-            font-weight: 500;
-        }
-
-        .read-more:hover {
-            text-decoration: underline;
-        }
-
-        .blog-tags {
-            display: flex;
+            gap: 8px;
             flex-wrap: wrap;
-            gap: 0.4rem;
-            margin-top: 0.25rem;
-            font-size: 0.7rem;
         }
 
-        .blog-tag {
-            padding: 0.2rem 0.55rem;
-            border-radius: 999px;
-            border: 1px solid rgba(148,163,184,0.6);
-            color: #9ca3af;
+        .filter-tab {
+            padding: 8px 16px;
+            border-radius: 8px;
+            font-size: 0.9rem;
+            font-weight: 500;
+            color: var(--text-secondary);
+            background: transparent;
+            border: 1px solid var(--border-subtle);
+            cursor: pointer;
+            transition: all 0.2s ease;
         }
 
-        /* Features Section */
-        .features {
-            background: radial-gradient(circle at top, #0f172a, #020617);
-            padding: 80px 0;
+        .filter-tab:hover, .filter-tab.active {
+            color: var(--text-primary);
+            background: var(--bg-elevated);
+            border-color: var(--border-hover);
         }
 
-        .features-grid {
+        .filter-tab.active {
+            background: linear-gradient(135deg, var(--accent-green), var(--accent-cyan));
+            color: var(--bg-primary);
+            border-color: transparent;
+        }
+
+        /* Article Grid */
+        .article-grid {
             display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
-            gap: 2rem;
+            grid-template-columns: repeat(auto-fill, minmax(380px, 1fr));
+            gap: 24px;
         }
 
-        .feature-card {
-            text-align: left;
-            padding: 2rem;
-            border-radius: 16px;
-            border: 1px solid rgba(30,64,175,0.7);
-            background: radial-gradient(circle at top left, #1d283a, #020617);
-            box-shadow: 0 18px 50px rgba(15,23,42,0.9);
+        .article-card {
+            background: var(--bg-card);
+            border: 1px solid var(--border-subtle);
+            border-radius: 20px;
+            overflow: hidden;
+            transition: all 0.3s ease;
+            text-decoration: none;
+            display: flex;
+            flex-direction: column;
         }
 
-        .feature-icon {
-            width: 80px;
-            height: 80px;
-            background: radial-gradient(circle at top, #38bdf8, #22c55e);
-            border-radius: 50%;
+        .article-card:hover {
+            transform: translateY(-4px);
+            border-color: var(--border-hover);
+            box-shadow: 0 24px 48px rgba(0,0,0,0.4);
+        }
+
+        .article-card:hover .article-cover {
+            transform: scale(1.02);
+        }
+
+        .article-cover-wrapper {
+            position: relative;
+            overflow: hidden;
+            aspect-ratio: 16/9;
+        }
+
+        .article-cover {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            transition: transform 0.5s ease;
+        }
+
+        .article-cover-gradient {
+            position: absolute;
+            inset: 0;
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+            padding: 20px;
+        }
+
+        .article-category {
+            align-self: flex-start;
+            padding: 6px 12px;
+            background: rgba(0,0,0,0.5);
+            backdrop-filter: blur(8px);
+            border-radius: 6px;
+            font-size: 0.75rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            color: var(--text-primary);
+        }
+
+        .article-category.cat-basics { color: var(--accent-green); }
+        .article-category.cat-architecture { color: var(--accent-purple); }
+        .article-category.cat-animation { color: var(--accent-orange); }
+        .article-category.cat-performance { color: var(--accent-pink); }
+        .article-category.cat-state { color: var(--accent-cyan); }
+        .article-category.cat-testing { color: var(--accent-green); }
+        .article-category.cat-layout { color: var(--accent-pink); }
+        .article-category.cat-effects { color: var(--accent-orange); }
+        .article-category.cat-list { color: var(--accent-cyan); }
+        .article-category.cat-theme { color: var(--accent-purple); }
+        .article-category.cat-navigation { color: var(--accent-blue); }
+
+        .article-icon {
+            align-self: flex-end;
+            width: 48px;
+            height: 48px;
+            background: rgba(0,0,0,0.5);
+            backdrop-filter: blur(8px);
+            border-radius: 12px;
             display: flex;
             align-items: center;
             justify-content: center;
-            margin: 0 auto 1rem;
-            color: white;
-            font-size: 2rem;
+            font-size: 1.5rem;
         }
 
-        .feature-title {
-            font-size: 1.2rem;
-            margin-bottom: 0.5rem;
-            color: #e5e7eb;
+        .article-body {
+            padding: 24px;
+            flex: 1;
+            display: flex;
+            flex-direction: column;
         }
 
-        .feature-description {
-            color: #9ca3af;
+        .article-title {
+            font-size: 1.25rem;
+            font-weight: 600;
+            color: var(--text-primary);
+            margin-bottom: 12px;
+            line-height: 1.4;
         }
 
-        .feature-meta {
-            margin-top: 0.75rem;
-            font-size: 0.8rem;
-            color: #6b7280;
+        .article-excerpt {
+            color: var(--text-secondary);
+            font-size: 0.95rem;
+            line-height: 1.6;
+            flex: 1;
+            margin-bottom: 20px;
         }
 
-        /* Topics strip */
-        .topics-strip {
+        .article-footer {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding-top: 16px;
+            border-top: 1px solid var(--border-subtle);
+        }
+
+        .article-meta {
+            display: flex;
+            gap: 16px;
+            font-size: 0.85rem;
+            color: var(--text-muted);
+        }
+
+        .article-meta span {
+            display: flex;
+            align-items: center;
+            gap: 4px;
+        }
+
+        .article-link {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            color: var(--accent-cyan);
+            font-weight: 500;
+            font-size: 0.9rem;
+        }
+
+        .article-link svg {
+            transition: transform 0.2s ease;
+        }
+
+        .article-card:hover .article-link svg {
+            transform: translateX(4px);
+        }
+
+        /* Topics Section */
+        .topics {
+            padding: 80px 0;
+            background: var(--bg-secondary);
+        }
+
+        .topics-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+            gap: 20px;
+        }
+
+        .topic-card {
+            background: var(--bg-card);
+            border: 1px solid var(--border-subtle);
+            border-radius: 16px;
+            padding: 28px;
+            transition: all 0.3s ease;
+        }
+
+        .topic-card:hover {
+            border-color: var(--border-hover);
+            transform: translateY(-2px);
+        }
+
+        .topic-icon {
+            width: 56px;
+            height: 56px;
+            border-radius: 14px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.5rem;
+            margin-bottom: 20px;
+        }
+
+        .topic-icon.green { background: var(--glow-green); }
+        .topic-icon.purple { background: var(--glow-purple); }
+        .topic-icon.cyan { background: var(--glow-cyan); }
+
+        .topic-title {
+            font-size: 1.15rem;
+            font-weight: 600;
+            margin-bottom: 8px;
+        }
+
+        .topic-description {
+            color: var(--text-secondary);
+            font-size: 0.95rem;
+            margin-bottom: 16px;
+        }
+
+        .topic-tags {
             display: flex;
             flex-wrap: wrap;
-            gap: 0.75rem;
-            margin-top: 1.5rem;
+            gap: 8px;
         }
 
-        .topic-pill {
-            padding: 0.3rem 0.8rem;
-            border-radius: 999px;
-            border: 1px solid rgba(148,163,184,0.6);
-            color: #e5e7eb;
+        .topic-tag {
+            padding: 4px 10px;
+            background: var(--bg-elevated);
+            border-radius: 6px;
             font-size: 0.8rem;
+            color: var(--text-muted);
         }
 
         /* Footer */
         .footer {
-            background: #020617;
-            color: white;
-            padding: 3rem 0;
-            text-align: center;
-            border-top: 1px solid #111827;
+            padding: 64px 0 32px;
+            border-top: 1px solid var(--border-subtle);
         }
 
         .footer-content {
             display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
-            gap: 2rem;
-            margin-bottom: 2rem;
+            grid-template-columns: 2fr 1fr 1fr 1fr;
+            gap: 48px;
+            margin-bottom: 48px;
         }
 
-        .footer-section h3 {
-            margin-bottom: 1rem;
-            color: #f9fafb;
+        .footer-brand p {
+            color: var(--text-secondary);
+            margin-top: 16px;
+            font-size: 0.95rem;
         }
 
-        .footer-section p, .footer-section a {
-            color: #9ca3af;
+        .footer-title {
+            font-size: 0.9rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            color: var(--text-muted);
+            margin-bottom: 20px;
+        }
+
+        .footer-links {
+            list-style: none;
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+        }
+
+        .footer-links a {
+            color: var(--text-secondary);
             text-decoration: none;
+            font-size: 0.95rem;
+            transition: color 0.2s ease;
         }
 
-        .footer-section a:hover {
-            color: #38bdf8;
+        .footer-links a:hover {
+            color: var(--text-primary);
         }
 
         .footer-bottom {
-            border-top: 1px solid #111827;
-            padding-top: 2rem;
-            color: #6b7280;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding-top: 32px;
+            border-top: 1px solid var(--border-subtle);
+            color: var(--text-muted);
+            font-size: 0.9rem;
         }
 
-        /* Responsive Design */
+        /* Mobile Menu */
+        .mobile-menu-btn {
+            display: none;
+            background: none;
+            border: none;
+            color: var(--text-primary);
+            cursor: pointer;
+            padding: 8px;
+        }
+
+        /* Responsive */
+        @media (max-width: 1024px) {
+            .footer-content {
+                grid-template-columns: 1fr 1fr;
+            }
+        }
+
         @media (max-width: 768px) {
-            .hero-inner {
-                grid-template-columns: 1fr;
-            }
-
-            .hero h1 {
-                font-size: 2rem;
-            }
-
             .nav-links {
                 display: none;
             }
 
-            .blog-grid {
+            .mobile-menu-btn {
+                display: block;
+            }
+
+            .hero h1 {
+                font-size: 2.2rem;
+            }
+
+            .hero-stats {
+                gap: 32px;
+            }
+
+            .article-grid {
                 grid-template-columns: 1fr;
             }
 
-            .features-grid {
+            .section-header {
+                flex-direction: column;
+                align-items: flex-start;
+            }
+
+            .footer-content {
                 grid-template-columns: 1fr;
+                gap: 32px;
+            }
+
+            .footer-bottom {
+                flex-direction: column;
+                gap: 16px;
+                text-align: center;
             }
         }
     </style>
-    </head>
-    <body>
+</head>
+<body>
+    <div class="bg-grid"></div>
+    <div class="bg-glow bg-glow-1"></div>
+    <div class="bg-glow bg-glow-2"></div>
+    <div class="bg-glow bg-glow-3"></div>
+
     <!-- Navigation -->
-    <nav class="navbar">
+    <nav class="navbar" id="navbar">
         <div class="container">
-            <div class="nav-container">
-                <div class="logo">Fidroid</div>
+            <div class="nav-inner">
+                <a href="#" class="logo">
+                    <div class="logo-icon">F</div>
+                    <span class="logo-text">Fidroid</span>
+                </a>
                 <ul class="nav-links">
-                    <li><a href="#home">首页</a></li>
-                    <li><a href="#blog">博客</a></li>
+                    <li><a href="#articles">文章</a></li>
+                    <li><a href="#topics">专题</a></li>
                     <li><a href="#about">关于</a></li>
-                    <li><a href="#contact">联系</a></li>
+                    <li><a href="#articles" class="nav-cta">开始阅读</a></li>
                 </ul>
+                <button class="mobile-menu-btn">
+                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <line x1="3" y1="6" x2="21" y2="6"></line>
+                        <line x1="3" y1="12" x2="21" y2="12"></line>
+                        <line x1="3" y1="18" x2="21" y2="18"></line>
+                    </svg>
+                </button>
             </div>
         </div>
     </nav>
 
     <!-- Hero Section -->
     <section class="hero" id="home">
-        <div class="container hero-inner">
-            <div class="hero-left">
-                <div class="hero-badge-row">
-                    <span class="hero-badge">Android · Jetpack Compose · Modern UI</span>
+        <div class="container">
+            <div class="hero-content">
+                <div class="hero-badge">
+                    <span class="hero-badge-dot"></span>
+                    <span>Jetpack Compose · Android · Modern UI</span>
                 </div>
-                <h1>专注 Android 与 Jetpack Compose 的深度实战博客</h1>
-                <p>从基础组件到架构设计，系统拆解 Jetpack Compose 在真实项目中的最佳实践，帮助你打造性能优雅、体验一流的 Android 应用。</p>
+                <h1>
+                    掌握 <span class="gradient-text">Compose</span><br>
+                    构建现代 Android 应用
+                </h1>
+                <p class="hero-description">
+                    从基础概念到生产级架构，系统学习 Jetpack Compose 的核心技术与最佳实践。每篇文章都配有可运行的代码示例。
+                </p>
+                <div class="hero-actions">
+                    <a href="#articles" class="btn btn-primary">
+                        <span>浏览全部文章</span>
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <path d="M5 12h14M12 5l7 7-7 7"/>
+                        </svg>
+                    </a>
+                    <a href="#topics" class="btn btn-secondary">
+                        <span>查看学习路径</span>
+                    </a>
+                </div>
+                <div class="hero-stats">
+                    <div class="stat">
+                        <span class="stat-value">11</span>
+                        <span class="stat-label">深度教程</span>
+                    </div>
+                    <div class="stat">
+                        <span class="stat-value">200+</span>
+                        <span class="stat-label">代码示例</span>
+                    </div>
+                    <div class="stat">
+                        <span class="stat-value">50k+</span>
+                        <span class="stat-label">字数内容</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Articles Section -->
+    <section class="featured" id="articles">
+        <div class="container">
+            <div class="section-header">
                 <div>
-                    <a href="#blog" class="cta-button">浏览 Compose 系列文章</a>
-                    <a href="#about" class="secondary-cta">了解创作思路 →</a>
+                    <h2 class="section-title">精选文章</h2>
+                    <p class="section-subtitle">从入门到精通，系统学习 Compose 开发</p>
                 </div>
-                <div class="hero-metadata">
-                    <span><strong>11</strong> 篇长文教程</span>
-                    <span><strong>架构</strong> + UI + 性能</span>
-                    <span><strong>代码片段</strong> 可直接复制使用</span>
-                </div>
-            </div>
-            <div class="hero-right">
-                <div class="hero-card">
-                    <div class="hero-card-header">
-                        <span class="hero-card-title">Compose UI Snippet</span>
-                        <span class="hero-status">Stable</span>
-                    </div>
-                    <div class="hero-snippet">
-                        <div class="hero-snippet-line">
-                            <span>1</span>
-                            <code><span class="hero-snippet-keyword">@Composable</span> <span class="hero-snippet-func">PrimaryButton</span>(</code>
-                        </div>
-                        <div class="hero-snippet-line">
-                            <span>2</span>
-                            <code>    text: String, onClick: () -&gt; Unit</code>
-                        </div>
-                        <div class="hero-snippet-line">
-                            <span>3</span>
-                            <code>) {</code>
-                        </div>
-                        <div class="hero-snippet-line">
-                            <span>4</span>
-                            <code>    <span class="hero-snippet-func">Button</span>(</code>
-                        </div>
-                        <div class="hero-snippet-line">
-                            <span>5</span>
-                            <code>        onClick = onClick,</code>
-                        </div>
-                        <div class="hero-snippet-line">
-                            <span>6</span>
-                            <code>        modifier = <span class="hero-snippet-func">Modifier</span></code>
-                        </div>
-                        <div class="hero-snippet-line">
-                            <span>7</span>
-                            <code>            .fillMaxWidth()</code>
-                        </div>
-                        <div class="hero-snippet-line">
-                            <span>8</span>
-                            <code>            .height(52.dp)</code>
-                        </div>
-                        <div class="hero-snippet-line">
-                            <span>9</span>
-                            <code>    ) {</code>
-                        </div>
-                        <div class="hero-snippet-line">
-                            <span>10</span>
-                            <code>        <span class="hero-snippet-func">Text</span>(text)</code>
-                        </div>
-                        <div class="hero-snippet-line">
-                            <span>11</span>
-                            <code>    }</code>
-                        </div>
-                        <div class="hero-snippet-line">
-                            <span>12</span>
-                            <code>}</code>
-                        </div>
-                        <div class="hero-snippet-line">
-                            <span>13</span>
-                            <code class="hero-snippet-ann">// 简洁声明式 UI，专注状态而非视图层级</code>
-                        </div>
-                    </div>
-                    <div style="margin-top:1rem;" class="hero-tags">
-                        <span class="hero-tag">State &amp; Side-effects</span>
-                        <span class="hero-tag">Material 3</span>
-                        <span class="hero-tag">Design System</span>
-                    </div>
+                <div class="filter-tabs">
+                    <button class="filter-tab active" data-filter="all">全部</button>
+                    <button class="filter-tab" data-filter="basics">入门</button>
+                    <button class="filter-tab" data-filter="architecture">架构</button>
+                    <button class="filter-tab" data-filter="performance">性能</button>
+                    <button class="filter-tab" data-filter="ui">UI 组件</button>
                 </div>
             </div>
-        </div>
-    </section>
 
-    <!-- Blog Section -->
-    <section class="main-content" id="blog">
-        <div class="container">
-            <h2 class="section-title">Compose 精选文章</h2>
-            <p class="section-subtitle">围绕 Jetpack Compose，从入门心智模型到架构拆分与性能优化，聚焦可落地的工程实践。</p>
-            <div class="blog-grid">
-                <article class="blog-card">
-                    <div class="blog-image">
-                        <span>Jetpack Compose</span>
-                        <span class="blog-chip">基础心智模型</span>
-                    </div>
-                    <div class="blog-content">
-                        <h3 class="blog-title">从 View 到 Compose：重新理解 Android UI 心智模型</h3>
-                        <p class="blog-excerpt">弄清楚「声明式 UI」到底改变了什么：状态驱动视图、不可变 UI 树、Recomposition，以及如何迁移既有 XML 布局。</p>
-                        <div class="blog-meta">
-                            <div>
-                                <span>2024-03-25 · 15 min</span>
-                                <div class="blog-tags">
-                                    <span class="blog-tag">Compose 入门</span>
-                                    <span class="blog-tag">心智模型</span>
-                                </div>
-                            </div>
-                            <a href="articles/compose-from-view-to-declarative.html" class="read-more">阅读全文</a>
+            <div class="article-grid">
+                <!-- Article 1 -->
+                <a href="articles/compose-from-view-to-declarative.html" class="article-card" data-category="basics">
+                    <div class="article-cover-wrapper">
+                        <div class="article-cover" style="background: linear-gradient(135deg, #22c55e 0%, #06b6d4 100%);"></div>
+                        <div class="article-cover-gradient">
+                            <span class="article-category cat-basics">入门必读</span>
+                            <span class="article-icon">🚀</span>
                         </div>
                     </div>
-                </article>
-
-                <article class="blog-card">
-                    <div class="blog-image">
-                        <span>Architecture</span>
-                        <span class="blog-chip">生产级实践</span>
-                    </div>
-                    <div class="blog-content">
-                        <h3 class="blog-title">用 Jetpack Compose 搭建可维护的应用架构</h3>
-                        <p class="blog-excerpt">结合 ViewModel、Unidirectional Data Flow 与 Navigation，构建一个既易于测试，又能支撑复杂业务的 Compose 架构。</p>
-                        <div class="blog-meta">
-                            <div>
-                                <span>2024-03-22 · 18 min</span>
-                                <div class="blog-tags">
-                                    <span class="blog-tag">架构设计</span>
-                                    <span class="blog-tag">UDF / MVI</span>
-                                </div>
+                    <div class="article-body">
+                        <h3 class="article-title">从 View 到 Compose：重新理解 Android UI 心智模型</h3>
+                        <p class="article-excerpt">弄清楚「声明式 UI」到底改变了什么：状态驱动视图、不可变 UI 树、Recomposition，以及如何迁移既有 XML 布局。</p>
+                        <div class="article-footer">
+                            <div class="article-meta">
+                                <span>📅 2024-03-25</span>
+                                <span>⏱ 15 min</span>
                             </div>
-                            <a href="articles/compose-architecture-and-udf.html" class="read-more">阅读全文</a>
+                            <span class="article-link">
+                                阅读全文
+                                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                    <path d="M5 12h14M12 5l7 7-7 7"/>
+                                </svg>
+                            </span>
                         </div>
                     </div>
-                </article>
+                </a>
 
-                <article class="blog-card">
-                    <div class="blog-image" style="background: radial-gradient(circle at top left, #f9731655 0, transparent 60%), radial-gradient(circle at bottom right, #38bdf855 0, transparent 65%), #020617;">
-                        <span>Animation</span>
-                        <span class="blog-chip">交互体验</span>
-                    </div>
-                    <div class="blog-content">
-                        <h3 class="blog-title">Compose 动画完全指南：从入门到精通</h3>
-                        <p class="blog-excerpt">系统学习 animateXxxAsState、AnimatedVisibility、Transition 等 API，打造流畅的用户体验。</p>
-                        <div class="blog-meta">
-                            <div>
-                                <span>2024-03-28 · 20 min</span>
-                                <div class="blog-tags">
-                                    <span class="blog-tag">Animation</span>
-                                    <span class="blog-tag">Transition</span>
-                                </div>
-                            </div>
-                            <a href="articles/compose-animation-guide.html" class="read-more">阅读全文</a>
+                <!-- Article 2 -->
+                <a href="articles/compose-architecture-and-udf.html" class="article-card" data-category="architecture">
+                    <div class="article-cover-wrapper">
+                        <div class="article-cover" style="background: linear-gradient(135deg, #a855f7 0%, #ec4899 100%);"></div>
+                        <div class="article-cover-gradient">
+                            <span class="article-category cat-architecture">架构设计</span>
+                            <span class="article-icon">🏗️</span>
                         </div>
                     </div>
-                </article>
-
-                <article class="blog-card">
-                    <div class="blog-image" style="background: radial-gradient(circle at top left, #8b5cf655 0, transparent 60%), radial-gradient(circle at bottom right, #22c55e55 0, transparent 65%), #020617;">
-                        <span>Navigation</span>
-                        <span class="blog-chip">路由管理</span>
-                    </div>
-                    <div class="blog-content">
-                        <h3 class="blog-title">Compose Navigation 最佳实践</h3>
-                        <p class="blog-excerpt">深入探讨路由设计、参数传递、嵌套导航、深层链接以及与 ViewModel 的集成。</p>
-                        <div class="blog-meta">
-                            <div>
-                                <span>2024-03-30 · 22 min</span>
-                                <div class="blog-tags">
-                                    <span class="blog-tag">Navigation</span>
-                                    <span class="blog-tag">Deep Link</span>
-                                </div>
+                    <div class="article-body">
+                        <h3 class="article-title">用 Jetpack Compose 搭建可维护的应用架构</h3>
+                        <p class="article-excerpt">结合 ViewModel、Unidirectional Data Flow 与 Navigation，构建一个既易于测试，又能支撑复杂业务的 Compose 架构。</p>
+                        <div class="article-footer">
+                            <div class="article-meta">
+                                <span>📅 2024-03-22</span>
+                                <span>⏱ 18 min</span>
                             </div>
-                            <a href="articles/compose-navigation-best-practices.html" class="read-more">阅读全文</a>
+                            <span class="article-link">
+                                阅读全文
+                                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                    <path d="M5 12h14M12 5l7 7-7 7"/>
+                                </svg>
+                            </span>
                         </div>
                     </div>
-                </article>
+                </a>
 
-                <article class="blog-card">
-                    <div class="blog-image" style="background: radial-gradient(circle at top left, #ef444455 0, transparent 60%), radial-gradient(circle at bottom right, #22c55e55 0, transparent 65%), #020617;">
-                        <span>Performance</span>
-                        <span class="blog-chip">高阶优化</span>
-                    </div>
-                    <div class="blog-content">
-                        <h3 class="blog-title">Compose 性能优化深度指南</h3>
-                        <p class="blog-excerpt">深入理解 Recomposition 机制，掌握 derivedStateOf、remember、Stable 等优化技巧，打造 60fps 流畅体验。</p>
-                        <div class="blog-meta">
-                            <div>
-                                <span>2024-04-01 · 25 min</span>
-                                <div class="blog-tags">
-                                    <span class="blog-tag">Recomposition</span>
-                                    <span class="blog-tag">Profiling</span>
-                                </div>
-                            </div>
-                            <a href="articles/compose-performance-deep-dive.html" class="read-more">阅读全文</a>
+                <!-- Article 3 -->
+                <a href="articles/compose-animation-guide.html" class="article-card" data-category="ui">
+                    <div class="article-cover-wrapper">
+                        <div class="article-cover" style="background: linear-gradient(135deg, #f97316 0%, #eab308 100%);"></div>
+                        <div class="article-cover-gradient">
+                            <span class="article-category cat-animation">动画交互</span>
+                            <span class="article-icon">✨</span>
                         </div>
                     </div>
-                </article>
-
-                <article class="blog-card">
-                    <div class="blog-image" style="background: radial-gradient(circle at top left, #06b6d455 0, transparent 60%), radial-gradient(circle at bottom right, #a855f755 0, transparent 65%), #020617;">
-                        <span>State</span>
-                        <span class="blog-chip">状态管理</span>
-                    </div>
-                    <div class="blog-content">
-                        <h3 class="blog-title">Compose 状态管理完全指南</h3>
-                        <p class="blog-excerpt">深入理解 remember、mutableStateOf、StateFlow 的正确使用场景，掌握状态提升与单向数据流。</p>
-                        <div class="blog-meta">
-                            <div>
-                                <span>2024-04-05 · 22 min</span>
-                                <div class="blog-tags">
-                                    <span class="blog-tag">State</span>
-                                    <span class="blog-tag">ViewModel</span>
-                                </div>
+                    <div class="article-body">
+                        <h3 class="article-title">Compose 动画完全指南：从入门到精通</h3>
+                        <p class="article-excerpt">系统学习 animateXxxAsState、AnimatedVisibility、Transition 等 API，打造流畅的用户体验。</p>
+                        <div class="article-footer">
+                            <div class="article-meta">
+                                <span>📅 2024-03-28</span>
+                                <span>⏱ 20 min</span>
                             </div>
-                            <a href="articles/compose-state-management.html" class="read-more">阅读全文</a>
+                            <span class="article-link">
+                                阅读全文
+                                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                    <path d="M5 12h14M12 5l7 7-7 7"/>
+                                </svg>
+                            </span>
                         </div>
                     </div>
-                </article>
+                </a>
 
-                <article class="blog-card">
-                    <div class="blog-image" style="background: radial-gradient(circle at top left, #22c55e55 0, transparent 60%), radial-gradient(circle at bottom right, #eab30855 0, transparent 65%), #020617;">
-                        <span>Testing</span>
-                        <span class="blog-chip">质量保障</span>
-                    </div>
-                    <div class="blog-content">
-                        <h3 class="blog-title">Compose UI 测试实战</h3>
-                        <p class="blog-excerpt">学习 ComposeTestRule、语义树查询、交互模拟等测试技巧，编写可靠的 UI 测试。</p>
-                        <div class="blog-meta">
-                            <div>
-                                <span>2024-04-08 · 18 min</span>
-                                <div class="blog-tags">
-                                    <span class="blog-tag">Testing</span>
-                                    <span class="blog-tag">Semantics</span>
-                                </div>
-                            </div>
-                            <a href="articles/compose-testing-guide.html" class="read-more">阅读全文</a>
+                <!-- Article 4 -->
+                <a href="articles/compose-navigation-best-practices.html" class="article-card" data-category="architecture">
+                    <div class="article-cover-wrapper">
+                        <div class="article-cover" style="background: linear-gradient(135deg, #3b82f6 0%, #8b5cf6 100%);"></div>
+                        <div class="article-cover-gradient">
+                            <span class="article-category cat-navigation">导航路由</span>
+                            <span class="article-icon">🧭</span>
                         </div>
                     </div>
-                </article>
-
-                <article class="blog-card">
-                    <div class="blog-image" style="background: radial-gradient(circle at top left, #ec489955 0, transparent 60%), radial-gradient(circle at bottom right, #38bdf855 0, transparent 65%), #020617;">
-                        <span>Layout</span>
-                        <span class="blog-chip">布局系统</span>
-                    </div>
-                    <div class="blog-content">
-                        <h3 class="blog-title">Compose 自定义布局与 Modifier</h3>
-                        <p class="blog-excerpt">深入布局系统，学习自定义 Layout、Modifier、intrinsic measurements，打造独特 UI。</p>
-                        <div class="blog-meta">
-                            <div>
-                                <span>2024-04-12 · 24 min</span>
-                                <div class="blog-tags">
-                                    <span class="blog-tag">Custom Layout</span>
-                                    <span class="blog-tag">Modifier</span>
-                                </div>
+                    <div class="article-body">
+                        <h3 class="article-title">Compose Navigation 最佳实践</h3>
+                        <p class="article-excerpt">深入探讨路由设计、参数传递、嵌套导航、深层链接以及与 ViewModel 的集成。</p>
+                        <div class="article-footer">
+                            <div class="article-meta">
+                                <span>📅 2024-03-30</span>
+                                <span>⏱ 22 min</span>
                             </div>
-                            <a href="articles/compose-custom-layout.html" class="read-more">阅读全文</a>
+                            <span class="article-link">
+                                阅读全文
+                                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                    <path d="M5 12h14M12 5l7 7-7 7"/>
+                                </svg>
+                            </span>
                         </div>
                     </div>
-                </article>
+                </a>
 
-                <article class="blog-card">
-                    <div class="blog-image" style="background: radial-gradient(circle at top left, #f59e0b55 0, transparent 60%), radial-gradient(circle at bottom right, #8b5cf655 0, transparent 65%), #020617;">
-                        <span>Side Effects</span>
-                        <span class="blog-chip">副作用处理</span>
-                    </div>
-                    <div class="blog-content">
-                        <h3 class="blog-title">Compose Side Effects 完全指南</h3>
-                        <p class="blog-excerpt">深入理解 LaunchedEffect、DisposableEffect、SideEffect 等副作用 API 的正确使用方式。</p>
-                        <div class="blog-meta">
-                            <div>
-                                <span>2024-04-15 · 20 min</span>
-                                <div class="blog-tags">
-                                    <span class="blog-tag">LaunchedEffect</span>
-                                    <span class="blog-tag">DisposableEffect</span>
-                                </div>
-                            </div>
-                            <a href="articles/compose-side-effects.html" class="read-more">阅读全文</a>
+                <!-- Article 5 -->
+                <a href="articles/compose-performance-deep-dive.html" class="article-card" data-category="performance">
+                    <div class="article-cover-wrapper">
+                        <div class="article-cover" style="background: linear-gradient(135deg, #ef4444 0%, #f97316 100%);"></div>
+                        <div class="article-cover-gradient">
+                            <span class="article-category cat-performance">性能优化</span>
+                            <span class="article-icon">⚡</span>
                         </div>
                     </div>
-                </article>
-
-                <article class="blog-card">
-                    <div class="blog-image" style="background: radial-gradient(circle at top left, #10b98155 0, transparent 60%), radial-gradient(circle at bottom right, #3b82f655 0, transparent 65%), #020617;">
-                        <span>LazyColumn</span>
-                        <span class="blog-chip">列表性能</span>
-                    </div>
-                    <div class="blog-content">
-                        <h3 class="blog-title">LazyColumn/LazyGrid 深度优化</h3>
-                        <p class="blog-excerpt">掌握 key 策略、contentType、Paging3 集成、滚动性能调优，打造丝滑列表体验。</p>
-                        <div class="blog-meta">
-                            <div>
-                                <span>2024-04-18 · 22 min</span>
-                                <div class="blog-tags">
-                                    <span class="blog-tag">LazyColumn</span>
-                                    <span class="blog-tag">Paging3</span>
-                                </div>
+                    <div class="article-body">
+                        <h3 class="article-title">Compose 性能优化深度指南</h3>
+                        <p class="article-excerpt">深入理解 Recomposition 机制，掌握 derivedStateOf、remember、Stable 等优化技巧，打造 60fps 流畅体验。</p>
+                        <div class="article-footer">
+                            <div class="article-meta">
+                                <span>📅 2024-04-01</span>
+                                <span>⏱ 25 min</span>
                             </div>
-                            <a href="articles/compose-lazy-optimization.html" class="read-more">阅读全文</a>
+                            <span class="article-link">
+                                阅读全文
+                                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                    <path d="M5 12h14M12 5l7 7-7 7"/>
+                                </svg>
+                            </span>
                         </div>
                     </div>
-                </article>
+                </a>
 
-                <article class="blog-card">
-                    <div class="blog-image" style="background: radial-gradient(circle at top left, #d946ef55 0, transparent 60%), radial-gradient(circle at bottom right, #06b6d455 0, transparent 65%), #020617;">
-                        <span>Material 3</span>
-                        <span class="blog-chip">主题系统</span>
-                    </div>
-                    <div class="blog-content">
-                        <h3 class="blog-title">Material 3 与 Compose 主题系统</h3>
-                        <p class="blog-excerpt">深入 Material 3 设计系统，学习动态颜色、自定义主题、深色模式、Typography。</p>
-                        <div class="blog-meta">
-                            <div>
-                                <span>2024-04-22 · 20 min</span>
-                                <div class="blog-tags">
-                                    <span class="blog-tag">Material 3</span>
-                                    <span class="blog-tag">Dynamic Color</span>
-                                </div>
-                            </div>
-                            <a href="articles/compose-material3-theming.html" class="read-more">阅读全文</a>
+                <!-- Article 6 -->
+                <a href="articles/compose-state-management.html" class="article-card" data-category="basics">
+                    <div class="article-cover-wrapper">
+                        <div class="article-cover" style="background: linear-gradient(135deg, #06b6d4 0%, #3b82f6 100%);"></div>
+                        <div class="article-cover-gradient">
+                            <span class="article-category cat-state">状态管理</span>
+                            <span class="article-icon">🔄</span>
                         </div>
                     </div>
-                </article>
+                    <div class="article-body">
+                        <h3 class="article-title">Compose 状态管理完全指南</h3>
+                        <p class="article-excerpt">深入理解 remember、mutableStateOf、StateFlow 的正确使用场景，掌握状态提升与单向数据流。</p>
+                        <div class="article-footer">
+                            <div class="article-meta">
+                                <span>📅 2024-04-05</span>
+                                <span>⏱ 22 min</span>
+                            </div>
+                            <span class="article-link">
+                                阅读全文
+                                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                    <path d="M5 12h14M12 5l7 7-7 7"/>
+                                </svg>
+                            </span>
+                        </div>
+                    </div>
+                </a>
+
+                <!-- Article 7 -->
+                <a href="articles/compose-testing-guide.html" class="article-card" data-category="architecture">
+                    <div class="article-cover-wrapper">
+                        <div class="article-cover" style="background: linear-gradient(135deg, #22c55e 0%, #84cc16 100%);"></div>
+                        <div class="article-cover-gradient">
+                            <span class="article-category cat-testing">测试</span>
+                            <span class="article-icon">🧪</span>
+                        </div>
+                    </div>
+                    <div class="article-body">
+                        <h3 class="article-title">Compose UI 测试实战</h3>
+                        <p class="article-excerpt">学习 ComposeTestRule、语义树查询、交互模拟等测试技巧，编写可靠的 UI 测试。</p>
+                        <div class="article-footer">
+                            <div class="article-meta">
+                                <span>📅 2024-04-08</span>
+                                <span>⏱ 18 min</span>
+                            </div>
+                            <span class="article-link">
+                                阅读全文
+                                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                    <path d="M5 12h14M12 5l7 7-7 7"/>
+                                </svg>
+                            </span>
+                        </div>
+                    </div>
+                </a>
+
+                <!-- Article 8 -->
+                <a href="articles/compose-custom-layout.html" class="article-card" data-category="ui">
+                    <div class="article-cover-wrapper">
+                        <div class="article-cover" style="background: linear-gradient(135deg, #ec4899 0%, #a855f7 100%);"></div>
+                        <div class="article-cover-gradient">
+                            <span class="article-category cat-layout">布局系统</span>
+                            <span class="article-icon">📐</span>
+                        </div>
+                    </div>
+                    <div class="article-body">
+                        <h3 class="article-title">Compose 自定义布局与 Modifier</h3>
+                        <p class="article-excerpt">深入布局系统，学习自定义 Layout、Modifier、intrinsic measurements，打造独特 UI。</p>
+                        <div class="article-footer">
+                            <div class="article-meta">
+                                <span>📅 2024-04-12</span>
+                                <span>⏱ 24 min</span>
+                            </div>
+                            <span class="article-link">
+                                阅读全文
+                                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                    <path d="M5 12h14M12 5l7 7-7 7"/>
+                                </svg>
+                            </span>
+                        </div>
+                    </div>
+                </a>
+
+                <!-- Article 9 -->
+                <a href="articles/compose-side-effects.html" class="article-card" data-category="basics">
+                    <div class="article-cover-wrapper">
+                        <div class="article-cover" style="background: linear-gradient(135deg, #f59e0b 0%, #f97316 100%);"></div>
+                        <div class="article-cover-gradient">
+                            <span class="article-category cat-effects">副作用</span>
+                            <span class="article-icon">🎯</span>
+                        </div>
+                    </div>
+                    <div class="article-body">
+                        <h3 class="article-title">Compose Side Effects 完全指南</h3>
+                        <p class="article-excerpt">深入理解 LaunchedEffect、DisposableEffect、SideEffect 等副作用 API 的正确使用方式。</p>
+                        <div class="article-footer">
+                            <div class="article-meta">
+                                <span>📅 2024-04-15</span>
+                                <span>⏱ 20 min</span>
+                            </div>
+                            <span class="article-link">
+                                阅读全文
+                                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                    <path d="M5 12h14M12 5l7 7-7 7"/>
+                                </svg>
+                            </span>
+                        </div>
+                    </div>
+                </a>
+
+                <!-- Article 10 -->
+                <a href="articles/compose-lazy-optimization.html" class="article-card" data-category="performance">
+                    <div class="article-cover-wrapper">
+                        <div class="article-cover" style="background: linear-gradient(135deg, #10b981 0%, #06b6d4 100%);"></div>
+                        <div class="article-cover-gradient">
+                            <span class="article-category cat-list">列表性能</span>
+                            <span class="article-icon">📋</span>
+                        </div>
+                    </div>
+                    <div class="article-body">
+                        <h3 class="article-title">LazyColumn/LazyGrid 深度优化</h3>
+                        <p class="article-excerpt">掌握 key 策略、contentType、Paging3 集成、滚动性能调优，打造丝滑列表体验。</p>
+                        <div class="article-footer">
+                            <div class="article-meta">
+                                <span>📅 2024-04-18</span>
+                                <span>⏱ 22 min</span>
+                            </div>
+                            <span class="article-link">
+                                阅读全文
+                                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                    <path d="M5 12h14M12 5l7 7-7 7"/>
+                                </svg>
+                            </span>
+                        </div>
+                    </div>
+                </a>
+
+                <!-- Article 11 -->
+                <a href="articles/compose-material3-theming.html" class="article-card" data-category="ui">
+                    <div class="article-cover-wrapper">
+                        <div class="article-cover" style="background: linear-gradient(135deg, #d946ef 0%, #8b5cf6 100%);"></div>
+                        <div class="article-cover-gradient">
+                            <span class="article-category cat-theme">主题系统</span>
+                            <span class="article-icon">🎨</span>
+                        </div>
+                    </div>
+                    <div class="article-body">
+                        <h3 class="article-title">Material 3 与 Compose 主题系统</h3>
+                        <p class="article-excerpt">深入 Material 3 设计系统，学习动态颜色、自定义主题、深色模式、Typography。</p>
+                        <div class="article-footer">
+                            <div class="article-meta">
+                                <span>📅 2024-04-22</span>
+                                <span>⏱ 20 min</span>
+                            </div>
+                            <span class="article-link">
+                                阅读全文
+                                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                    <path d="M5 12h14M12 5l7 7-7 7"/>
+                                </svg>
+                            </span>
+                        </div>
+                    </div>
+                </a>
             </div>
         </div>
     </section>
 
-    <!-- Features / About Section -->
-    <section class="features" id="about">
+    <!-- Topics Section -->
+    <section class="topics" id="topics">
         <div class="container">
-            <h2 class="section-title">写给 Android 开发者的 Compose 博客</h2>
-            <p class="section-subtitle">不追热点，只关注能在你的项目里真正落地的技术决策与经验总结。</p>
-            <div class="features-grid">
-                <div class="feature-card">
-                    <div class="feature-icon">💻</div>
-                    <h3 class="feature-title">从 XML 到 Compose 的迁移路径</h3>
-                    <p class="feature-description">以工程视角拆解「如何从传统 View 系统迁移到 Compose」，覆盖渐进式改造策略、兼容性处理以及团队落地节奏。</p>
-                    <p class="feature-meta">适合：已有存量项目的团队、希望先在局部引入 Compose 的个人开发者。</p>
-                    <div class="topics-strip">
-                        <span class="topic-pill">Fragment + Compose 混用</span>
-                        <span class="topic-pill">可复用组件</span>
+            <div class="section-header">
+                <div>
+                    <h2 class="section-title">学习路径</h2>
+                    <p class="section-subtitle">按主题系统学习，从入门到精通</p>
+                </div>
+            </div>
+
+            <div class="topics-grid">
+                <div class="topic-card">
+                    <div class="topic-icon green">🎓</div>
+                    <h3 class="topic-title">Compose 入门</h3>
+                    <p class="topic-description">理解声明式 UI 的核心概念，掌握状态管理和副作用处理的基础知识。</p>
+                    <div class="topic-tags">
+                        <span class="topic-tag">心智模型</span>
+                        <span class="topic-tag">State</span>
+                        <span class="topic-tag">Side Effects</span>
                     </div>
                 </div>
-                <div class="feature-card">
-                    <div class="feature-icon">🎯</div>
-                    <h3 class="feature-title">围绕业务的架构设计</h3>
-                    <p class="feature-description">不仅仅是 MVVM / MVI 的概念解释，而是讨论「如何让状态流在 Compose 里对齐你的业务边界」。</p>
-                    <p class="feature-meta">适合：在复杂业务中被「状态膨胀」困扰的开发者与架构师。</p>
-                    <div class="topics-strip">
-                        <span class="topic-pill">UDF / MVI</span>
-                        <span class="topic-pill">ViewModel</span>
-                        <span class="topic-pill">Navigation</span>
+
+                <div class="topic-card">
+                    <div class="topic-icon purple">🏛️</div>
+                    <h3 class="topic-title">架构与工程化</h3>
+                    <p class="topic-description">学习如何构建可维护、可测试的 Compose 应用架构，掌握 UDF 和 Navigation。</p>
+                    <div class="topic-tags">
+                        <span class="topic-tag">UDF / MVI</span>
+                        <span class="topic-tag">ViewModel</span>
+                        <span class="topic-tag">Testing</span>
                     </div>
                 </div>
-                <div class="feature-card">
-                    <div class="feature-icon">⚡</div>
-                    <h3 class="feature-title">性能与体验的平衡</h3>
-                    <p class="feature-description">通过实测与案例介绍如何使用工具与思路定位性能瓶颈，避免 Recomposition 过度与不必要的重建。</p>
-                    <p class="feature-meta">适合：对「为什么卡顿」敏感，并愿意深入底层机制的开发者。</p>
-                    <div class="topics-strip">
-                        <span class="topic-pill">Recomposition</span>
-                        <span class="topic-pill">Slot Table</span>
-                        <span class="topic-pill">Tracing</span>
+
+                <div class="topic-card">
+                    <div class="topic-icon cyan">⚡</div>
+                    <h3 class="topic-title">性能优化</h3>
+                    <p class="topic-description">深入 Recomposition 机制，优化列表性能，打造 60fps 流畅体验。</p>
+                    <div class="topic-tags">
+                        <span class="topic-tag">Recomposition</span>
+                        <span class="topic-tag">LazyColumn</span>
+                        <span class="topic-tag">Profiling</span>
                     </div>
                 </div>
             </div>
@@ -876,29 +1137,75 @@
     </section>
 
     <!-- Footer -->
-    <footer class="footer" id="contact">
+    <footer class="footer" id="about">
         <div class="container">
             <div class="footer-content">
-                <div class="footer-section">
-                    <h3>关于我们</h3>
-                    <p>专注于技术分享和开发经验交流</p>
-                    <p>致力于为开发者提供有价值的内容</p>
+                <div class="footer-brand">
+                    <a href="#" class="logo">
+                        <div class="logo-icon">F</div>
+                        <span class="logo-text">Fidroid</span>
+                    </a>
+                    <p>专注 Android 与 Jetpack Compose 的现代开发实战与最佳实践。</p>
                 </div>
-                <div class="footer-section">
-                    <h3>快速链接</h3>
-                    <p><a href="/privacy-policy">隐私政策</a></p>
-                    <p><a href="#blog">技术博客</a></p>
+                <div>
+                    <h4 class="footer-title">文章</h4>
+                    <ul class="footer-links">
+                        <li><a href="#articles">全部文章</a></li>
+                        <li><a href="#topics">学习路径</a></li>
+                    </ul>
                 </div>
-                <div class="footer-section">
-                    <h3>技术资源</h3>
-                    <p>分享最新的技术动态和开发工具</p>
-                    <p>提供实用的编程教程和最佳实践</p>
+                <div>
+                    <h4 class="footer-title">资源</h4>
+                    <ul class="footer-links">
+                        <li><a href="https://developer.android.com/jetpack/compose" target="_blank">官方文档</a></li>
+                        <li><a href="https://github.com/android/compose-samples" target="_blank">示例代码</a></li>
+                    </ul>
+                </div>
+                <div>
+                    <h4 class="footer-title">链接</h4>
+                    <ul class="footer-links">
+                        <li><a href="privacy/index.html">隐私政策</a></li>
+                    </ul>
                 </div>
             </div>
             <div class="footer-bottom">
                 <p>&copy; 2024 Fidroid. All rights reserved.</p>
+                <p>Made with ❤️ for Android developers</p>
             </div>
         </div>
     </footer>
-    </body>
-    </html>
+
+    <script>
+        // Navbar scroll effect
+        const navbar = document.getElementById('navbar');
+        window.addEventListener('scroll', () => {
+            if (window.scrollY > 50) {
+                navbar.classList.add('scrolled');
+            } else {
+                navbar.classList.remove('scrolled');
+            }
+        });
+
+        // Filter tabs
+        const filterTabs = document.querySelectorAll('.filter-tab');
+        const articleCards = document.querySelectorAll('.article-card');
+
+        filterTabs.forEach(tab => {
+            tab.addEventListener('click', () => {
+                const filter = tab.dataset.filter;
+                
+                filterTabs.forEach(t => t.classList.remove('active'));
+                tab.classList.add('active');
+
+                articleCards.forEach(card => {
+                    if (filter === 'all' || card.dataset.category === filter) {
+                        card.style.display = 'flex';
+                    } else {
+                        card.style.display = 'none';
+                    }
+                });
+            });
+        });
+    </script>
+</body>
+</html>
