@@ -1,0 +1,486 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Compose Side Effects 完全指南：副作用处理的正确姿势 - Fidroid</title>
+    <meta name="description" content="深入理解 LaunchedEffect、DisposableEffect、SideEffect 等副作用 API，掌握在 Compose 中正确处理副作用的方法。">
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            line-height: 1.8;
+            color: #e5e7eb;
+            background: #020617;
+        }
+        .navbar {
+            background: rgba(15,23,42,0.98);
+            backdrop-filter: blur(10px);
+            position: fixed;
+            top: 0;
+            width: 100%;
+            z-index: 1000;
+        }
+        .nav-container {
+            max-width: 900px;
+            margin: 0 auto;
+            padding: 1rem 20px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .logo {
+            font-size: 1.5rem;
+            font-weight: bold;
+            color: #38bdf8;
+            text-decoration: none;
+            letter-spacing: 0.08em;
+            text-transform: uppercase;
+        }
+        .back-link { color: #9ca3af; text-decoration: none; font-size: 0.9rem; }
+        .back-link:hover { color: #38bdf8; }
+
+        .article-header {
+            padding: 120px 20px 60px;
+            background: radial-gradient(circle at top left, #f59e0b 0, transparent 50%),
+                        radial-gradient(circle at bottom right, #8b5cf6 0, transparent 55%),
+                        #020617;
+            text-align: center;
+        }
+        .article-header h1 {
+            max-width: 800px;
+            margin: 0 auto 1rem;
+            font-size: 2.5rem;
+            font-weight: 800;
+            letter-spacing: -0.03em;
+            color: #fff;
+        }
+        .article-meta { color: #9ca3af; font-size: 0.9rem; margin-bottom: 1.5rem; }
+        .article-tags { display: flex; justify-content: center; flex-wrap: wrap; gap: 0.5rem; }
+        .article-tag {
+            padding: 0.25rem 0.75rem;
+            border-radius: 999px;
+            font-size: 0.75rem;
+            background: rgba(15,23,42,0.85);
+            border: 1px solid rgba(245,158,11,0.4);
+            color: #fcd34d;
+        }
+
+        .article-content {
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 60px 20px 80px;
+        }
+        .article-content h2 {
+            font-size: 1.6rem;
+            margin: 2.5rem 0 1rem;
+            color: #f9fafb;
+            border-left: 4px solid #f59e0b;
+            padding-left: 1rem;
+        }
+        .article-content h3 { font-size: 1.25rem; margin: 2rem 0 0.75rem; color: #e5e7eb; }
+        .article-content p { margin-bottom: 1.25rem; color: #d1d5db; }
+        .article-content ul, .article-content ol { margin: 1rem 0 1.5rem 1.5rem; color: #d1d5db; }
+        .article-content li { margin-bottom: 0.5rem; }
+        .article-content strong { color: #f9fafb; }
+        .article-content a { color: #38bdf8; text-decoration: underline; }
+
+        pre {
+            background: #0f172a;
+            border: 1px solid rgba(245,158,11,0.3);
+            border-radius: 12px;
+            padding: 1.25rem;
+            overflow-x: auto;
+            margin: 1.5rem 0;
+            font-size: 0.85rem;
+            line-height: 1.6;
+        }
+        code { font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace; color: #e5e7eb; }
+        .code-keyword { color: #c084fc; }
+        .code-func { color: #38bdf8; }
+        .code-type { color: #4ade80; }
+        .code-string { color: #fb7185; }
+        .code-comment { color: #6b7280; font-style: italic; }
+        .code-number { color: #fbbf24; }
+
+        .callout {
+            background: rgba(245,158,11,0.1);
+            border: 1px solid rgba(245,158,11,0.3);
+            border-radius: 12px;
+            padding: 1.25rem 1.5rem;
+            margin: 1.5rem 0;
+        }
+        .callout-title { font-weight: 600; color: #fcd34d; margin-bottom: 0.5rem; }
+        .callout p { margin-bottom: 0; color: #d1d5db; }
+
+        .comparison-table { width: 100%; border-collapse: collapse; margin: 1.5rem 0; font-size: 0.9rem; }
+        .comparison-table th, .comparison-table td { border: 1px solid rgba(148,163,184,0.3); padding: 0.75rem 1rem; text-align: left; }
+        .comparison-table th { background: rgba(15,23,42,0.8); color: #f9fafb; }
+        .comparison-table td { color: #d1d5db; }
+
+        .footer {
+            background: #020617;
+            border-top: 1px solid #111827;
+            padding: 2rem;
+            text-align: center;
+            color: #6b7280;
+        }
+        .footer a { color: #38bdf8; text-decoration: none; }
+    </style>
+</head>
+<body>
+    <nav class="navbar">
+        <div class="nav-container">
+            <a href="../index.html" class="logo">Fidroid</a>
+            <a href="../index.html#blog" class="back-link">← 返回博客列表</a>
+        </div>
+    </nav>
+
+    <header class="article-header">
+        <h1>Compose Side Effects 完全指南：副作用处理的正确姿势</h1>
+        <p class="article-meta">2024-04-15 · 20 min · 副作用处理</p>
+        <div class="article-tags">
+            <span class="article-tag">LaunchedEffect</span>
+            <span class="article-tag">DisposableEffect</span>
+            <span class="article-tag">SideEffect</span>
+            <span class="article-tag">rememberCoroutineScope</span>
+        </div>
+    </header>
+
+    <article class="article-content">
+        <p>在 Compose 的声明式世界中，副作用（Side Effects）是指那些需要在 Composable 函数外部执行的操作，如网络请求、数据库访问、日志记录等。正确处理副作用是写好 Compose 代码的关键。</p>
+
+        <h2>一、什么是副作用？</h2>
+        <p>Composable 函数应该是<strong>纯函数</strong>：给定相同的输入，总是产生相同的 UI 输出，且没有可观察的副作用。但现实中我们需要：</p>
+        <ul>
+            <li>在组件显示时加载数据</li>
+            <li>监听生命周期事件</li>
+            <li>与外部系统交互（传感器、定位等）</li>
+            <li>记录分析事件</li>
+        </ul>
+        <p>这些操作需要通过 Compose 提供的 Effect API 来安全执行。</p>
+
+        <h2>二、Effect API 速查表</h2>
+
+        <table class="comparison-table">
+            <thead>
+                <tr>
+                    <th>API</th>
+                    <th>执行时机</th>
+                    <th>典型用途</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr>
+                    <td><code>LaunchedEffect</code></td>
+                    <td>进入组合时，key 变化时重启</td>
+                    <td>协程中执行一次性操作</td>
+                </tr>
+                <tr>
+                    <td><code>DisposableEffect</code></td>
+                    <td>进入组合时，离开时清理</td>
+                    <td>需要清理的资源（监听器）</td>
+                </tr>
+                <tr>
+                    <td><code>SideEffect</code></td>
+                    <td>每次成功重组后</td>
+                    <td>同步非 Compose 状态</td>
+                </tr>
+                <tr>
+                    <td><code>rememberCoroutineScope</code></td>
+                    <td>获取与组合绑定的协程作用域</td>
+                    <td>响应事件时启动协程</td>
+                </tr>
+                <tr>
+                    <td><code>produceState</code></td>
+                    <td>将非 Compose 状态转为 State</td>
+                    <td>订阅外部数据源</td>
+                </tr>
+                <tr>
+                    <td><code>derivedStateOf</code></td>
+                    <td>派生状态变化时</td>
+                    <td>减少不必要的重组</td>
+                </tr>
+                <tr>
+                    <td><code>snapshotFlow</code></td>
+                    <td>将 Compose State 转为 Flow</td>
+                    <td>在 Flow 中观察状态变化</td>
+                </tr>
+            </tbody>
+        </table>
+
+        <h2>三、LaunchedEffect：协程副作用</h2>
+        <p><code>LaunchedEffect</code> 在进入组合时启动一个协程，当 key 变化时取消并重启：</p>
+
+<pre><code><span class="code-keyword">@Composable</span>
+<span class="code-keyword">fun</span> <span class="code-func">UserProfile</span>(userId: <span class="code-type">String</span>) {
+    <span class="code-keyword">var</span> user <span class="code-keyword">by</span> <span class="code-func">remember</span> { <span class="code-func">mutableStateOf</span>&lt;<span class="code-type">User</span>?&gt;(<span class="code-keyword">null</span>) }
+
+    <span class="code-comment">// userId 变化时重新加载</span>
+    <span class="code-func">LaunchedEffect</span>(userId) {
+        user = repository.<span class="code-func">getUser</span>(userId)
+    }
+
+    user?.<span class="code-func">let</span> { <span class="code-func">ProfileContent</span>(it) }
+        ?: <span class="code-func">LoadingIndicator</span>()
+}</code></pre>
+
+        <h3>多个 key</h3>
+<pre><code><span class="code-comment">// 任一 key 变化都会重启</span>
+<span class="code-func">LaunchedEffect</span>(userId, refreshTrigger) {
+    user = repository.<span class="code-func">getUser</span>(userId)
+}</code></pre>
+
+        <h3>只执行一次</h3>
+<pre><code><span class="code-comment">// 使用 Unit 或 true 作为 key，只在首次进入时执行</span>
+<span class="code-func">LaunchedEffect</span>(Unit) {
+    analytics.<span class="code-func">logScreenView</span>(<span class="code-string">"profile"</span>)
+}</code></pre>
+
+        <div class="callout">
+            <p class="callout-title">⚠️ 常见错误</p>
+            <p>不要在 LaunchedEffect 中使用会频繁变化的 key（如每次重组都变化的对象），这会导致协程不断重启。</p>
+        </div>
+
+        <h2>四、DisposableEffect：需要清理的副作用</h2>
+        <p>当副作用需要在离开组合时清理（如取消监听器），使用 <code>DisposableEffect</code>：</p>
+
+<pre><code><span class="code-keyword">@Composable</span>
+<span class="code-keyword">fun</span> <span class="code-func">LocationTracker</span>(onLocationUpdate: (<span class="code-type">Location</span>) -> <span class="code-type">Unit</span>) {
+    <span class="code-keyword">val</span> context = <span class="code-func">LocalContext</span>.current
+    <span class="code-keyword">val</span> locationManager = <span class="code-func">remember</span> {
+        context.<span class="code-func">getSystemService</span>(<span class="code-type">LocationManager</span>::<span class="code-keyword">class</span>.java)
+    }
+
+    <span class="code-func">DisposableEffect</span>(locationManager) {
+        <span class="code-keyword">val</span> listener = <span class="code-type">LocationListener</span> { location ->
+            <span class="code-func">onLocationUpdate</span>(location)
+        }
+
+        locationManager.<span class="code-func">requestLocationUpdates</span>(
+            LocationManager.GPS_PROVIDER,
+            <span class="code-number">1000L</span>,
+            <span class="code-number">10f</span>,
+            listener
+        )
+
+        <span class="code-comment">// 清理：离开组合时调用</span>
+        <span class="code-func">onDispose</span> {
+            locationManager.<span class="code-func">removeUpdates</span>(listener)
+        }
+    }
+}</code></pre>
+
+        <h3>生命周期观察</h3>
+<pre><code><span class="code-keyword">@Composable</span>
+<span class="code-keyword">fun</span> <span class="code-func">LifecycleObserver</span>(
+    onStart: () -> <span class="code-type">Unit</span>,
+    onStop: () -> <span class="code-type">Unit</span>
+) {
+    <span class="code-keyword">val</span> lifecycleOwner = <span class="code-func">LocalLifecycleOwner</span>.current
+
+    <span class="code-func">DisposableEffect</span>(lifecycleOwner) {
+        <span class="code-keyword">val</span> observer = <span class="code-type">LifecycleEventObserver</span> { _, event ->
+            <span class="code-keyword">when</span> (event) {
+                Lifecycle.Event.ON_START -> <span class="code-func">onStart</span>()
+                Lifecycle.Event.ON_STOP -> <span class="code-func">onStop</span>()
+                <span class="code-keyword">else</span> -> {}
+            }
+        }
+
+        lifecycleOwner.lifecycle.<span class="code-func">addObserver</span>(observer)
+
+        <span class="code-func">onDispose</span> {
+            lifecycleOwner.lifecycle.<span class="code-func">removeObserver</span>(observer)
+        }
+    }
+}</code></pre>
+
+        <h2>五、SideEffect：每次重组后执行</h2>
+        <p><code>SideEffect</code> 在每次<strong>成功</strong>重组后执行，用于将 Compose 状态同步到非 Compose 代码：</p>
+
+<pre><code><span class="code-keyword">@Composable</span>
+<span class="code-keyword">fun</span> <span class="code-func">AnalyticsScreen</span>(screenName: <span class="code-type">String</span>) {
+    <span class="code-comment">// 每次重组后同步到分析系统</span>
+    <span class="code-func">SideEffect</span> {
+        analytics.<span class="code-func">setCurrentScreen</span>(screenName)
+    }
+
+    <span class="code-comment">// UI content...</span>
+}</code></pre>
+
+        <div class="callout">
+            <p class="callout-title">💡 SideEffect vs LaunchedEffect</p>
+            <p><code>SideEffect</code> 是同步的、每次重组都执行；<code>LaunchedEffect</code> 是异步的、只在 key 变化时执行。</p>
+        </div>
+
+        <h2>六、rememberCoroutineScope：事件驱动的协程</h2>
+        <p>当需要在事件回调（如点击）中启动协程时，使用 <code>rememberCoroutineScope</code>：</p>
+
+<pre><code><span class="code-keyword">@Composable</span>
+<span class="code-keyword">fun</span> <span class="code-func">SubmitButton</span>(onSubmit: <span class="code-keyword">suspend</span> () -> <span class="code-type">Unit</span>) {
+    <span class="code-keyword">val</span> scope = <span class="code-func">rememberCoroutineScope</span>()
+    <span class="code-keyword">var</span> isLoading <span class="code-keyword">by</span> <span class="code-func">remember</span> { <span class="code-func">mutableStateOf</span>(<span class="code-keyword">false</span>) }
+
+    <span class="code-func">Button</span>(
+        onClick = {
+            scope.<span class="code-func">launch</span> {
+                isLoading = <span class="code-keyword">true</span>
+                <span class="code-keyword">try</span> {
+                    <span class="code-func">onSubmit</span>()
+                } <span class="code-keyword">finally</span> {
+                    isLoading = <span class="code-keyword">false</span>
+                }
+            }
+        },
+        enabled = !isLoading
+    ) {
+        <span class="code-keyword">if</span> (isLoading) {
+            <span class="code-func">CircularProgressIndicator</span>(modifier = <span class="code-type">Modifier</span>.<span class="code-func">size</span>(<span class="code-number">16</span>.dp))
+        } <span class="code-keyword">else</span> {
+            <span class="code-func">Text</span>(<span class="code-string">"提交"</span>)
+        }
+    }
+}</code></pre>
+
+        <h2>七、produceState：将外部数据转为 State</h2>
+        <p><code>produceState</code> 将非 Compose 的异步数据源转换为 Compose State：</p>
+
+<pre><code><span class="code-keyword">@Composable</span>
+<span class="code-keyword">fun</span> <span class="code-func">NetworkImage</span>(url: <span class="code-type">String</span>): <span class="code-type">State</span>&lt;<span class="code-type">ImageBitmap</span>?&gt; {
+    <span class="code-keyword">return</span> <span class="code-func">produceState</span>&lt;<span class="code-type">ImageBitmap</span>?&gt;(initialValue = <span class="code-keyword">null</span>, url) {
+        value = <span class="code-func">loadNetworkImage</span>(url)
+    }
+}
+
+<span class="code-comment">// 使用</span>
+<span class="code-keyword">@Composable</span>
+<span class="code-keyword">fun</span> <span class="code-func">Avatar</span>(imageUrl: <span class="code-type">String</span>) {
+    <span class="code-keyword">val</span> image <span class="code-keyword">by</span> <span class="code-func">NetworkImage</span>(imageUrl)
+
+    image?.<span class="code-func">let</span> {
+        <span class="code-func">Image</span>(bitmap = it, contentDescription = <span class="code-keyword">null</span>)
+    } ?: <span class="code-func">Placeholder</span>()
+}</code></pre>
+
+        <h3>订阅 Flow</h3>
+<pre><code><span class="code-keyword">@Composable</span>
+<span class="code-keyword">fun</span> <span class="code-func">connectivityState</span>(): <span class="code-type">State</span>&lt;<span class="code-type">Boolean</span>&gt; {
+    <span class="code-keyword">val</span> context = <span class="code-func">LocalContext</span>.current
+
+    <span class="code-keyword">return</span> <span class="code-func">produceState</span>(initialValue = <span class="code-keyword">true</span>) {
+        context.<span class="code-func">observeConnectivity</span>().<span class="code-func">collect</span> { isConnected ->
+            value = isConnected
+        }
+    }
+}</code></pre>
+
+        <h2>八、snapshotFlow：State 转 Flow</h2>
+        <p><code>snapshotFlow</code> 将 Compose State 转换为 Flow，便于在协程中处理：</p>
+
+<pre><code><span class="code-keyword">@Composable</span>
+<span class="code-keyword">fun</span> <span class="code-func">ScrollTracker</span>(listState: <span class="code-type">LazyListState</span>) {
+    <span class="code-func">LaunchedEffect</span>(listState) {
+        <span class="code-func">snapshotFlow</span> { listState.firstVisibleItemIndex }
+            .<span class="code-func">distinctUntilChanged</span>()
+            .<span class="code-func">collect</span> { index ->
+                analytics.<span class="code-func">logScroll</span>(index)
+            }
+    }
+}</code></pre>
+
+        <h2>九、rememberUpdatedState：捕获最新值</h2>
+        <p>在长时间运行的副作用中，确保使用最新的回调或值：</p>
+
+<pre><code><span class="code-keyword">@Composable</span>
+<span class="code-keyword">fun</span> <span class="code-func">SplashScreen</span>(onTimeout: () -> <span class="code-type">Unit</span>) {
+    <span class="code-comment">// 捕获最新的 onTimeout，即使它在 LaunchedEffect 运行期间变化</span>
+    <span class="code-keyword">val</span> currentOnTimeout <span class="code-keyword">by</span> <span class="code-func">rememberUpdatedState</span>(onTimeout)
+
+    <span class="code-func">LaunchedEffect</span>(Unit) {
+        <span class="code-func">delay</span>(<span class="code-number">3000</span>)
+        <span class="code-func">currentOnTimeout</span>()  <span class="code-comment">// 使用最新的回调</span>
+    }
+
+    <span class="code-comment">// Splash UI...</span>
+}</code></pre>
+
+        <h2>十、选择正确的 Effect</h2>
+
+        <h3>决策流程图</h3>
+        <ol>
+            <li><strong>需要在协程中执行？</strong>
+                <ul>
+                    <li>是，且由状态变化触发 → <code>LaunchedEffect</code></li>
+                    <li>是，且由事件触发 → <code>rememberCoroutineScope</code></li>
+                </ul>
+            </li>
+            <li><strong>需要清理资源？</strong> → <code>DisposableEffect</code></li>
+            <li><strong>需要同步到非 Compose 代码？</strong> → <code>SideEffect</code></li>
+            <li><strong>需要将外部数据转为 State？</strong> → <code>produceState</code></li>
+            <li><strong>需要将 State 转为 Flow？</strong> → <code>snapshotFlow</code></li>
+        </ol>
+
+        <h2>十一、常见陷阱</h2>
+
+        <h3>1. 在 LaunchedEffect 中直接使用变化的 lambda</h3>
+<pre><code><span class="code-comment">// ❌ 错误：onComplete 变化不会触发重启</span>
+<span class="code-func">LaunchedEffect</span>(Unit) {
+    <span class="code-func">doSomething</span>()
+    <span class="code-func">onComplete</span>()  <span class="code-comment">// 可能是旧的 lambda</span>
+}
+
+<span class="code-comment">// ✅ 正确：使用 rememberUpdatedState</span>
+<span class="code-keyword">val</span> currentOnComplete <span class="code-keyword">by</span> <span class="code-func">rememberUpdatedState</span>(onComplete)
+<span class="code-func">LaunchedEffect</span>(Unit) {
+    <span class="code-func">doSomething</span>()
+    <span class="code-func">currentOnComplete</span>()
+}</code></pre>
+
+        <h3>2. 忘记 onDispose</h3>
+<pre><code><span class="code-comment">// ❌ 错误：资源泄漏</span>
+<span class="code-func">DisposableEffect</span>(key) {
+    listener.<span class="code-func">register</span>()
+    <span class="code-comment">// 忘记 onDispose！</span>
+}
+
+<span class="code-comment">// ✅ 正确</span>
+<span class="code-func">DisposableEffect</span>(key) {
+    listener.<span class="code-func">register</span>()
+    <span class="code-func">onDispose</span> { listener.<span class="code-func">unregister</span>() }
+}</code></pre>
+
+        <h3>3. 在 Composition 中直接执行副作用</h3>
+<pre><code><span class="code-comment">// ❌ 错误：每次重组都会执行</span>
+<span class="code-keyword">@Composable</span>
+<span class="code-keyword">fun</span> <span class="code-func">BadExample</span>() {
+    analytics.<span class="code-func">logEvent</span>(<span class="code-string">"screen_view"</span>)  <span class="code-comment">// 直接调用！</span>
+}
+
+<span class="code-comment">// ✅ 正确：使用 Effect</span>
+<span class="code-keyword">@Composable</span>
+<span class="code-keyword">fun</span> <span class="code-func">GoodExample</span>() {
+    <span class="code-func">LaunchedEffect</span>(Unit) {
+        analytics.<span class="code-func">logEvent</span>(<span class="code-string">"screen_view"</span>)
+    }
+}</code></pre>
+
+        <h2>总结</h2>
+        <p>正确使用 Effect API 是写好 Compose 代码的关键：</p>
+        <ul>
+            <li><strong>LaunchedEffect</strong>：状态驱动的协程副作用</li>
+            <li><strong>DisposableEffect</strong>：需要清理的副作用</li>
+            <li><strong>SideEffect</strong>：同步 Compose 状态到外部</li>
+            <li><strong>rememberCoroutineScope</strong>：事件驱动的协程</li>
+            <li><strong>produceState</strong>：外部数据 → State</li>
+            <li><strong>snapshotFlow</strong>：State → Flow</li>
+            <li><strong>rememberUpdatedState</strong>：在副作用中捕获最新值</li>
+        </ul>
+    </article>
+
+    <footer class="footer">
+        <p>&copy; 2024 Fidroid. <a href="../index.html">返回首页</a></p>
+    </footer>
+</body>
+</html>
+

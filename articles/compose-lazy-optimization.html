@@ -1,0 +1,396 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>LazyColumn/LazyGrid 深度优化：打造丝滑列表体验 - Fidroid</title>
+    <meta name="description" content="深入优化 Compose 列表性能，掌握 key 策略、contentType、Paging3 集成、滚动性能调优等技巧。">
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            line-height: 1.8;
+            color: #e5e7eb;
+            background: #020617;
+        }
+        .navbar {
+            background: rgba(15,23,42,0.98);
+            backdrop-filter: blur(10px);
+            position: fixed;
+            top: 0;
+            width: 100%;
+            z-index: 1000;
+        }
+        .nav-container {
+            max-width: 900px;
+            margin: 0 auto;
+            padding: 1rem 20px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .logo {
+            font-size: 1.5rem;
+            font-weight: bold;
+            color: #38bdf8;
+            text-decoration: none;
+            letter-spacing: 0.08em;
+            text-transform: uppercase;
+        }
+        .back-link { color: #9ca3af; text-decoration: none; font-size: 0.9rem; }
+        .back-link:hover { color: #38bdf8; }
+
+        .article-header {
+            padding: 120px 20px 60px;
+            background: radial-gradient(circle at top left, #10b981 0, transparent 50%),
+                        radial-gradient(circle at bottom right, #3b82f6 0, transparent 55%),
+                        #020617;
+            text-align: center;
+        }
+        .article-header h1 {
+            max-width: 800px;
+            margin: 0 auto 1rem;
+            font-size: 2.5rem;
+            font-weight: 800;
+            letter-spacing: -0.03em;
+            color: #fff;
+        }
+        .article-meta { color: #9ca3af; font-size: 0.9rem; margin-bottom: 1.5rem; }
+        .article-tags { display: flex; justify-content: center; flex-wrap: wrap; gap: 0.5rem; }
+        .article-tag {
+            padding: 0.25rem 0.75rem;
+            border-radius: 999px;
+            font-size: 0.75rem;
+            background: rgba(15,23,42,0.85);
+            border: 1px solid rgba(16,185,129,0.4);
+            color: #6ee7b7;
+        }
+
+        .article-content {
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 60px 20px 80px;
+        }
+        .article-content h2 {
+            font-size: 1.6rem;
+            margin: 2.5rem 0 1rem;
+            color: #f9fafb;
+            border-left: 4px solid #10b981;
+            padding-left: 1rem;
+        }
+        .article-content h3 { font-size: 1.25rem; margin: 2rem 0 0.75rem; color: #e5e7eb; }
+        .article-content p { margin-bottom: 1.25rem; color: #d1d5db; }
+        .article-content ul, .article-content ol { margin: 1rem 0 1.5rem 1.5rem; color: #d1d5db; }
+        .article-content li { margin-bottom: 0.5rem; }
+        .article-content strong { color: #f9fafb; }
+        .article-content a { color: #38bdf8; text-decoration: underline; }
+
+        pre {
+            background: #0f172a;
+            border: 1px solid rgba(16,185,129,0.3);
+            border-radius: 12px;
+            padding: 1.25rem;
+            overflow-x: auto;
+            margin: 1.5rem 0;
+            font-size: 0.85rem;
+            line-height: 1.6;
+        }
+        code { font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace; color: #e5e7eb; }
+        .code-keyword { color: #c084fc; }
+        .code-func { color: #38bdf8; }
+        .code-type { color: #4ade80; }
+        .code-string { color: #fb7185; }
+        .code-comment { color: #6b7280; font-style: italic; }
+        .code-number { color: #fbbf24; }
+
+        .callout {
+            background: rgba(16,185,129,0.1);
+            border: 1px solid rgba(16,185,129,0.3);
+            border-radius: 12px;
+            padding: 1.25rem 1.5rem;
+            margin: 1.5rem 0;
+        }
+        .callout-title { font-weight: 600; color: #6ee7b7; margin-bottom: 0.5rem; }
+        .callout p { margin-bottom: 0; color: #d1d5db; }
+
+        .footer {
+            background: #020617;
+            border-top: 1px solid #111827;
+            padding: 2rem;
+            text-align: center;
+            color: #6b7280;
+        }
+        .footer a { color: #38bdf8; text-decoration: none; }
+    </style>
+</head>
+<body>
+    <nav class="navbar">
+        <div class="nav-container">
+            <a href="../index.html" class="logo">Fidroid</a>
+            <a href="../index.html#blog" class="back-link">← 返回博客列表</a>
+        </div>
+    </nav>
+
+    <header class="article-header">
+        <h1>LazyColumn/LazyGrid 深度优化：打造丝滑列表体验</h1>
+        <p class="article-meta">2024-04-18 · 22 min · 列表性能</p>
+        <div class="article-tags">
+            <span class="article-tag">LazyColumn</span>
+            <span class="article-tag">LazyGrid</span>
+            <span class="article-tag">Paging3</span>
+            <span class="article-tag">Performance</span>
+        </div>
+    </header>
+
+    <article class="article-content">
+        <p>列表是移动应用中最常见的 UI 模式，也是性能问题的高发区。本文将深入探讨如何优化 Compose 中的 LazyColumn 和 LazyGrid，打造流畅的滚动体验。</p>
+
+        <h2>一、LazyColumn 基础回顾</h2>
+
+<pre><code><span class="code-func">LazyColumn</span> {
+    <span class="code-func">items</span>(
+        items = users,
+        key = { user -> user.id }  <span class="code-comment">// 关键：提供稳定的 key</span>
+    ) { user ->
+        <span class="code-func">UserRow</span>(user)
+    }
+}</code></pre>
+
+        <h2>二、key 的重要性</h2>
+        <p><code>key</code> 帮助 Compose 识别列表项的身份，是优化的第一步：</p>
+
+<pre><code><span class="code-comment">// ❌ 没有 key：删除/插入时可能出现错误动画和状态丢失</span>
+<span class="code-func">items</span>(users) { user -> <span class="code-func">UserRow</span>(user) }
+
+<span class="code-comment">// ✅ 使用唯一 key：正确追踪每个 item</span>
+<span class="code-func">items</span>(
+    items = users,
+    key = { it.id }
+) { user ->
+    <span class="code-func">UserRow</span>(user)
+}</code></pre>
+
+        <div class="callout">
+            <p class="callout-title">💡 key 的作用</p>
+            <p>1. 正确处理列表项的添加/删除/移动动画<br>
+            2. 保持列表项内部状态（如展开状态、输入内容）<br>
+            3. 避免不必要的重组</p>
+        </div>
+
+        <h2>三、contentType 优化</h2>
+        <p>当列表包含多种类型的 item 时，使用 <code>contentType</code> 帮助 Compose 复用 Composition：</p>
+
+<pre><code><span class="code-func">LazyColumn</span> {
+    items.<span class="code-func">forEach</span> { item ->
+        <span class="code-keyword">when</span> (item) {
+            <span class="code-keyword">is</span> <span class="code-type">Header</span> -> <span class="code-func">item</span>(
+                key = item.id,
+                contentType = <span class="code-string">"header"</span>  <span class="code-comment">// 类型标识</span>
+            ) {
+                <span class="code-func">HeaderRow</span>(item)
+            }
+            <span class="code-keyword">is</span> <span class="code-type">User</span> -> <span class="code-func">item</span>(
+                key = item.id,
+                contentType = <span class="code-string">"user"</span>
+            ) {
+                <span class="code-func">UserRow</span>(item)
+            }
+            <span class="code-keyword">is</span> <span class="code-type">Ad</span> -> <span class="code-func">item</span>(
+                key = item.id,
+                contentType = <span class="code-string">"ad"</span>
+            ) {
+                <span class="code-func">AdBanner</span>(item)
+            }
+        }
+    }
+}</code></pre>
+
+        <h2>四、避免 item 内部重组</h2>
+
+        <h3>1. 使用 Immutable 数据</h3>
+<pre><code><span class="code-comment">// ✅ 不可变数据类</span>
+<span class="code-keyword">@Immutable</span>
+<span class="code-keyword">data class</span> <span class="code-type">User</span>(
+    <span class="code-keyword">val</span> id: <span class="code-type">String</span>,
+    <span class="code-keyword">val</span> name: <span class="code-type">String</span>,
+    <span class="code-keyword">val</span> avatar: <span class="code-type">String</span>
+)</code></pre>
+
+        <h3>2. 稳定的 lambda</h3>
+<pre><code><span class="code-comment">// ❌ 每次重组创建新 lambda</span>
+<span class="code-func">items</span>(users, key = { it.id }) { user ->
+    <span class="code-func">UserRow</span>(
+        user = user,
+        onClick = { viewModel.<span class="code-func">onUserClick</span>(user) }  <span class="code-comment">// 新 lambda</span>
+    )
+}
+
+<span class="code-comment">// ✅ 使用方法引用或记忆化</span>
+<span class="code-func">items</span>(users, key = { it.id }) { user ->
+    <span class="code-func">UserRow</span>(
+        user = user,
+        onClick = viewModel::<span class="code-func">onUserClick</span>  <span class="code-comment">// 方法引用</span>
+    )
+}</code></pre>
+
+        <h3>3. 拆分组件粒度</h3>
+<pre><code><span class="code-comment">// ❌ 整个 Row 因 isOnline 变化而重组</span>
+<span class="code-keyword">@Composable</span>
+<span class="code-keyword">fun</span> <span class="code-func">UserRow</span>(user: <span class="code-type">User</span>, isOnline: <span class="code-type">Boolean</span>) {
+    <span class="code-func">Row</span> {
+        <span class="code-func">Avatar</span>(user.avatar)
+        <span class="code-func">Text</span>(user.name)
+        <span class="code-func">OnlineIndicator</span>(isOnline)  <span class="code-comment">// 频繁变化</span>
+    }
+}
+
+<span class="code-comment">// ✅ 将频繁变化的部分独立</span>
+<span class="code-keyword">@Composable</span>
+<span class="code-keyword">fun</span> <span class="code-func">UserRow</span>(user: <span class="code-type">User</span>, onlineState: <span class="code-type">State</span>&lt;<span class="code-type">Boolean</span>&gt;) {
+    <span class="code-func">Row</span> {
+        <span class="code-func">Avatar</span>(user.avatar)
+        <span class="code-func">Text</span>(user.name)
+        <span class="code-func">OnlineIndicator</span>(onlineState)  <span class="code-comment">// 只有这个重组</span>
+    }
+}</code></pre>
+
+        <h2>五、预加载与缓存</h2>
+
+<pre><code><span class="code-keyword">val</span> listState = <span class="code-func">rememberLazyListState</span>()
+
+<span class="code-func">LazyColumn</span>(
+    state = listState,
+    <span class="code-comment">// 预加载屏幕外的 item</span>
+    beyondBoundsItemCount = <span class="code-number">5</span>
+) {
+    <span class="code-func">items</span>(items, key = { it.id }) { item ->
+        <span class="code-func">ItemRow</span>(item)
+    }
+}</code></pre>
+
+        <h2>六、Paging3 集成</h2>
+        <p>对于大数据集，使用 Paging3 实现按需加载：</p>
+
+<pre><code><span class="code-comment">// ViewModel</span>
+<span class="code-keyword">val</span> usersPager = <span class="code-func">Pager</span>(
+    config = <span class="code-func">PagingConfig</span>(
+        pageSize = <span class="code-number">20</span>,
+        prefetchDistance = <span class="code-number">5</span>,
+        enablePlaceholders = <span class="code-keyword">false</span>
+    )
+) {
+    <span class="code-func">UsersPagingSource</span>(repository)
+}.flow.<span class="code-func">cachedIn</span>(viewModelScope)
+
+<span class="code-comment">// Composable</span>
+<span class="code-keyword">@Composable</span>
+<span class="code-keyword">fun</span> <span class="code-func">UserList</span>(viewModel: <span class="code-type">UserViewModel</span>) {
+    <span class="code-keyword">val</span> users = viewModel.usersPager.<span class="code-func">collectAsLazyPagingItems</span>()
+
+    <span class="code-func">LazyColumn</span> {
+        <span class="code-func">items</span>(
+            count = users.itemCount,
+            key = users.<span class="code-func">itemKey</span> { it.id },
+            contentType = users.<span class="code-func">itemContentType</span> { <span class="code-string">"user"</span> }
+        ) { index ->
+            <span class="code-keyword">val</span> user = users[index]
+            <span class="code-keyword">if</span> (user != <span class="code-keyword">null</span>) {
+                <span class="code-func">UserRow</span>(user)
+            } <span class="code-keyword">else</span> {
+                <span class="code-func">UserPlaceholder</span>()
+            }
+        }
+
+        <span class="code-comment">// 加载状态</span>
+        <span class="code-keyword">when</span> (users.loadState.append) {
+            <span class="code-keyword">is</span> LoadState.Loading -> <span class="code-func">item</span> { <span class="code-func">LoadingItem</span>() }
+            <span class="code-keyword">is</span> LoadState.Error -> <span class="code-func">item</span> { <span class="code-func">ErrorItem</span>(onRetry = { users.<span class="code-func">retry</span>() }) }
+            <span class="code-keyword">else</span> -> {}
+        }
+    }
+}</code></pre>
+
+        <h2>七、滚动性能监控</h2>
+
+<pre><code><span class="code-keyword">@Composable</span>
+<span class="code-keyword">fun</span> <span class="code-func">PerformantList</span>(items: <span class="code-type">List</span>&lt;<span class="code-type">Item</span>&gt;) {
+    <span class="code-keyword">val</span> listState = <span class="code-func">rememberLazyListState</span>()
+
+    <span class="code-comment">// 监控滚动性能</span>
+    <span class="code-func">LaunchedEffect</span>(listState) {
+        <span class="code-func">snapshotFlow</span> { listState.isScrollInProgress }
+            .<span class="code-func">collect</span> { isScrolling ->
+                <span class="code-keyword">if</span> (isScrolling) {
+                    <span class="code-comment">// 滚动时暂停非关键操作</span>
+                }
+            }
+    }
+
+    <span class="code-func">LazyColumn</span>(state = listState) {
+        <span class="code-func">items</span>(items, key = { it.id }) { item ->
+            <span class="code-func">ItemRow</span>(item)
+        }
+    }
+}</code></pre>
+
+        <h2>八、LazyGrid 使用</h2>
+
+<pre><code><span class="code-func">LazyVerticalGrid</span>(
+    columns = GridCells.Adaptive(minSize = <span class="code-number">150</span>.dp),
+    contentPadding = <span class="code-func">PaddingValues</span>(<span class="code-number">16</span>.dp),
+    horizontalArrangement = Arrangement.<span class="code-func">spacedBy</span>(<span class="code-number">8</span>.dp),
+    verticalArrangement = Arrangement.<span class="code-func">spacedBy</span>(<span class="code-number">8</span>.dp)
+) {
+    <span class="code-func">items</span>(
+        items = products,
+        key = { it.id },
+        contentType = { <span class="code-string">"product"</span> }
+    ) { product ->
+        <span class="code-func">ProductCard</span>(product)
+    }
+}</code></pre>
+
+        <h2>九、Sticky Headers</h2>
+
+<pre><code><span class="code-func">LazyColumn</span> {
+    groupedItems.<span class="code-func">forEach</span> { (category, items) ->
+        <span class="code-func">stickyHeader</span>(key = category) {
+            <span class="code-func">CategoryHeader</span>(category)
+        }
+
+        <span class="code-func">items</span>(items, key = { it.id }) { item ->
+            <span class="code-func">ItemRow</span>(item)
+        }
+    }
+}</code></pre>
+
+        <h2>十、性能优化清单</h2>
+        <ul>
+            <li>✅ 始终提供稳定的 <code>key</code></li>
+            <li>✅ 使用 <code>contentType</code> 区分不同类型的 item</li>
+            <li>✅ 使用 <code>@Immutable</code> 或 <code>@Stable</code> 标注数据类</li>
+            <li>✅ 避免在 item 内创建新的 lambda</li>
+            <li>✅ 拆分组件，隔离频繁变化的部分</li>
+            <li>✅ 大数据集使用 Paging3</li>
+            <li>✅ 合理设置 <code>beyondBoundsItemCount</code></li>
+            <li>✅ 避免在 item 中进行复杂计算</li>
+            <li>✅ 图片使用 Coil/Glide 等库的 Compose 扩展</li>
+            <li>✅ 使用 Layout Inspector 监控重组</li>
+        </ul>
+
+        <h2>总结</h2>
+        <p>优化 Lazy 列表的核心原则：</p>
+        <ul>
+            <li><strong>正确的 key</strong>：帮助 Compose 追踪 item 身份</li>
+            <li><strong>减少重组</strong>：使用稳定数据和 lambda</li>
+            <li><strong>按需加载</strong>：大数据集使用 Paging3</li>
+            <li><strong>监控性能</strong>：使用工具发现瓶颈</li>
+        </ul>
+    </article>
+
+    <footer class="footer">
+        <p>&copy; 2024 Fidroid. <a href="../index.html">返回首页</a></p>
+    </footer>
+</body>
+</html>
+

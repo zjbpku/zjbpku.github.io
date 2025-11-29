@@ -1,0 +1,421 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Material 3 与 Compose 主题系统：打造品牌一致的 UI - Fidroid</title>
+    <meta name="description" content="深入 Material 3 设计系统，学习动态颜色、自定义主题、深色模式、Typography 等主题化技巧。">
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            line-height: 1.8;
+            color: #e5e7eb;
+            background: #020617;
+        }
+        .navbar {
+            background: rgba(15,23,42,0.98);
+            backdrop-filter: blur(10px);
+            position: fixed;
+            top: 0;
+            width: 100%;
+            z-index: 1000;
+        }
+        .nav-container {
+            max-width: 900px;
+            margin: 0 auto;
+            padding: 1rem 20px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .logo {
+            font-size: 1.5rem;
+            font-weight: bold;
+            color: #38bdf8;
+            text-decoration: none;
+            letter-spacing: 0.08em;
+            text-transform: uppercase;
+        }
+        .back-link { color: #9ca3af; text-decoration: none; font-size: 0.9rem; }
+        .back-link:hover { color: #38bdf8; }
+
+        .article-header {
+            padding: 120px 20px 60px;
+            background: radial-gradient(circle at top left, #d946ef 0, transparent 50%),
+                        radial-gradient(circle at bottom right, #06b6d4 0, transparent 55%),
+                        #020617;
+            text-align: center;
+        }
+        .article-header h1 {
+            max-width: 800px;
+            margin: 0 auto 1rem;
+            font-size: 2.5rem;
+            font-weight: 800;
+            letter-spacing: -0.03em;
+            color: #fff;
+        }
+        .article-meta { color: #9ca3af; font-size: 0.9rem; margin-bottom: 1.5rem; }
+        .article-tags { display: flex; justify-content: center; flex-wrap: wrap; gap: 0.5rem; }
+        .article-tag {
+            padding: 0.25rem 0.75rem;
+            border-radius: 999px;
+            font-size: 0.75rem;
+            background: rgba(15,23,42,0.85);
+            border: 1px solid rgba(217,70,239,0.4);
+            color: #e879f9;
+        }
+
+        .article-content {
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 60px 20px 80px;
+        }
+        .article-content h2 {
+            font-size: 1.6rem;
+            margin: 2.5rem 0 1rem;
+            color: #f9fafb;
+            border-left: 4px solid #d946ef;
+            padding-left: 1rem;
+        }
+        .article-content h3 { font-size: 1.25rem; margin: 2rem 0 0.75rem; color: #e5e7eb; }
+        .article-content p { margin-bottom: 1.25rem; color: #d1d5db; }
+        .article-content ul, .article-content ol { margin: 1rem 0 1.5rem 1.5rem; color: #d1d5db; }
+        .article-content li { margin-bottom: 0.5rem; }
+        .article-content strong { color: #f9fafb; }
+        .article-content a { color: #38bdf8; text-decoration: underline; }
+
+        pre {
+            background: #0f172a;
+            border: 1px solid rgba(217,70,239,0.3);
+            border-radius: 12px;
+            padding: 1.25rem;
+            overflow-x: auto;
+            margin: 1.5rem 0;
+            font-size: 0.85rem;
+            line-height: 1.6;
+        }
+        code { font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace; color: #e5e7eb; }
+        .code-keyword { color: #c084fc; }
+        .code-func { color: #38bdf8; }
+        .code-type { color: #4ade80; }
+        .code-string { color: #fb7185; }
+        .code-comment { color: #6b7280; font-style: italic; }
+        .code-number { color: #fbbf24; }
+
+        .callout {
+            background: rgba(217,70,239,0.1);
+            border: 1px solid rgba(217,70,239,0.3);
+            border-radius: 12px;
+            padding: 1.25rem 1.5rem;
+            margin: 1.5rem 0;
+        }
+        .callout-title { font-weight: 600; color: #e879f9; margin-bottom: 0.5rem; }
+        .callout p { margin-bottom: 0; color: #d1d5db; }
+
+        .footer {
+            background: #020617;
+            border-top: 1px solid #111827;
+            padding: 2rem;
+            text-align: center;
+            color: #6b7280;
+        }
+        .footer a { color: #38bdf8; text-decoration: none; }
+    </style>
+</head>
+<body>
+    <nav class="navbar">
+        <div class="nav-container">
+            <a href="../index.html" class="logo">Fidroid</a>
+            <a href="../index.html#blog" class="back-link">← 返回博客列表</a>
+        </div>
+    </nav>
+
+    <header class="article-header">
+        <h1>Material 3 与 Compose 主题系统：打造品牌一致的 UI</h1>
+        <p class="article-meta">2024-04-22 · 20 min · 主题系统</p>
+        <div class="article-tags">
+            <span class="article-tag">Material 3</span>
+            <span class="article-tag">Dynamic Color</span>
+            <span class="article-tag">Typography</span>
+            <span class="article-tag">Dark Mode</span>
+        </div>
+    </header>
+
+    <article class="article-content">
+        <p>Material 3（Material You）是 Google 最新的设计系统，与 Jetpack Compose 深度集成。本文将带你掌握如何构建一个灵活、可扩展的主题系统。</p>
+
+        <h2>一、Material 3 基础配置</h2>
+
+<pre><code><span class="code-comment">// build.gradle.kts</span>
+dependencies {
+    implementation(<span class="code-string">"androidx.compose.material3:material3:1.2.0"</span>)
+}</code></pre>
+
+<pre><code><span class="code-keyword">@Composable</span>
+<span class="code-keyword">fun</span> <span class="code-func">MyApp</span>() {
+    <span class="code-func">MaterialTheme</span>(
+        colorScheme = <span class="code-func">lightColorScheme</span>(),
+        typography = <span class="code-type">Typography</span>,
+        shapes = <span class="code-type">Shapes</span>
+    ) {
+        <span class="code-comment">// App content</span>
+    }
+}</code></pre>
+
+        <h2>二、颜色系统</h2>
+        <p>Material 3 使用基于角色的颜色系统，包含 primary、secondary、tertiary 等色彩角色：</p>
+
+<pre><code><span class="code-keyword">private val</span> LightColorScheme = <span class="code-func">lightColorScheme</span>(
+    primary = <span class="code-func">Color</span>(<span class="code-number">0xFF6750A4</span>),
+    onPrimary = Color.White,
+    primaryContainer = <span class="code-func">Color</span>(<span class="code-number">0xFFEADDFF</span>),
+    onPrimaryContainer = <span class="code-func">Color</span>(<span class="code-number">0xFF21005D</span>),
+
+    secondary = <span class="code-func">Color</span>(<span class="code-number">0xFF625B71</span>),
+    onSecondary = Color.White,
+    secondaryContainer = <span class="code-func">Color</span>(<span class="code-number">0xFFE8DEF8</span>),
+    onSecondaryContainer = <span class="code-func">Color</span>(<span class="code-number">0xFF1D192B</span>),
+
+    tertiary = <span class="code-func">Color</span>(<span class="code-number">0xFF7D5260</span>),
+    surface = <span class="code-func">Color</span>(<span class="code-number">0xFFFFFBFE</span>),
+    background = <span class="code-func">Color</span>(<span class="code-number">0xFFFFFBFE</span>),
+    error = <span class="code-func">Color</span>(<span class="code-number">0xFFB3261E</span>)
+)
+
+<span class="code-keyword">private val</span> DarkColorScheme = <span class="code-func">darkColorScheme</span>(
+    primary = <span class="code-func">Color</span>(<span class="code-number">0xFFD0BCFF</span>),
+    onPrimary = <span class="code-func">Color</span>(<span class="code-number">0xFF381E72</span>),
+    primaryContainer = <span class="code-func">Color</span>(<span class="code-number">0xFF4F378B</span>),
+    onPrimaryContainer = <span class="code-func">Color</span>(<span class="code-number">0xFFEADDFF</span>),
+    <span class="code-comment">// ... 其他颜色</span>
+)</code></pre>
+
+        <h2>三、动态颜色（Dynamic Color）</h2>
+        <p>Android 12+ 支持从用户壁纸提取颜色：</p>
+
+<pre><code><span class="code-keyword">@Composable</span>
+<span class="code-keyword">fun</span> <span class="code-func">AppTheme</span>(
+    darkTheme: <span class="code-type">Boolean</span> = <span class="code-func">isSystemInDarkTheme</span>(),
+    dynamicColor: <span class="code-type">Boolean</span> = <span class="code-keyword">true</span>,
+    content: <span class="code-keyword">@Composable</span> () -> <span class="code-type">Unit</span>
+) {
+    <span class="code-keyword">val</span> colorScheme = <span class="code-keyword">when</span> {
+        dynamicColor && Build.VERSION.SDK_INT >= Build.VERSION_CODES.S -> {
+            <span class="code-keyword">val</span> context = <span class="code-func">LocalContext</span>.current
+            <span class="code-keyword">if</span> (darkTheme) <span class="code-func">dynamicDarkColorScheme</span>(context)
+            <span class="code-keyword">else</span> <span class="code-func">dynamicLightColorScheme</span>(context)
+        }
+        darkTheme -> DarkColorScheme
+        <span class="code-keyword">else</span> -> LightColorScheme
+    }
+
+    <span class="code-func">MaterialTheme</span>(
+        colorScheme = colorScheme,
+        typography = <span class="code-type">AppTypography</span>,
+        content = content
+    )
+}</code></pre>
+
+        <div class="callout">
+            <p class="callout-title">💡 Material Theme Builder</p>
+            <p>使用 <a href="https://m3.material.io/theme-builder">Material Theme Builder</a> 工具可以快速生成完整的颜色方案代码。</p>
+        </div>
+
+        <h2>四、Typography 排版系统</h2>
+
+<pre><code><span class="code-keyword">val</span> AppTypography = <span class="code-func">Typography</span>(
+    displayLarge = <span class="code-func">TextStyle</span>(
+        fontFamily = <span class="code-type">FontFamily</span>.Default,
+        fontWeight = FontWeight.W400,
+        fontSize = <span class="code-number">57</span>.sp,
+        lineHeight = <span class="code-number">64</span>.sp,
+        letterSpacing = (-<span class="code-number">0.25</span>).sp
+    ),
+    headlineLarge = <span class="code-func">TextStyle</span>(
+        fontFamily = <span class="code-type">FontFamily</span>.Default,
+        fontWeight = FontWeight.W400,
+        fontSize = <span class="code-number">32</span>.sp,
+        lineHeight = <span class="code-number">40</span>.sp
+    ),
+    titleLarge = <span class="code-func">TextStyle</span>(
+        fontFamily = <span class="code-type">FontFamily</span>.Default,
+        fontWeight = FontWeight.W400,
+        fontSize = <span class="code-number">22</span>.sp,
+        lineHeight = <span class="code-number">28</span>.sp
+    ),
+    bodyLarge = <span class="code-func">TextStyle</span>(
+        fontFamily = <span class="code-type">FontFamily</span>.Default,
+        fontWeight = FontWeight.W400,
+        fontSize = <span class="code-number">16</span>.sp,
+        lineHeight = <span class="code-number">24</span>.sp,
+        letterSpacing = <span class="code-number">0.5</span>.sp
+    ),
+    labelSmall = <span class="code-func">TextStyle</span>(
+        fontFamily = <span class="code-type">FontFamily</span>.Default,
+        fontWeight = FontWeight.W500,
+        fontSize = <span class="code-number">11</span>.sp,
+        lineHeight = <span class="code-number">16</span>.sp,
+        letterSpacing = <span class="code-number">0.5</span>.sp
+    )
+)</code></pre>
+
+        <h3>使用自定义字体</h3>
+<pre><code><span class="code-keyword">val</span> CustomFontFamily = <span class="code-func">FontFamily</span>(
+    <span class="code-func">Font</span>(R.font.custom_regular, FontWeight.Normal),
+    <span class="code-func">Font</span>(R.font.custom_medium, FontWeight.Medium),
+    <span class="code-func">Font</span>(R.font.custom_bold, FontWeight.Bold)
+)
+
+<span class="code-keyword">val</span> AppTypography = <span class="code-func">Typography</span>(
+    bodyLarge = <span class="code-func">TextStyle</span>(
+        fontFamily = CustomFontFamily,
+        fontWeight = FontWeight.Normal,
+        fontSize = <span class="code-number">16</span>.sp
+    )
+)</code></pre>
+
+        <h2>五、Shape 形状系统</h2>
+
+<pre><code><span class="code-keyword">val</span> AppShapes = <span class="code-func">Shapes</span>(
+    extraSmall = <span class="code-func">RoundedCornerShape</span>(<span class="code-number">4</span>.dp),
+    small = <span class="code-func">RoundedCornerShape</span>(<span class="code-number">8</span>.dp),
+    medium = <span class="code-func">RoundedCornerShape</span>(<span class="code-number">12</span>.dp),
+    large = <span class="code-func">RoundedCornerShape</span>(<span class="code-number">16</span>.dp),
+    extraLarge = <span class="code-func">RoundedCornerShape</span>(<span class="code-number">28</span>.dp)
+)</code></pre>
+
+        <h2>六、在组件中使用主题</h2>
+
+<pre><code><span class="code-keyword">@Composable</span>
+<span class="code-keyword">fun</span> <span class="code-func">ThemedCard</span>() {
+    <span class="code-func">Card</span>(
+        colors = <span class="code-func">CardDefaults</span>.<span class="code-func">cardColors</span>(
+            containerColor = MaterialTheme.colorScheme.surfaceVariant
+        ),
+        shape = MaterialTheme.shapes.medium
+    ) {
+        <span class="code-func">Column</span>(modifier = <span class="code-type">Modifier</span>.<span class="code-func">padding</span>(<span class="code-number">16</span>.dp)) {
+            <span class="code-func">Text</span>(
+                text = <span class="code-string">"标题"</span>,
+                style = MaterialTheme.typography.titleMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+            <span class="code-func">Text</span>(
+                text = <span class="code-string">"正文内容"</span>,
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+        }
+    }
+}</code></pre>
+
+        <h2>七、扩展主题：自定义属性</h2>
+
+<pre><code><span class="code-comment">// 定义扩展颜色</span>
+<span class="code-keyword">data class</span> <span class="code-type">ExtendedColors</span>(
+    <span class="code-keyword">val</span> success: <span class="code-type">Color</span>,
+    <span class="code-keyword">val</span> onSuccess: <span class="code-type">Color</span>,
+    <span class="code-keyword">val</span> warning: <span class="code-type">Color</span>,
+    <span class="code-keyword">val</span> onWarning: <span class="code-type">Color</span>
+)
+
+<span class="code-keyword">val</span> LocalExtendedColors = <span class="code-func">staticCompositionLocalOf</span> {
+    <span class="code-func">ExtendedColors</span>(
+        success = Color.Unspecified,
+        onSuccess = Color.Unspecified,
+        warning = Color.Unspecified,
+        onWarning = Color.Unspecified
+    )
+}
+
+<span class="code-keyword">@Composable</span>
+<span class="code-keyword">fun</span> <span class="code-func">AppTheme</span>(
+    darkTheme: <span class="code-type">Boolean</span> = <span class="code-func">isSystemInDarkTheme</span>(),
+    content: <span class="code-keyword">@Composable</span> () -> <span class="code-type">Unit</span>
+) {
+    <span class="code-keyword">val</span> extendedColors = <span class="code-keyword">if</span> (darkTheme) {
+        <span class="code-func">ExtendedColors</span>(
+            success = <span class="code-func">Color</span>(<span class="code-number">0xFF4CAF50</span>),
+            onSuccess = Color.White,
+            warning = <span class="code-func">Color</span>(<span class="code-number">0xFFFF9800</span>),
+            onWarning = Color.Black
+        )
+    } <span class="code-keyword">else</span> {
+        <span class="code-func">ExtendedColors</span>(
+            success = <span class="code-func">Color</span>(<span class="code-number">0xFF2E7D32</span>),
+            onSuccess = Color.White,
+            warning = <span class="code-func">Color</span>(<span class="code-number">0xFFF57C00</span>),
+            onWarning = Color.Black
+        )
+    }
+
+    <span class="code-func">CompositionLocalProvider</span>(
+        LocalExtendedColors <span class="code-func">provides</span> extendedColors
+    ) {
+        <span class="code-func">MaterialTheme</span>(
+            colorScheme = <span class="code-keyword">if</span> (darkTheme) DarkColorScheme <span class="code-keyword">else</span> LightColorScheme,
+            content = content
+        )
+    }
+}
+
+<span class="code-comment">// 使用扩展颜色</span>
+<span class="code-keyword">val</span> extendedColors: <span class="code-type">ExtendedColors</span>
+    <span class="code-keyword">@Composable</span>
+    <span class="code-keyword">get</span>() = LocalExtendedColors.current
+
+<span class="code-keyword">@Composable</span>
+<span class="code-keyword">fun</span> <span class="code-func">SuccessBadge</span>() {
+    <span class="code-func">Surface</span>(
+        color = extendedColors.success,
+        contentColor = extendedColors.onSuccess
+    ) {
+        <span class="code-func">Text</span>(<span class="code-string">"成功"</span>)
+    }
+}</code></pre>
+
+        <h2>八、深色模式最佳实践</h2>
+        <ul>
+            <li>使用 <code>surface</code> 而非纯黑背景</li>
+            <li>降低饱和度，避免刺眼</li>
+            <li>使用 elevation overlay 而非阴影</li>
+            <li>测试不同亮度下的可读性</li>
+        </ul>
+
+<pre><code><span class="code-comment">// 根据 elevation 调整 surface 颜色</span>
+<span class="code-func">Surface</span>(
+    tonalElevation = <span class="code-number">3</span>.dp  <span class="code-comment">// Material 3 会自动调整颜色</span>
+) {
+    <span class="code-comment">// content</span>
+}</code></pre>
+
+        <h2>九、主题预览</h2>
+
+<pre><code><span class="code-keyword">@Preview</span>(name = <span class="code-string">"Light"</span>)
+<span class="code-keyword">@Preview</span>(name = <span class="code-string">"Dark"</span>, uiMode = Configuration.UI_MODE_NIGHT_YES)
+<span class="code-keyword">@Composable</span>
+<span class="code-keyword">fun</span> <span class="code-func">CardPreview</span>() {
+    <span class="code-func">AppTheme</span> {
+        <span class="code-func">ThemedCard</span>()
+    }
+}</code></pre>
+
+        <h2>总结</h2>
+        <p>Material 3 主题系统的核心要点：</p>
+        <ul>
+            <li><strong>ColorScheme</strong>：基于角色的颜色系统</li>
+            <li><strong>Dynamic Color</strong>：从壁纸提取个性化颜色</li>
+            <li><strong>Typography</strong>：统一的排版规范</li>
+            <li><strong>Shapes</strong>：一致的圆角系统</li>
+            <li><strong>CompositionLocal</strong>：扩展自定义主题属性</li>
+        </ul>
+        <p>构建好主题系统后，整个应用的 UI 一致性将大大提升，品牌识别度也会更强。</p>
+    </article>
+
+    <footer class="footer">
+        <p>&copy; 2024 Fidroid. <a href="../index.html">返回首页</a></p>
+    </footer>
+</body>
+</html>
+
