@@ -1,0 +1,845 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Compose Modifier 链式调用原理与自定义 Modifier - Fidroid</title>
+    <meta name="description" content="深入理解 Modifier 的链式调用机制、Node 系统、以及如何创建高性能的自定义 Modifier。">
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            line-height: 1.8;
+            color: #e5e7eb;
+            background: #020617;
+        }
+        .navbar {
+            background: rgba(15,23,42,0.98);
+            backdrop-filter: blur(10px);
+            position: fixed;
+            top: 0;
+            width: 100%;
+            z-index: 1000;
+        }
+        .nav-container {
+            max-width: 900px;
+            margin: 0 auto;
+            padding: 1rem 20px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .logo {
+            font-size: 1.5rem;
+            font-weight: bold;
+            color: #38bdf8;
+            text-decoration: none;
+            letter-spacing: 0.08em;
+            text-transform: uppercase;
+        }
+        .back-link { color: #9ca3af; text-decoration: none; font-size: 0.9rem; }
+        .back-link:hover { color: #38bdf8; }
+
+        .article-header {
+            padding: 120px 20px 60px;
+            background: radial-gradient(circle at top left, #f97316 0, transparent 50%),
+                        radial-gradient(circle at bottom right, #06b6d4 0, transparent 55%),
+                        #020617;
+            text-align: center;
+        }
+        .article-header h1 {
+            max-width: 800px;
+            margin: 0 auto 1rem;
+            font-size: 2.5rem;
+            font-weight: 800;
+            letter-spacing: -0.03em;
+            color: #fff;
+        }
+        .article-meta { color: #9ca3af; font-size: 0.9rem; margin-bottom: 1.5rem; }
+        .article-tags { display: flex; justify-content: center; flex-wrap: wrap; gap: 0.5rem; }
+        .article-tag {
+            padding: 0.25rem 0.75rem;
+            border-radius: 999px;
+            font-size: 0.75rem;
+            background: rgba(15,23,42,0.85);
+            border: 1px solid rgba(249,115,22,0.4);
+            color: #fdba74;
+        }
+
+        .article-content {
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 60px 20px 80px;
+        }
+        .article-content h2 {
+            font-size: 1.6rem;
+            margin: 2.5rem 0 1rem;
+            color: #f9fafb;
+            border-left: 4px solid #f97316;
+            padding-left: 1rem;
+        }
+        .article-content h3 { font-size: 1.25rem; margin: 2rem 0 0.75rem; color: #e5e7eb; }
+        .article-content p { margin-bottom: 1.25rem; color: #d1d5db; }
+        .article-content ul, .article-content ol { margin: 1rem 0 1.5rem 1.5rem; color: #d1d5db; }
+        .article-content li { margin-bottom: 0.5rem; }
+        .article-content strong { color: #f9fafb; }
+        .article-content a { color: #38bdf8; text-decoration: underline; }
+
+        pre {
+            background: #0f172a;
+            border: 1px solid rgba(249,115,22,0.3);
+            border-radius: 12px;
+            padding: 1.25rem;
+            overflow-x: auto;
+            margin: 1.5rem 0;
+            font-size: 0.85rem;
+            line-height: 1.6;
+        }
+        code { font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace; color: #e5e7eb; }
+        .code-keyword { color: #c084fc; }
+        .code-func { color: #38bdf8; }
+        .code-type { color: #4ade80; }
+        .code-string { color: #fb7185; }
+        .code-comment { color: #6b7280; font-style: italic; }
+        .code-number { color: #fbbf24; }
+        .code-annotation { color: #f472b6; }
+
+        .callout {
+            background: rgba(249,115,22,0.1);
+            border: 1px solid rgba(249,115,22,0.3);
+            border-radius: 12px;
+            padding: 1.25rem 1.5rem;
+            margin: 1.5rem 0;
+        }
+        .callout-title { font-weight: 600; color: #fdba74; margin-bottom: 0.5rem; }
+        .callout p { margin-bottom: 0; color: #d1d5db; }
+
+        .callout-warning {
+            background: rgba(245,158,11,0.1);
+            border: 1px solid rgba(245,158,11,0.3);
+        }
+        .callout-warning .callout-title { color: #fcd34d; }
+
+        .callout-info {
+            background: rgba(14,165,233,0.1);
+            border: 1px solid rgba(14,165,233,0.3);
+        }
+        .callout-info .callout-title { color: #7dd3fc; }
+
+        .diagram {
+            background: #0f172a;
+            border: 1px solid rgba(249,115,22,0.3);
+            border-radius: 12px;
+            padding: 2rem;
+            margin: 1.5rem 0;
+            text-align: center;
+            font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+            font-size: 0.8rem;
+            line-height: 1.6;
+            color: #94a3b8;
+            overflow-x: auto;
+        }
+        .diagram .highlight { color: #f97316; font-weight: bold; }
+        .diagram .modifier { color: #4ade80; }
+        .diagram .node { color: #38bdf8; }
+        .diagram .layout { color: #c084fc; }
+
+        .reference {
+            background: rgba(15,23,42,0.6);
+            border: 1px solid rgba(148,163,184,0.2);
+            border-radius: 8px;
+            padding: 1rem 1.25rem;
+            margin: 1rem 0;
+            font-size: 0.9rem;
+        }
+        .reference-title {
+            font-weight: 600;
+            color: #94a3b8;
+            font-size: 0.75rem;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            margin-bottom: 0.5rem;
+        }
+        .reference a { color: #38bdf8; }
+
+        .comparison-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 1.5rem 0;
+            font-size: 0.9rem;
+        }
+        .comparison-table th, .comparison-table td {
+            border: 1px solid rgba(148,163,184,0.3);
+            padding: 0.75rem 1rem;
+            text-align: left;
+        }
+        .comparison-table th {
+            background: rgba(15,23,42,0.8);
+            color: #f9fafb;
+        }
+        .comparison-table td { color: #d1d5db; }
+
+        .footer {
+            background: #020617;
+            border-top: 1px solid #111827;
+            padding: 2rem;
+            text-align: center;
+            color: #6b7280;
+        }
+        .footer a { color: #38bdf8; text-decoration: none; }
+    </style>
+</head>
+<body>
+    <nav class="navbar">
+        <div class="nav-container">
+            <a href="../index.html" class="logo">Fidroid</a>
+            <a href="../index.html#blog" class="back-link">← 返回博客列表</a>
+        </div>
+    </nav>
+
+    <header class="article-header">
+        <h1>Compose Modifier 链式调用原理与自定义 Modifier</h1>
+        <p class="article-meta">2024-05-02 · 32 min · 底层原理深度解析</p>
+        <div class="article-tags">
+            <span class="article-tag">Modifier</span>
+            <span class="article-tag">Modifier.Node</span>
+            <span class="article-tag">Chain</span>
+            <span class="article-tag">Custom Modifier</span>
+        </div>
+    </header>
+
+    <article class="article-content">
+        <p><code>Modifier</code> 是 Compose 中最常用的 API 之一，但你是否想过：为什么 <code>.padding().background().clickable()</code> 的顺序会影响结果？Modifier 链是如何被执行的？本文将深入 Modifier 的内部实现，揭示链式调用的秘密，并教你如何创建高性能的自定义 Modifier。</p>
+
+        <div class="reference">
+            <div class="reference-title">📚 官方参考</div>
+            <a href="https://developer.android.com/jetpack/compose/modifiers" target="_blank">Compose Modifiers - Android Developers</a><br>
+            <a href="https://developer.android.com/jetpack/compose/custom-modifiers" target="_blank">Custom Modifiers - Android Developers</a>
+        </div>
+
+        <h2>一、Modifier 是什么？</h2>
+
+        <p>从 API 角度看，<code>Modifier</code> 是一个接口：</p>
+
+<pre><code><span class="code-keyword">interface</span> <span class="code-type">Modifier</span> {
+    <span class="code-comment">// 遍历 Modifier 链中的每个元素</span>
+    <span class="code-keyword">fun</span> &lt;<span class="code-type">R</span>&gt; <span class="code-func">foldIn</span>(initial: <span class="code-type">R</span>, operation: (<span class="code-type">R</span>, <span class="code-type">Element</span>) -> <span class="code-type">R</span>): <span class="code-type">R</span>
+    <span class="code-keyword">fun</span> &lt;<span class="code-type">R</span>&gt; <span class="code-func">foldOut</span>(initial: <span class="code-type">R</span>, operation: (<span class="code-type">Element</span>, <span class="code-type">R</span>) -> <span class="code-type">R</span>): <span class="code-type">R</span>
+    
+    <span class="code-comment">// 检查是否包含某类型的 Modifier</span>
+    <span class="code-keyword">fun</span> <span class="code-func">any</span>(predicate: (<span class="code-type">Element</span>) -> <span class="code-type">Boolean</span>): <span class="code-type">Boolean</span>
+    <span class="code-keyword">fun</span> <span class="code-func">all</span>(predicate: (<span class="code-type">Element</span>) -> <span class="code-type">Boolean</span>): <span class="code-type">Boolean</span>
+    
+    <span class="code-comment">// 连接两个 Modifier</span>
+    <span class="code-keyword">infix fun</span> <span class="code-func">then</span>(other: <span class="code-type">Modifier</span>): <span class="code-type">Modifier</span>
+    
+    <span class="code-comment">// 单个 Modifier 元素</span>
+    <span class="code-keyword">interface</span> <span class="code-type">Element</span> : <span class="code-type">Modifier</span>
+    
+    <span class="code-comment">// 空 Modifier（链的起点）</span>
+    <span class="code-keyword">companion object</span> : <span class="code-type">Modifier</span>
+}</code></pre>
+
+        <p>关键洞察：<strong>Modifier 本身不执行任何操作</strong>，它只是一个<strong>描述</strong>。真正的工作由 Modifier.Node 在布局阶段完成。</p>
+
+        <h3>Modifier 的三种形态</h3>
+
+        <table class="comparison-table">
+            <thead>
+                <tr>
+                    <th>类型</th>
+                    <th>描述</th>
+                    <th>示例</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr>
+                    <td>Modifier.companion</td>
+                    <td>空 Modifier，链的起点</td>
+                    <td><code>Modifier</code></td>
+                </tr>
+                <tr>
+                    <td>Modifier.Element</td>
+                    <td>单个 Modifier 元素</td>
+                    <td><code>PaddingModifier</code></td>
+                </tr>
+                <tr>
+                    <td>CombinedModifier</td>
+                    <td>两个 Modifier 的组合</td>
+                    <td><code>Modifier.padding().background()</code></td>
+                </tr>
+            </tbody>
+        </table>
+
+        <h2>二、链式调用的秘密</h2>
+
+        <p>当你写 <code>Modifier.padding(16.dp).background(Color.Red)</code> 时，发生了什么？</p>
+
+<pre><code><span class="code-comment">// 展开链式调用</span>
+<span class="code-keyword">val</span> modifier = <span class="code-type">Modifier</span>           <span class="code-comment">// Modifier.Companion (空)</span>
+    .<span class="code-func">padding</span>(<span class="code-number">16</span>.dp)              <span class="code-comment">// CombinedModifier(Companion, PaddingModifier)</span>
+    .<span class="code-func">background</span>(<span class="code-type">Color</span>.Red)       <span class="code-comment">// CombinedModifier(上面的结果, BackgroundModifier)</span>
+
+<span class="code-comment">// 内部结构（简化）</span>
+<span class="code-keyword">class</span> <span class="code-type">CombinedModifier</span>(
+    <span class="code-keyword">val</span> outer: <span class="code-type">Modifier</span>,
+    <span class="code-keyword">val</span> inner: <span class="code-type">Modifier</span>
+) : <span class="code-type">Modifier</span></code></pre>
+
+        <div class="diagram">
+<pre>
+<span class="highlight">Modifier 链的数据结构</span>
+
+Modifier.padding(16.dp).background(Color.Red).clickable { }
+
+                    ┌─────────────────────┐
+                    │  CombinedModifier   │
+                    │  (最外层)            │
+                    └──────────┬──────────┘
+                               │
+            ┌──────────────────┴──────────────────┐
+            │                                     │
+            ▼                                     ▼
+┌─────────────────────┐               ┌─────────────────────┐
+│  CombinedModifier   │               │  <span class="modifier">ClickableModifier</span>   │
+│  (中间层)            │               │  (inner)            │
+└──────────┬──────────┘               └─────────────────────┘
+           │
+    ┌──────┴──────┐
+    │             │
+    ▼             ▼
+┌────────┐  ┌─────────────────────┐
+│ <span class="modifier">Empty</span>  │  │  <span class="modifier">PaddingModifier</span>    │
+│        │  │  (16.dp)            │
+└────────┘  └─────────────────────┘
+            │
+            ▼
+    ┌─────────────────────┐
+    │  <span class="modifier">BackgroundModifier</span> │
+    │  (Color.Red)        │
+    └─────────────────────┘
+
+<span class="node">遍历顺序 (foldIn): padding → background → clickable</span>
+<span class="layout">遍历顺序 (foldOut): clickable → background → padding</span>
+</pre>
+        </div>
+
+        <h3>为什么顺序很重要？</h3>
+
+<pre><code><span class="code-comment">// 这两个看起来相似，但效果完全不同！</span>
+
+<span class="code-comment">// 1. 先 padding，后 background</span>
+<span class="code-type">Box</span>(
+    modifier = <span class="code-type">Modifier</span>
+        .<span class="code-func">padding</span>(<span class="code-number">16</span>.dp)      <span class="code-comment">// 先缩小可用空间</span>
+        .<span class="code-func">background</span>(<span class="code-type">Color</span>.Red)  <span class="code-comment">// 在缩小后的空间绘制背景</span>
+)
+<span class="code-comment">// 结果：红色背景不包含 padding 区域</span>
+
+<span class="code-comment">// 2. 先 background，后 padding</span>
+<span class="code-type">Box</span>(
+    modifier = <span class="code-type">Modifier</span>
+        .<span class="code-func">background</span>(<span class="code-type">Color</span>.Red)  <span class="code-comment">// 先绘制背景</span>
+        .<span class="code-func">padding</span>(<span class="code-number">16</span>.dp)      <span class="code-comment">// 再缩小内容空间</span>
+)
+<span class="code-comment">// 结果：红色背景包含 padding 区域</span></code></pre>
+
+        <div class="callout callout-info">
+            <p class="callout-title">💡 理解 Modifier 顺序的心智模型</p>
+            <p>把 Modifier 链想象成<strong>洋葱层</strong>：第一个 Modifier 是最外层，最后一个是最内层。布局从外向内测量，绘制从内向外进行。</p>
+        </div>
+
+        <h2>三、Modifier.Node 系统（Compose 1.3+）</h2>
+
+        <p>从 Compose 1.3 开始，引入了全新的 <code>Modifier.Node</code> 系统，大幅提升了性能。</p>
+
+        <h3>旧系统 vs 新系统</h3>
+
+        <table class="comparison-table">
+            <thead>
+                <tr>
+                    <th>特性</th>
+                    <th>旧系统 (composed)</th>
+                    <th>新系统 (Modifier.Node)</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr>
+                    <td>状态存储</td>
+                    <td>每次重组创建新实例</td>
+                    <td>Node 实例可复用</td>
+                </tr>
+                <tr>
+                    <td>内存分配</td>
+                    <td>频繁分配</td>
+                    <td>最小化分配</td>
+                </tr>
+                <tr>
+                    <td>更新机制</td>
+                    <td>替换整个 Modifier</td>
+                    <td>原地更新 Node</td>
+                </tr>
+                <tr>
+                    <td>性能</td>
+                    <td>一般</td>
+                    <td>显著提升</td>
+                </tr>
+            </tbody>
+        </table>
+
+        <h3>Modifier.Node 的核心概念</h3>
+
+<pre><code><span class="code-comment">// 1. ModifierNodeElement：描述 Modifier 的数据</span>
+<span class="code-keyword">class</span> <span class="code-type">PaddingElement</span>(
+    <span class="code-keyword">val</span> padding: <span class="code-type">Dp</span>
+) : <span class="code-type">ModifierNodeElement</span>&lt;<span class="code-type">PaddingNode</span>&gt;() {
+    
+    <span class="code-keyword">override fun</span> <span class="code-func">create</span>() = <span class="code-type">PaddingNode</span>(padding)
+    
+    <span class="code-keyword">override fun</span> <span class="code-func">update</span>(node: <span class="code-type">PaddingNode</span>) {
+        node.padding = padding  <span class="code-comment">// 原地更新，不创建新实例</span>
+    }
+    
+    <span class="code-keyword">override fun</span> <span class="code-func">equals</span>(other: <span class="code-type">Any</span>?) = 
+        other <span class="code-keyword">is</span> <span class="code-type">PaddingElement</span> && other.padding == padding
+    
+    <span class="code-keyword">override fun</span> <span class="code-func">hashCode</span>() = padding.<span class="code-func">hashCode</span>()
+}
+
+<span class="code-comment">// 2. Modifier.Node：实际执行工作的节点</span>
+<span class="code-keyword">class</span> <span class="code-type">PaddingNode</span>(
+    <span class="code-keyword">var</span> padding: <span class="code-type">Dp</span>
+) : <span class="code-type">LayoutModifierNode</span>, <span class="code-type">Modifier.Node</span>() {
+    
+    <span class="code-keyword">override fun</span> <span class="code-type">MeasureScope</span>.<span class="code-func">measure</span>(
+        measurable: <span class="code-type">Measurable</span>,
+        constraints: <span class="code-type">Constraints</span>
+    ): <span class="code-type">MeasureResult</span> {
+        <span class="code-keyword">val</span> paddingPx = padding.<span class="code-func">roundToPx</span>()
+        <span class="code-keyword">val</span> placeable = measurable.<span class="code-func">measure</span>(
+            constraints.<span class="code-func">offset</span>(-paddingPx * <span class="code-number">2</span>, -paddingPx * <span class="code-number">2</span>)
+        )
+        <span class="code-keyword">return</span> <span class="code-func">layout</span>(
+            placeable.width + paddingPx * <span class="code-number">2</span>,
+            placeable.height + paddingPx * <span class="code-number">2</span>
+        ) {
+            placeable.<span class="code-func">place</span>(paddingPx, paddingPx)
+        }
+    }
+}</code></pre>
+
+        <div class="diagram">
+<pre>
+<span class="highlight">Modifier.Node 生命周期</span>
+
+┌─────────────────────────────────────────────────────────────┐
+│                     首次组合                                 │
+├─────────────────────────────────────────────────────────────┤
+│                                                              │
+│  ModifierNodeElement ──────▶ <span class="node">create()</span> ──────▶ Modifier.Node │
+│                                                              │
+└─────────────────────────────────────────────────────────────┘
+
+┌─────────────────────────────────────────────────────────────┐
+│                     重组（参数变化）                          │
+├─────────────────────────────────────────────────────────────┤
+│                                                              │
+│  新 Element ──▶ <span class="modifier">equals(旧 Element)?</span>                        │
+│                       │                                      │
+│            ┌──────────┴──────────┐                          │
+│            │                     │                          │
+│            ▼                     ▼                          │
+│      相等：跳过            不相等：<span class="node">update(node)</span>              │
+│                                  │                          │
+│                                  ▼                          │
+│                          原地更新 Node                       │
+│                          <span class="layout">（无内存分配）</span>                      │
+│                                                              │
+└─────────────────────────────────────────────────────────────┘
+</pre>
+        </div>
+
+        <div class="reference">
+            <div class="reference-title">📚 深入阅读</div>
+            <a href="https://android-developers.googleblog.com/2023/01/modifier-node-jetpack-compose.html" target="_blank">Modifier.Node - Android Developers Blog</a>
+        </div>
+
+        <h2>四、不同类型的 Modifier.Node</h2>
+
+        <p>根据功能不同，Modifier.Node 有多个子接口：</p>
+
+        <table class="comparison-table">
+            <thead>
+                <tr>
+                    <th>接口</th>
+                    <th>功能</th>
+                    <th>典型用例</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr>
+                    <td>LayoutModifierNode</td>
+                    <td>参与测量和布局</td>
+                    <td>padding, size, offset</td>
+                </tr>
+                <tr>
+                    <td>DrawModifierNode</td>
+                    <td>绘制内容</td>
+                    <td>background, border, shadow</td>
+                </tr>
+                <tr>
+                    <td>PointerInputModifierNode</td>
+                    <td>处理触摸事件</td>
+                    <td>clickable, draggable</td>
+                </tr>
+                <tr>
+                    <td>SemanticsModifierNode</td>
+                    <td>提供无障碍信息</td>
+                    <td>contentDescription</td>
+                </tr>
+                <tr>
+                    <td>FocusEventModifierNode</td>
+                    <td>焦点事件</td>
+                    <td>onFocusChanged</td>
+                </tr>
+                <tr>
+                    <td>GlobalPositionAwareModifierNode</td>
+                    <td>获取全局位置</td>
+                    <td>onGloballyPositioned</td>
+                </tr>
+            </tbody>
+        </table>
+
+        <h3>组合多个能力</h3>
+
+<pre><code><span class="code-comment">// 一个 Node 可以实现多个接口</span>
+<span class="code-keyword">class</span> <span class="code-type">CustomButtonNode</span> : 
+    <span class="code-type">Modifier.Node</span>(),
+    <span class="code-type">LayoutModifierNode</span>,      <span class="code-comment">// 控制大小</span>
+    <span class="code-type">DrawModifierNode</span>,        <span class="code-comment">// 绘制背景</span>
+    <span class="code-type">PointerInputModifierNode</span>, <span class="code-comment">// 处理点击</span>
+    <span class="code-type">SemanticsModifierNode</span>    <span class="code-comment">// 无障碍</span>
+{
+    <span class="code-comment">// 实现各个接口的方法...</span>
+}</code></pre>
+
+        <h2>五、实战：创建自定义 Modifier</h2>
+
+        <h3>示例 1：简单的 shimmer 效果</h3>
+
+<pre><code><span class="code-comment">// 1. 定义 Element</span>
+<span class="code-keyword">private class</span> <span class="code-type">ShimmerElement</span>(
+    <span class="code-keyword">val</span> color: <span class="code-type">Color</span>,
+    <span class="code-keyword">val</span> durationMillis: <span class="code-type">Int</span>
+) : <span class="code-type">ModifierNodeElement</span>&lt;<span class="code-type">ShimmerNode</span>&gt;() {
+    
+    <span class="code-keyword">override fun</span> <span class="code-func">create</span>() = <span class="code-type">ShimmerNode</span>(color, durationMillis)
+    
+    <span class="code-keyword">override fun</span> <span class="code-func">update</span>(node: <span class="code-type">ShimmerNode</span>) {
+        node.color = color
+        node.durationMillis = durationMillis
+    }
+    
+    <span class="code-keyword">override fun</span> <span class="code-func">equals</span>(other: <span class="code-type">Any</span>?): <span class="code-type">Boolean</span> {
+        <span class="code-keyword">if</span> (other !<span class="code-keyword">is</span> <span class="code-type">ShimmerElement</span>) <span class="code-keyword">return false</span>
+        <span class="code-keyword">return</span> color == other.color && durationMillis == other.durationMillis
+    }
+    
+    <span class="code-keyword">override fun</span> <span class="code-func">hashCode</span>() = color.<span class="code-func">hashCode</span>() * <span class="code-number">31</span> + durationMillis
+}
+
+<span class="code-comment">// 2. 定义 Node</span>
+<span class="code-keyword">private class</span> <span class="code-type">ShimmerNode</span>(
+    <span class="code-keyword">var</span> color: <span class="code-type">Color</span>,
+    <span class="code-keyword">var</span> durationMillis: <span class="code-type">Int</span>
+) : <span class="code-type">DrawModifierNode</span>, <span class="code-type">Modifier.Node</span>() {
+    
+    <span class="code-keyword">private var</span> progress = <span class="code-number">0f</span>
+    
+    <span class="code-keyword">override fun</span> <span class="code-type">ContentDrawScope</span>.<span class="code-func">draw</span>() {
+        <span class="code-comment">// 先绘制原内容</span>
+        <span class="code-func">drawContent</span>()
+        
+        <span class="code-comment">// 绘制 shimmer 效果</span>
+        <span class="code-keyword">val</span> shimmerBrush = <span class="code-type">Brush</span>.<span class="code-func">linearGradient</span>(
+            colors = <span class="code-func">listOf</span>(
+                <span class="code-type">Color</span>.Transparent,
+                color.<span class="code-func">copy</span>(alpha = <span class="code-number">0.3f</span>),
+                <span class="code-type">Color</span>.Transparent
+            ),
+            start = <span class="code-type">Offset</span>(size.width * (progress - <span class="code-number">0.3f</span>), <span class="code-number">0f</span>),
+            end = <span class="code-type">Offset</span>(size.width * (progress + <span class="code-number">0.3f</span>), size.height)
+        )
+        <span class="code-func">drawRect</span>(shimmerBrush)
+    }
+    
+    <span class="code-comment">// 动画更新 progress（需要配合 coroutine）</span>
+}
+
+<span class="code-comment">// 3. 扩展函数</span>
+<span class="code-keyword">fun</span> <span class="code-type">Modifier</span>.<span class="code-func">shimmer</span>(
+    color: <span class="code-type">Color</span> = <span class="code-type">Color</span>.White,
+    durationMillis: <span class="code-type">Int</span> = <span class="code-number">1000</span>
+): <span class="code-type">Modifier</span> = <span class="code-keyword">this</span> <span class="code-keyword">then</span> <span class="code-type">ShimmerElement</span>(color, durationMillis)</code></pre>
+
+        <h3>示例 2：带状态的 Modifier（使用 coroutine）</h3>
+
+<pre><code><span class="code-comment">// 一个可以在 Node 中使用协程的示例</span>
+<span class="code-keyword">private class</span> <span class="code-type">PulseNode</span>(
+    <span class="code-keyword">var</span> minScale: <span class="code-type">Float</span>,
+    <span class="code-keyword">var</span> maxScale: <span class="code-type">Float</span>
+) : <span class="code-type">LayoutModifierNode</span>, <span class="code-type">Modifier.Node</span>() {
+    
+    <span class="code-keyword">private var</span> scale = <span class="code-number">1f</span>
+    
+    <span class="code-comment">// Node 附加到树时调用</span>
+    <span class="code-keyword">override fun</span> <span class="code-func">onAttach</span>() {
+        <span class="code-comment">// 启动动画协程</span>
+        coroutineScope.<span class="code-func">launch</span> {
+            <span class="code-keyword">while</span> (<span class="code-keyword">true</span>) {
+                <span class="code-func">animate</span>(minScale, maxScale) { value, _ ->
+                    scale = value
+                    <span class="code-func">invalidateMeasurement</span>()  <span class="code-comment">// 触发重新测量</span>
+                }
+                <span class="code-func">animate</span>(maxScale, minScale) { value, _ ->
+                    scale = value
+                    <span class="code-func">invalidateMeasurement</span>()
+                }
+            }
+        }
+    }
+    
+    <span class="code-keyword">override fun</span> <span class="code-type">MeasureScope</span>.<span class="code-func">measure</span>(
+        measurable: <span class="code-type">Measurable</span>,
+        constraints: <span class="code-type">Constraints</span>
+    ): <span class="code-type">MeasureResult</span> {
+        <span class="code-keyword">val</span> placeable = measurable.<span class="code-func">measure</span>(constraints)
+        <span class="code-keyword">val</span> scaledWidth = (placeable.width * scale).<span class="code-func">roundToInt</span>()
+        <span class="code-keyword">val</span> scaledHeight = (placeable.height * scale).<span class="code-func">roundToInt</span>()
+        
+        <span class="code-keyword">return</span> <span class="code-func">layout</span>(scaledWidth, scaledHeight) {
+            placeable.<span class="code-func">placeWithLayer</span>(
+                x = (scaledWidth - placeable.width) / <span class="code-number">2</span>,
+                y = (scaledHeight - placeable.height) / <span class="code-number">2</span>
+            ) {
+                scaleX = scale
+                scaleY = scale
+            }
+        }
+    }
+}</code></pre>
+
+        <h2>六、Modifier 性能优化</h2>
+
+        <h3>避免在 Composable 中创建 Modifier</h3>
+
+<pre><code><span class="code-comment">// ❌ 每次重组都创建新的 Modifier 实例</span>
+<span class="code-keyword">@Composable</span>
+<span class="code-keyword">fun</span> <span class="code-func">BadExample</span>() {
+    <span class="code-type">Box</span>(
+        modifier = <span class="code-type">Modifier</span>
+            .<span class="code-func">padding</span>(<span class="code-number">16</span>.dp)
+            .<span class="code-func">background</span>(<span class="code-type">Color</span>.Red)  <span class="code-comment">// 每次重组创建新实例</span>
+    )
+}
+
+<span class="code-comment">// ✅ 使用 remember 缓存不变的 Modifier</span>
+<span class="code-keyword">@Composable</span>
+<span class="code-keyword">fun</span> <span class="code-func">GoodExample</span>() {
+    <span class="code-keyword">val</span> modifier = <span class="code-func">remember</span> {
+        <span class="code-type">Modifier</span>
+            .<span class="code-func">padding</span>(<span class="code-number">16</span>.dp)
+            .<span class="code-func">background</span>(<span class="code-type">Color</span>.Red)
+    }
+    <span class="code-type">Box</span>(modifier = modifier)
+}
+
+<span class="code-comment">// ✅ 对于依赖参数的 Modifier，使用 remember(key)</span>
+<span class="code-keyword">@Composable</span>
+<span class="code-keyword">fun</span> <span class="code-func">BetterExample</span>(color: <span class="code-type">Color</span>) {
+    <span class="code-keyword">val</span> modifier = <span class="code-func">remember</span>(color) {
+        <span class="code-type">Modifier</span>
+            .<span class="code-func">padding</span>(<span class="code-number">16</span>.dp)
+            .<span class="code-func">background</span>(color)
+    }
+    <span class="code-type">Box</span>(modifier = modifier)
+}</code></pre>
+
+        <h3>使用 Modifier.Node 而非 composed</h3>
+
+<pre><code><span class="code-comment">// ❌ 旧方式：使用 composed（性能较差）</span>
+<span class="code-keyword">fun</span> <span class="code-type">Modifier</span>.<span class="code-func">oldClickable</span>(onClick: () -> <span class="code-type">Unit</span>) = <span class="code-func">composed</span> {
+    <span class="code-keyword">val</span> interactionSource = <span class="code-func">remember</span> { <span class="code-type">MutableInteractionSource</span>() }
+    <span class="code-keyword">this</span>.<span class="code-func">clickable</span>(
+        interactionSource = interactionSource,
+        indication = <span class="code-func">rememberRipple</span>(),
+        onClick = onClick
+    )
+}
+
+<span class="code-comment">// ✅ 新方式：使用 Modifier.Node（高性能）</span>
+<span class="code-keyword">fun</span> <span class="code-type">Modifier</span>.<span class="code-func">newClickable</span>(onClick: () -> <span class="code-type">Unit</span>) = 
+    <span class="code-keyword">this</span> <span class="code-keyword">then</span> <span class="code-type">ClickableElement</span>(onClick)
+
+<span class="code-keyword">private class</span> <span class="code-type">ClickableElement</span>(
+    <span class="code-keyword">val</span> onClick: () -> <span class="code-type">Unit</span>
+) : <span class="code-type">ModifierNodeElement</span>&lt;<span class="code-type">ClickableNode</span>&gt;() {
+    <span class="code-comment">// ...</span>
+}</code></pre>
+
+        <div class="callout callout-warning">
+            <p class="callout-title">⚠️ composed 的问题</p>
+            <p><code>composed</code> 会在每次重组时创建新的 Composable 作用域，导致额外的内存分配和性能开销。对于新代码，始终优先使用 <code>Modifier.Node</code>。</p>
+        </div>
+
+        <h2>七、Modifier 的执行顺序详解</h2>
+
+        <p>理解执行顺序对于正确使用 Modifier 至关重要：</p>
+
+        <div class="diagram">
+<pre>
+<span class="highlight">Modifier 执行阶段</span>
+
+Modifier.padding(16.dp).background(Color.Red).clickable { }
+
+┌─────────────────────────────────────────────────────────────┐
+│                     测量阶段 (Measure)                       │
+│                     从外到内                                 │
+├─────────────────────────────────────────────────────────────┤
+│                                                              │
+│  <span class="modifier">padding</span> ──▶ 约束减小 ──▶ <span class="modifier">background</span> ──▶ <span class="modifier">clickable</span> ──▶ 内容  │
+│                                                              │
+│  约束: 200x200    约束: 168x168    约束: 168x168              │
+│                                                              │
+└─────────────────────────────────────────────────────────────┘
+
+┌─────────────────────────────────────────────────────────────┐
+│                     布局阶段 (Layout)                        │
+│                     从内到外                                 │
+├─────────────────────────────────────────────────────────────┤
+│                                                              │
+│  内容 ──▶ <span class="modifier">clickable</span> ──▶ <span class="modifier">background</span> ──▶ <span class="modifier">padding</span> ──▶ 最终位置  │
+│                                                              │
+│  大小: 100x50    大小: 100x50    大小: 100x50   大小: 132x82   │
+│                                                              │
+└─────────────────────────────────────────────────────────────┘
+
+┌─────────────────────────────────────────────────────────────┐
+│                     绘制阶段 (Draw)                          │
+│                     从外到内（先背景后内容）                   │
+├─────────────────────────────────────────────────────────────┤
+│                                                              │
+│  <span class="layout">padding 区域</span> ──▶ <span class="modifier">background 绘制</span> ──▶ <span class="node">clickable 涟漪</span> ──▶ 内容  │
+│                                                              │
+└─────────────────────────────────────────────────────────────┘
+</pre>
+        </div>
+
+        <h2>八、常见 Modifier 模式</h2>
+
+        <h3>条件 Modifier</h3>
+
+<pre><code><span class="code-comment">// ✅ 使用 Modifier.then()</span>
+<span class="code-keyword">fun</span> <span class="code-type">Modifier</span>.<span class="code-func">conditional</span>(
+    condition: <span class="code-type">Boolean</span>,
+    modifier: <span class="code-type">Modifier</span>.() -> <span class="code-type">Modifier</span>
+): <span class="code-type">Modifier</span> = <span class="code-keyword">if</span> (condition) <span class="code-keyword">then</span>(<span class="code-func">modifier</span>()) <span class="code-keyword">else this</span>
+
+<span class="code-comment">// 使用</span>
+<span class="code-type">Modifier</span>
+    .<span class="code-func">padding</span>(<span class="code-number">16</span>.dp)
+    .<span class="code-func">conditional</span>(isSelected) {
+        <span class="code-type">Modifier</span>.<span class="code-func">border</span>(<span class="code-number">2</span>.dp, <span class="code-type">Color</span>.Blue)
+    }</code></pre>
+
+        <h3>链式构建器</h3>
+
+<pre><code><span class="code-comment">// 创建可复用的 Modifier 组合</span>
+<span class="code-keyword">fun</span> <span class="code-type">Modifier</span>.<span class="code-func">cardStyle</span>() = <span class="code-keyword">this</span>
+    .<span class="code-func">fillMaxWidth</span>()
+    .<span class="code-func">padding</span>(<span class="code-number">16</span>.dp)
+    .<span class="code-func">clip</span>(<span class="code-type">RoundedCornerShape</span>(<span class="code-number">12</span>.dp))
+    .<span class="code-func">background</span>(<span class="code-type">MaterialTheme</span>.colorScheme.surface)
+    .<span class="code-func">shadow</span>(<span class="code-number">4</span>.dp, <span class="code-type">RoundedCornerShape</span>(<span class="code-number">12</span>.dp))
+
+<span class="code-comment">// 使用</span>
+<span class="code-type">Box</span>(modifier = <span class="code-type">Modifier</span>.<span class="code-func">cardStyle</span>()) {
+    <span class="code-comment">// 内容</span>
+}</code></pre>
+
+        <h2>九、调试 Modifier</h2>
+
+        <h3>使用 inspectable</h3>
+
+<pre><code><span class="code-comment">// 让自定义 Modifier 在 Layout Inspector 中可见</span>
+<span class="code-keyword">private class</span> <span class="code-type">MyElement</span>(
+    <span class="code-keyword">val</span> value: <span class="code-type">Int</span>
+) : <span class="code-type">ModifierNodeElement</span>&lt;<span class="code-type">MyNode</span>&gt;() {
+    
+    <span class="code-keyword">override fun</span> <span class="code-type">InspectorInfo</span>.<span class="code-func">inspectableProperties</span>() {
+        name = <span class="code-string">"myModifier"</span>
+        properties[<span class="code-string">"value"</span>] = value
+    }
+    
+    <span class="code-comment">// ...</span>
+}</code></pre>
+
+        <h3>打印 Modifier 链</h3>
+
+<pre><code><span class="code-comment">// 调试用：打印 Modifier 链的结构</span>
+<span class="code-keyword">fun</span> <span class="code-type">Modifier</span>.<span class="code-func">debugPrint</span>(tag: <span class="code-type">String</span> = <span class="code-string">"Modifier"</span>): <span class="code-type">Modifier</span> {
+    <span class="code-func">foldIn</span>(<span class="code-type">Unit</span>) { _, element ->
+        <span class="code-func">println</span>(<span class="code-string">"</span>$tag<span class="code-string">: </span>${element::class.simpleName}<span class="code-string">"</span>)
+    }
+    <span class="code-keyword">return this</span>
+}</code></pre>
+
+        <h2>十、最佳实践总结</h2>
+
+        <h3>DO ✅</h3>
+
+        <ul>
+            <li>理解 Modifier 顺序的重要性（洋葱模型）</li>
+            <li>使用 <code>Modifier.Node</code> 创建高性能自定义 Modifier</li>
+            <li>使用 <code>remember</code> 缓存不变的 Modifier</li>
+            <li>实现 <code>equals()</code> 和 <code>hashCode()</code> 以支持跳过更新</li>
+            <li>为自定义 Modifier 添加 <code>inspectableProperties</code></li>
+        </ul>
+
+        <h3>DON'T ❌</h3>
+
+        <ul>
+            <li>不要在 Composable 中每次都创建新的 Modifier</li>
+            <li>不要使用 <code>composed</code>（除非必须兼容旧代码）</li>
+            <li>不要忽略 Modifier 顺序的影响</li>
+            <li>不要在 Modifier 中存储可变状态（使用 Node）</li>
+        </ul>
+
+        <h2>总结</h2>
+
+        <p>Modifier 是 Compose 的核心抽象之一：</p>
+
+        <ul>
+            <li><strong>链式结构</strong>：CombinedModifier 构成的树形结构</li>
+            <li><strong>顺序敏感</strong>：先声明的 Modifier 在外层</li>
+            <li><strong>Modifier.Node</strong>：高性能的新实现方式</li>
+            <li><strong>多种能力</strong>：Layout、Draw、Input、Semantics 等</li>
+            <li><strong>可组合</strong>：通过 <code>then</code> 组合多个 Modifier</li>
+        </ul>
+
+        <p>掌握 Modifier 的内部原理，能帮助你写出更高效、更正确的 Compose 代码。</p>
+
+        <div class="reference">
+            <div class="reference-title">📚 推荐阅读</div>
+            <a href="https://developer.android.com/jetpack/compose/modifiers" target="_blank">Compose Modifiers - Android Developers</a><br>
+            <a href="https://developer.android.com/jetpack/compose/custom-modifiers" target="_blank">Custom Modifiers - Android Developers</a><br>
+            <a href="https://www.youtube.com/watch?v=BjGX2RftXsU" target="_blank">Deep dive into Jetpack Compose layouts (Video)</a>
+        </div>
+    </article>
+
+    <footer class="footer">
+        <p>&copy; 2024 Fidroid. <a href="../index.html">返回首页</a></p>
+    </footer>
+</body>
+</html>
+

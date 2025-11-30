@@ -1,0 +1,834 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Compose 与 Coroutines 深度集成：异步 UI 的正确姿势 - Fidroid</title>
+    <meta name="description" content="深入理解 Compose 与 Kotlin Coroutines 的集成机制，掌握 LaunchedEffect、rememberCoroutineScope 的正确使用。">
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            line-height: 1.8;
+            color: #e5e7eb;
+            background: #020617;
+        }
+        .navbar {
+            background: rgba(15,23,42,0.98);
+            backdrop-filter: blur(10px);
+            position: fixed;
+            top: 0;
+            width: 100%;
+            z-index: 1000;
+        }
+        .nav-container {
+            max-width: 900px;
+            margin: 0 auto;
+            padding: 1rem 20px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .logo {
+            font-size: 1.5rem;
+            font-weight: bold;
+            color: #38bdf8;
+            text-decoration: none;
+            letter-spacing: 0.08em;
+            text-transform: uppercase;
+        }
+        .back-link { color: #9ca3af; text-decoration: none; font-size: 0.9rem; }
+        .back-link:hover { color: #38bdf8; }
+
+        .article-header {
+            padding: 120px 20px 60px;
+            background: radial-gradient(circle at top left, #8b5cf6 0, transparent 50%),
+                        radial-gradient(circle at bottom right, #22c55e 0, transparent 55%),
+                        #020617;
+            text-align: center;
+        }
+        .article-header h1 {
+            max-width: 800px;
+            margin: 0 auto 1rem;
+            font-size: 2.5rem;
+            font-weight: 800;
+            letter-spacing: -0.03em;
+            color: #fff;
+        }
+        .article-meta { color: #9ca3af; font-size: 0.9rem; margin-bottom: 1.5rem; }
+        .article-tags { display: flex; justify-content: center; flex-wrap: wrap; gap: 0.5rem; }
+        .article-tag {
+            padding: 0.25rem 0.75rem;
+            border-radius: 999px;
+            font-size: 0.75rem;
+            background: rgba(15,23,42,0.85);
+            border: 1px solid rgba(139,92,246,0.4);
+            color: #c4b5fd;
+        }
+
+        .article-content {
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 60px 20px 80px;
+        }
+        .article-content h2 {
+            font-size: 1.6rem;
+            margin: 2.5rem 0 1rem;
+            color: #f9fafb;
+            border-left: 4px solid #8b5cf6;
+            padding-left: 1rem;
+        }
+        .article-content h3 { font-size: 1.25rem; margin: 2rem 0 0.75rem; color: #e5e7eb; }
+        .article-content p { margin-bottom: 1.25rem; color: #d1d5db; }
+        .article-content ul, .article-content ol { margin: 1rem 0 1.5rem 1.5rem; color: #d1d5db; }
+        .article-content li { margin-bottom: 0.5rem; }
+        .article-content strong { color: #f9fafb; }
+        .article-content a { color: #38bdf8; text-decoration: underline; }
+
+        pre {
+            background: #0f172a;
+            border: 1px solid rgba(139,92,246,0.3);
+            border-radius: 12px;
+            padding: 1.25rem;
+            overflow-x: auto;
+            margin: 1.5rem 0;
+            font-size: 0.85rem;
+            line-height: 1.6;
+        }
+        code { font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace; color: #e5e7eb; }
+        .code-keyword { color: #c084fc; }
+        .code-func { color: #38bdf8; }
+        .code-type { color: #4ade80; }
+        .code-string { color: #fb7185; }
+        .code-comment { color: #6b7280; font-style: italic; }
+        .code-number { color: #fbbf24; }
+        .code-annotation { color: #f472b6; }
+
+        .callout {
+            background: rgba(139,92,246,0.1);
+            border: 1px solid rgba(139,92,246,0.3);
+            border-radius: 12px;
+            padding: 1.25rem 1.5rem;
+            margin: 1.5rem 0;
+        }
+        .callout-title { font-weight: 600; color: #c4b5fd; margin-bottom: 0.5rem; }
+        .callout p { margin-bottom: 0; color: #d1d5db; }
+
+        .callout-warning {
+            background: rgba(245,158,11,0.1);
+            border: 1px solid rgba(245,158,11,0.3);
+        }
+        .callout-warning .callout-title { color: #fcd34d; }
+
+        .callout-info {
+            background: rgba(14,165,233,0.1);
+            border: 1px solid rgba(14,165,233,0.3);
+        }
+        .callout-info .callout-title { color: #7dd3fc; }
+
+        .diagram {
+            background: #0f172a;
+            border: 1px solid rgba(139,92,246,0.3);
+            border-radius: 12px;
+            padding: 2rem;
+            margin: 1.5rem 0;
+            text-align: center;
+            font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+            font-size: 0.8rem;
+            line-height: 1.6;
+            color: #94a3b8;
+            overflow-x: auto;
+        }
+        .diagram .highlight { color: #a78bfa; font-weight: bold; }
+        .diagram .coroutine { color: #4ade80; }
+        .diagram .compose { color: #38bdf8; }
+        .diagram .cancel { color: #f87171; }
+
+        .reference {
+            background: rgba(15,23,42,0.6);
+            border: 1px solid rgba(148,163,184,0.2);
+            border-radius: 8px;
+            padding: 1rem 1.25rem;
+            margin: 1rem 0;
+            font-size: 0.9rem;
+        }
+        .reference-title {
+            font-weight: 600;
+            color: #94a3b8;
+            font-size: 0.75rem;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            margin-bottom: 0.5rem;
+        }
+        .reference a { color: #38bdf8; }
+
+        .comparison-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 1.5rem 0;
+            font-size: 0.9rem;
+        }
+        .comparison-table th, .comparison-table td {
+            border: 1px solid rgba(148,163,184,0.3);
+            padding: 0.75rem 1rem;
+            text-align: left;
+        }
+        .comparison-table th {
+            background: rgba(15,23,42,0.8);
+            color: #f9fafb;
+        }
+        .comparison-table td { color: #d1d5db; }
+
+        .footer {
+            background: #020617;
+            border-top: 1px solid #111827;
+            padding: 2rem;
+            text-align: center;
+            color: #6b7280;
+        }
+        .footer a { color: #38bdf8; text-decoration: none; }
+    </style>
+</head>
+<body>
+    <nav class="navbar">
+        <div class="nav-container">
+            <a href="../index.html" class="logo">Fidroid</a>
+            <a href="../index.html#blog" class="back-link">← 返回博客列表</a>
+        </div>
+    </nav>
+
+    <header class="article-header">
+        <h1>Compose 与 Coroutines 深度集成：异步 UI 的正确姿势</h1>
+        <p class="article-meta">2024-05-05 · 28 min · 实战深度解析</p>
+        <div class="article-tags">
+            <span class="article-tag">Coroutines</span>
+            <span class="article-tag">LaunchedEffect</span>
+            <span class="article-tag">rememberCoroutineScope</span>
+            <span class="article-tag">Flow</span>
+        </div>
+    </header>
+
+    <article class="article-content">
+        <p>Compose 和 Kotlin Coroutines 是天作之合。但要正确使用它们的组合，你需要理解：什么时候用 <code>LaunchedEffect</code>？什么时候用 <code>rememberCoroutineScope</code>？Flow 如何安全地收集？本文将深入探讨 Compose 与 Coroutines 的集成机制，帮助你写出正确且高效的异步 UI 代码。</p>
+
+        <div class="reference">
+            <div class="reference-title">📚 官方参考</div>
+            <a href="https://developer.android.com/jetpack/compose/side-effects" target="_blank">Side Effects in Compose</a><br>
+            <a href="https://developer.android.com/kotlin/coroutines" target="_blank">Kotlin Coroutines on Android</a>
+        </div>
+
+        <h2>一、Compose 的协程作用域</h2>
+
+        <p>Compose 提供了多种方式来启动协程，每种都有其特定的生命周期和使用场景。</p>
+
+        <h3>核心 API 对比</h3>
+
+        <table class="comparison-table">
+            <thead>
+                <tr>
+                    <th>API</th>
+                    <th>生命周期</th>
+                    <th>使用场景</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr>
+                    <td>LaunchedEffect</td>
+                    <td>跟随 Composable</td>
+                    <td>自动启动的副作用</td>
+                </tr>
+                <tr>
+                    <td>rememberCoroutineScope</td>
+                    <td>跟随 Composable</td>
+                    <td>事件触发的协程</td>
+                </tr>
+                <tr>
+                    <td>DisposableEffect</td>
+                    <td>跟随 Composable</td>
+                    <td>需要清理的资源</td>
+                </tr>
+                <tr>
+                    <td>produceState</td>
+                    <td>跟随 Composable</td>
+                    <td>将异步数据转为 State</td>
+                </tr>
+                <tr>
+                    <td>ViewModel.viewModelScope</td>
+                    <td>跟随 ViewModel</td>
+                    <td>业务逻辑协程</td>
+                </tr>
+            </tbody>
+        </table>
+
+        <h2>二、LaunchedEffect 深度解析</h2>
+
+        <p><code>LaunchedEffect</code> 是最常用的协程 API，它在 Composable 进入组合时启动协程，离开时自动取消。</p>
+
+        <h3>基本用法</h3>
+
+<pre><code><span class="code-keyword">@Composable</span>
+<span class="code-keyword">fun</span> <span class="code-func">UserProfile</span>(userId: <span class="code-type">String</span>) {
+    <span class="code-keyword">var</span> user <span class="code-keyword">by</span> <span class="code-func">remember</span> { <span class="code-func">mutableStateOf</span>&lt;<span class="code-type">User</span>?&gt;(<span class="code-keyword">null</span>) }
+    
+    <span class="code-comment">// 当 userId 变化时，取消旧协程，启动新协程</span>
+    <span class="code-func">LaunchedEffect</span>(userId) {
+        user = <span class="code-func">fetchUser</span>(userId)  <span class="code-comment">// 挂起函数</span>
+    }
+    
+    user?.<span class="code-func">let</span> { <span class="code-func">UserCard</span>(it) }
+}</code></pre>
+
+        <h3>Key 参数的作用</h3>
+
+        <p><code>LaunchedEffect</code> 的 key 参数决定了协程何时重启：</p>
+
+<pre><code><span class="code-comment">// 1. 固定 key：只在首次组合时执行一次</span>
+<span class="code-func">LaunchedEffect</span>(<span class="code-type">Unit</span>) {
+    <span class="code-comment">// 只执行一次</span>
+    <span class="code-func">analytics</span>.<span class="code-func">trackScreenView</span>(<span class="code-string">"UserProfile"</span>)
+}
+
+<span class="code-comment">// 2. 动态 key：key 变化时重启</span>
+<span class="code-func">LaunchedEffect</span>(userId) {
+    <span class="code-comment">// userId 变化时重新执行</span>
+    user = <span class="code-func">fetchUser</span>(userId)
+}
+
+<span class="code-comment">// 3. 多个 key：任一变化时重启</span>
+<span class="code-func">LaunchedEffect</span>(userId, refreshTrigger) {
+    <span class="code-comment">// userId 或 refreshTrigger 变化时重新执行</span>
+    user = <span class="code-func">fetchUser</span>(userId)
+}
+
+<span class="code-comment">// 4. 无 key（不推荐）：每次重组都重启</span>
+<span class="code-comment">// LaunchedEffect { } // 编译错误：必须提供 key</span></code></pre>
+
+        <div class="diagram">
+<pre>
+<span class="highlight">LaunchedEffect 生命周期</span>
+
+┌─────────────────────────────────────────────────────────────┐
+│                     Composable 生命周期                      │
+├─────────────────────────────────────────────────────────────┤
+│                                                              │
+│  <span class="compose">进入组合</span> ────────────────────────────────────▶ <span class="cancel">离开组合</span>   │
+│      │                                              │        │
+│      ▼                                              ▼        │
+│  <span class="coroutine">启动协程</span>                                      <span class="cancel">取消协程</span>      │
+│                                                              │
+└─────────────────────────────────────────────────────────────┘
+
+┌─────────────────────────────────────────────────────────────┐
+│                     Key 变化时                               │
+├─────────────────────────────────────────────────────────────┤
+│                                                              │
+│  key = "A"          key = "B"                               │
+│      │                  │                                   │
+│      ▼                  ▼                                   │
+│  <span class="coroutine">启动协程 A</span>  ───▶  <span class="cancel">取消协程 A</span>  ───▶  <span class="coroutine">启动协程 B</span>           │
+│                                                              │
+└─────────────────────────────────────────────────────────────┘
+</pre>
+        </div>
+
+        <h3>LaunchedEffect 的内部实现</h3>
+
+<pre><code><span class="code-comment">// 简化的 LaunchedEffect 实现</span>
+<span class="code-keyword">@Composable</span>
+<span class="code-keyword">fun</span> <span class="code-func">LaunchedEffect</span>(
+    key1: <span class="code-type">Any</span>?,
+    block: <span class="code-keyword">suspend</span> <span class="code-type">CoroutineScope</span>.() -> <span class="code-type">Unit</span>
+) {
+    <span class="code-keyword">val</span> currentBlock <span class="code-keyword">by</span> <span class="code-func">rememberUpdatedState</span>(block)
+    
+    <span class="code-func">DisposableEffect</span>(key1) {
+        <span class="code-keyword">val</span> scope = <span class="code-type">CoroutineScope</span>(<span class="code-type">SupervisorJob</span>() + <span class="code-type">Dispatchers</span>.Main.immediate)
+        scope.<span class="code-func">launch</span> {
+            currentBlock()
+        }
+        
+        <span class="code-func">onDispose</span> {
+            scope.<span class="code-func">cancel</span>()  <span class="code-comment">// 离开组合时取消</span>
+        }
+    }
+}</code></pre>
+
+        <div class="callout callout-info">
+            <p class="callout-title">💡 为什么使用 rememberUpdatedState？</p>
+            <p><code>rememberUpdatedState</code> 确保协程中始终使用最新的 lambda，而不会因为捕获了旧值导致问题。这在长时间运行的协程中特别重要。</p>
+        </div>
+
+        <h2>三、rememberCoroutineScope 详解</h2>
+
+        <p><code>rememberCoroutineScope</code> 提供一个与 Composable 生命周期绑定的 <code>CoroutineScope</code>，用于在事件回调中启动协程。</p>
+
+<pre><code><span class="code-keyword">@Composable</span>
+<span class="code-keyword">fun</span> <span class="code-func">RefreshableList</span>() {
+    <span class="code-keyword">val</span> scope = <span class="code-func">rememberCoroutineScope</span>()
+    <span class="code-keyword">var</span> items <span class="code-keyword">by</span> <span class="code-func">remember</span> { <span class="code-func">mutableStateOf</span>(<span class="code-func">emptyList</span>&lt;<span class="code-type">Item</span>&gt;()) }
+    <span class="code-keyword">var</span> isRefreshing <span class="code-keyword">by</span> <span class="code-func">remember</span> { <span class="code-func">mutableStateOf</span>(<span class="code-keyword">false</span>) }
+    
+    <span class="code-func">PullRefreshBox</span>(
+        isRefreshing = isRefreshing,
+        onRefresh = {
+            <span class="code-comment">// 在事件回调中启动协程</span>
+            scope.<span class="code-func">launch</span> {
+                isRefreshing = <span class="code-keyword">true</span>
+                items = <span class="code-func">fetchItems</span>()
+                isRefreshing = <span class="code-keyword">false</span>
+            }
+        }
+    ) {
+        <span class="code-func">LazyColumn</span> {
+            <span class="code-func">items</span>(items) { <span class="code-func">ItemRow</span>(it) }
+        }
+    }
+}</code></pre>
+
+        <h3>LaunchedEffect vs rememberCoroutineScope</h3>
+
+        <table class="comparison-table">
+            <thead>
+                <tr>
+                    <th>特性</th>
+                    <th>LaunchedEffect</th>
+                    <th>rememberCoroutineScope</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr>
+                    <td>启动时机</td>
+                    <td>自动（进入组合时）</td>
+                    <td>手动（事件触发）</td>
+                </tr>
+                <tr>
+                    <td>取消时机</td>
+                    <td>自动（离开组合或 key 变化）</td>
+                    <td>自动（离开组合）</td>
+                </tr>
+                <tr>
+                    <td>典型场景</td>
+                    <td>初始化、数据加载</td>
+                    <td>点击、滑动等事件</td>
+                </tr>
+                <tr>
+                    <td>重启控制</td>
+                    <td>通过 key 参数</td>
+                    <td>手动控制</td>
+                </tr>
+            </tbody>
+        </table>
+
+<pre><code><span class="code-comment">// ❌ 错误：在 LaunchedEffect 中响应事件</span>
+<span class="code-keyword">@Composable</span>
+<span class="code-keyword">fun</span> <span class="code-func">BadExample</span>(onClick: () -> <span class="code-type">Unit</span>) {
+    <span class="code-keyword">var</span> clicked <span class="code-keyword">by</span> <span class="code-func">remember</span> { <span class="code-func">mutableStateOf</span>(<span class="code-keyword">false</span>) }
+    
+    <span class="code-func">LaunchedEffect</span>(clicked) {
+        <span class="code-keyword">if</span> (clicked) {
+            <span class="code-func">doSomething</span>()  <span class="code-comment">// 不好：用状态触发副作用</span>
+        }
+    }
+    
+    <span class="code-func">Button</span>(onClick = { clicked = <span class="code-keyword">true</span> }) { ... }
+}
+
+<span class="code-comment">// ✅ 正确：使用 rememberCoroutineScope</span>
+<span class="code-keyword">@Composable</span>
+<span class="code-keyword">fun</span> <span class="code-func">GoodExample</span>() {
+    <span class="code-keyword">val</span> scope = <span class="code-func">rememberCoroutineScope</span>()
+    
+    <span class="code-func">Button</span>(
+        onClick = {
+            scope.<span class="code-func">launch</span> { <span class="code-func">doSomething</span>() }
+        }
+    ) { ... }
+}</code></pre>
+
+        <h2>四、安全收集 Flow</h2>
+
+        <p>在 Compose 中收集 Flow 需要特别注意生命周期安全。</p>
+
+        <h3>collectAsState</h3>
+
+<pre><code><span class="code-keyword">@Composable</span>
+<span class="code-keyword">fun</span> <span class="code-func">UserScreen</span>(viewModel: <span class="code-type">UserViewModel</span>) {
+    <span class="code-comment">// 最简单的方式：自动处理生命周期</span>
+    <span class="code-keyword">val</span> uiState <span class="code-keyword">by</span> viewModel.uiState.<span class="code-func">collectAsState</span>()
+    
+    <span class="code-keyword">when</span> (uiState) {
+        <span class="code-keyword">is</span> <span class="code-type">UiState.Loading</span> -> <span class="code-func">LoadingIndicator</span>()
+        <span class="code-keyword">is</span> <span class="code-type">UiState.Success</span> -> <span class="code-func">UserContent</span>(uiState.data)
+        <span class="code-keyword">is</span> <span class="code-type">UiState.Error</span> -> <span class="code-func">ErrorMessage</span>(uiState.message)
+    }
+}</code></pre>
+
+        <h3>collectAsStateWithLifecycle（推荐）</h3>
+
+<pre><code><span class="code-comment">// 需要添加依赖：androidx.lifecycle:lifecycle-runtime-compose</span>
+
+<span class="code-keyword">@Composable</span>
+<span class="code-keyword">fun</span> <span class="code-func">UserScreen</span>(viewModel: <span class="code-type">UserViewModel</span>) {
+    <span class="code-comment">// 更安全：在 Activity/Fragment 不可见时停止收集</span>
+    <span class="code-keyword">val</span> uiState <span class="code-keyword">by</span> viewModel.uiState.<span class="code-func">collectAsStateWithLifecycle</span>()
+    
+    <span class="code-comment">// ...</span>
+}</code></pre>
+
+        <div class="diagram">
+<pre>
+<span class="highlight">collectAsState vs collectAsStateWithLifecycle</span>
+
+┌─────────────────────────────────────────────────────────────┐
+│                   collectAsState                             │
+├─────────────────────────────────────────────────────────────┤
+│                                                              │
+│  <span class="compose">Composable 可见</span>                    <span class="cancel">Composable 不可见</span>       │
+│        │                                    │               │
+│        ▼                                    ▼               │
+│    <span class="coroutine">收集 Flow</span>                          <span class="cancel">停止收集</span>             │
+│                                                              │
+│  问题：Activity 在后台时仍然收集                               │
+│                                                              │
+└─────────────────────────────────────────────────────────────┘
+
+┌─────────────────────────────────────────────────────────────┐
+│               collectAsStateWithLifecycle                    │
+├─────────────────────────────────────────────────────────────┤
+│                                                              │
+│  <span class="compose">Activity STARTED</span>                    <span class="cancel">Activity STOPPED</span>       │
+│        │                                    │               │
+│        ▼                                    ▼               │
+│    <span class="coroutine">收集 Flow</span>                          <span class="cancel">停止收集</span>             │
+│                                                              │
+│  优势：遵循 Activity 生命周期，更省资源                         │
+│                                                              │
+└─────────────────────────────────────────────────────────────┘
+</pre>
+        </div>
+
+        <div class="reference">
+            <div class="reference-title">📚 深入阅读</div>
+            <a href="https://medium.com/androiddevelopers/consuming-flows-safely-in-jetpack-compose-cde014d0d5a3" target="_blank">Consuming Flows Safely in Jetpack Compose</a>
+        </div>
+
+        <h3>在 LaunchedEffect 中收集 Flow</h3>
+
+<pre><code><span class="code-keyword">@Composable</span>
+<span class="code-keyword">fun</span> <span class="code-func">EventHandler</span>(viewModel: <span class="code-type">MyViewModel</span>) {
+    <span class="code-keyword">val</span> context = <span class="code-type">LocalContext</span>.current
+    
+    <span class="code-comment">// 收集一次性事件（如 Toast、导航）</span>
+    <span class="code-func">LaunchedEffect</span>(<span class="code-type">Unit</span>) {
+        viewModel.events.<span class="code-func">collect</span> { event ->
+            <span class="code-keyword">when</span> (event) {
+                <span class="code-keyword">is</span> <span class="code-type">Event.ShowToast</span> -> {
+                    <span class="code-type">Toast</span>.<span class="code-func">makeText</span>(context, event.message, <span class="code-type">Toast</span>.LENGTH_SHORT).<span class="code-func">show</span>()
+                }
+                <span class="code-keyword">is</span> <span class="code-type">Event.Navigate</span> -> {
+                    <span class="code-comment">// 导航...</span>
+                }
+            }
+        }
+    }
+}</code></pre>
+
+        <h2>五、produceState：将异步数据转为 State</h2>
+
+        <p><code>produceState</code> 是一个便捷函数，用于将异步数据源转换为 Compose State。</p>
+
+<pre><code><span class="code-keyword">@Composable</span>
+<span class="code-keyword">fun</span> <span class="code-func">UserProfile</span>(userId: <span class="code-type">String</span>) {
+    <span class="code-comment">// 将挂起函数结果转为 State</span>
+    <span class="code-keyword">val</span> user <span class="code-keyword">by</span> <span class="code-func">produceState</span>&lt;<span class="code-type">User</span>?&gt;(initialValue = <span class="code-keyword">null</span>, userId) {
+        value = <span class="code-func">fetchUser</span>(userId)
+    }
+    
+    user?.<span class="code-func">let</span> { <span class="code-func">UserCard</span>(it) } ?: <span class="code-func">LoadingIndicator</span>()
+}
+
+<span class="code-comment">// 更复杂的例子：带加载状态</span>
+<span class="code-keyword">@Composable</span>
+<span class="code-keyword">fun</span> <span class="code-func">UserProfile</span>(userId: <span class="code-type">String</span>) {
+    <span class="code-keyword">val</span> userState <span class="code-keyword">by</span> <span class="code-func">produceState</span>&lt;<span class="code-type">Result</span>&lt;<span class="code-type">User</span>&gt;&gt;(
+        initialValue = <span class="code-type">Result</span>.Loading,
+        userId
+    ) {
+        value = <span class="code-keyword">try</span> {
+            <span class="code-type">Result</span>.<span class="code-func">Success</span>(<span class="code-func">fetchUser</span>(userId))
+        } <span class="code-keyword">catch</span> (e: <span class="code-type">Exception</span>) {
+            <span class="code-type">Result</span>.<span class="code-func">Error</span>(e)
+        }
+    }
+    
+    <span class="code-keyword">when</span> (<span class="code-keyword">val</span> state = userState) {
+        <span class="code-keyword">is</span> <span class="code-type">Result.Loading</span> -> <span class="code-func">LoadingIndicator</span>()
+        <span class="code-keyword">is</span> <span class="code-type">Result.Success</span> -> <span class="code-func">UserCard</span>(state.data)
+        <span class="code-keyword">is</span> <span class="code-type">Result.Error</span> -> <span class="code-func">ErrorMessage</span>(state.exception.message)
+    }
+}</code></pre>
+
+        <h3>produceState 与 Flow</h3>
+
+<pre><code><span class="code-comment">// 将 Flow 转为 State（等同于 collectAsState）</span>
+<span class="code-keyword">@Composable</span>
+<span class="code-keyword">fun</span> &lt;<span class="code-type">T</span>&gt; <span class="code-type">Flow</span>&lt;<span class="code-type">T</span>&gt;.<span class="code-func">collectAsStateCustom</span>(initial: <span class="code-type">T</span>): <span class="code-type">State</span>&lt;<span class="code-type">T</span>&gt; {
+    <span class="code-keyword">return</span> <span class="code-func">produceState</span>(initial, <span class="code-keyword">this</span>) {
+        <span class="code-func">collect</span> { value = it }
+    }
+}</code></pre>
+
+        <h2>六、snapshotFlow：将 Compose State 转为 Flow</h2>
+
+        <p><code>snapshotFlow</code> 是 <code>produceState</code> 的反向操作，将 Compose State 转换为 Flow。</p>
+
+<pre><code><span class="code-keyword">@Composable</span>
+<span class="code-keyword">fun</span> <span class="code-func">SearchScreen</span>(viewModel: <span class="code-type">SearchViewModel</span>) {
+    <span class="code-keyword">var</span> query <span class="code-keyword">by</span> <span class="code-func">remember</span> { <span class="code-func">mutableStateOf</span>(<span class="code-string">""</span>) }
+    
+    <span class="code-comment">// 将 Compose State 转为 Flow，应用 Flow 操作符</span>
+    <span class="code-func">LaunchedEffect</span>(<span class="code-type">Unit</span>) {
+        <span class="code-func">snapshotFlow</span> { query }
+            .<span class="code-func">debounce</span>(<span class="code-number">300</span>)           <span class="code-comment">// 防抖</span>
+            .<span class="code-func">filter</span> { it.<span class="code-func">isNotEmpty</span>() }  <span class="code-comment">// 过滤空查询</span>
+            .<span class="code-func">distinctUntilChanged</span>()   <span class="code-comment">// 去重</span>
+            .<span class="code-func">collect</span> { searchQuery ->
+                viewModel.<span class="code-func">search</span>(searchQuery)
+            }
+    }
+    
+    <span class="code-func">TextField</span>(
+        value = query,
+        onValueChange = { query = it },
+        placeholder = { <span class="code-func">Text</span>(<span class="code-string">"搜索..."</span>) }
+    )
+}</code></pre>
+
+        <h3>snapshotFlow 的原理</h3>
+
+<pre><code><span class="code-comment">// snapshotFlow 简化实现</span>
+<span class="code-keyword">fun</span> &lt;<span class="code-type">T</span>&gt; <span class="code-func">snapshotFlow</span>(block: () -> <span class="code-type">T</span>): <span class="code-type">Flow</span>&lt;<span class="code-type">T</span>&gt; = <span class="code-func">flow</span> {
+    <span class="code-keyword">var</span> previousValue: <span class="code-type">T</span>? = <span class="code-keyword">null</span>
+    
+    <span class="code-keyword">while</span> (<span class="code-keyword">true</span>) {
+        <span class="code-comment">// 在 Snapshot 中执行 block，追踪读取的状态</span>
+        <span class="code-keyword">val</span> readStates = <span class="code-func">mutableSetOf</span>&lt;<span class="code-type">StateObject</span>&gt;()
+        <span class="code-keyword">val</span> value = <span class="code-type">Snapshot</span>.<span class="code-func">observe</span>(
+            readObserver = { readStates.<span class="code-func">add</span>(it) }
+        ) {
+            <span class="code-func">block</span>()
+        }
+        
+        <span class="code-comment">// 如果值变化，发射</span>
+        <span class="code-keyword">if</span> (value != previousValue) {
+            <span class="code-func">emit</span>(value)
+            previousValue = value
+        }
+        
+        <span class="code-comment">// 挂起直到任一状态变化</span>
+        <span class="code-func">suspendUntilChanged</span>(readStates)
+    }
+}</code></pre>
+
+        <h2>七、处理协程取消</h2>
+
+        <p>正确处理协程取消是避免内存泄漏和 bug 的关键。</p>
+
+        <h3>使用 NonCancellable</h3>
+
+<pre><code><span class="code-keyword">@Composable</span>
+<span class="code-keyword">fun</span> <span class="code-func">DataEditor</span>(viewModel: <span class="code-type">EditorViewModel</span>) {
+    <span class="code-keyword">val</span> scope = <span class="code-func">rememberCoroutineScope</span>()
+    
+    <span class="code-func">Button</span>(
+        onClick = {
+            scope.<span class="code-func">launch</span> {
+                <span class="code-keyword">try</span> {
+                    viewModel.<span class="code-func">saveData</span>()
+                } <span class="code-keyword">finally</span> {
+                    <span class="code-comment">// 即使协程被取消，也要执行清理</span>
+                    <span class="code-func">withContext</span>(<span class="code-type">NonCancellable</span>) {
+                        viewModel.<span class="code-func">cleanup</span>()
+                    }
+                }
+            }
+        }
+    ) {
+        <span class="code-func">Text</span>(<span class="code-string">"保存"</span>)
+    }
+}</code></pre>
+
+        <h3>检查取消状态</h3>
+
+<pre><code><span class="code-func">LaunchedEffect</span>(items) {
+    items.<span class="code-func">forEach</span> { item ->
+        <span class="code-comment">// 在长循环中检查取消</span>
+        <span class="code-func">ensureActive</span>()  <span class="code-comment">// 如果已取消，抛出 CancellationException</span>
+        
+        <span class="code-func">processItem</span>(item)
+    }
+}</code></pre>
+
+        <h2>八、协程异常处理</h2>
+
+        <h3>使用 CoroutineExceptionHandler</h3>
+
+<pre><code><span class="code-keyword">@Composable</span>
+<span class="code-keyword">fun</span> <span class="code-func">SafeCoroutineExample</span>() {
+    <span class="code-keyword">val</span> errorHandler = <span class="code-func">remember</span> {
+        <span class="code-type">CoroutineExceptionHandler</span> { _, throwable ->
+            <span class="code-func">Log</span>.e(<span class="code-string">"Coroutine"</span>, <span class="code-string">"Error: </span>${throwable.message}<span class="code-string">"</span>)
+        }
+    }
+    
+    <span class="code-keyword">val</span> scope = <span class="code-func">rememberCoroutineScope</span>()
+    
+    <span class="code-func">Button</span>(
+        onClick = {
+            scope.<span class="code-func">launch</span>(errorHandler) {
+                <span class="code-comment">// 异常会被 errorHandler 捕获</span>
+                <span class="code-func">riskyOperation</span>()
+            }
+        }
+    ) {
+        <span class="code-func">Text</span>(<span class="code-string">"执行"</span>)
+    }
+}</code></pre>
+
+        <h3>使用 try-catch</h3>
+
+<pre><code><span class="code-func">LaunchedEffect</span>(userId) {
+    <span class="code-keyword">try</span> {
+        user = <span class="code-func">fetchUser</span>(userId)
+    } <span class="code-keyword">catch</span> (e: <span class="code-type">CancellationException</span>) {
+        <span class="code-comment">// 重新抛出取消异常，不要吞掉它！</span>
+        <span class="code-keyword">throw</span> e
+    } <span class="code-keyword">catch</span> (e: <span class="code-type">Exception</span>) {
+        error = e.message
+    }
+}</code></pre>
+
+        <div class="callout callout-warning">
+            <p class="callout-title">⚠️ 不要吞掉 CancellationException</p>
+            <p><code>CancellationException</code> 是协程取消的信号。如果你捕获了它但不重新抛出，协程将无法正确取消，可能导致资源泄漏。</p>
+        </div>
+
+        <h2>九、实战模式</h2>
+
+        <h3>模式 1：加载-显示-错误</h3>
+
+<pre><code><span class="code-keyword">sealed class</span> <span class="code-type">UiState</span>&lt;<span class="code-keyword">out</span> <span class="code-type">T</span>&gt; {
+    <span class="code-keyword">object</span> <span class="code-type">Loading</span> : <span class="code-type">UiState</span>&lt;<span class="code-type">Nothing</span>&gt;()
+    <span class="code-keyword">data class</span> <span class="code-type">Success</span>&lt;<span class="code-type">T</span>&gt;(<span class="code-keyword">val</span> data: <span class="code-type">T</span>) : <span class="code-type">UiState</span>&lt;<span class="code-type">T</span>&gt;()
+    <span class="code-keyword">data class</span> <span class="code-type">Error</span>(<span class="code-keyword">val</span> message: <span class="code-type">String</span>) : <span class="code-type">UiState</span>&lt;<span class="code-type">Nothing</span>&gt;()
+}
+
+<span class="code-keyword">@Composable</span>
+<span class="code-keyword">fun</span> &lt;<span class="code-type">T</span>&gt; <span class="code-func">AsyncContent</span>(
+    state: <span class="code-type">UiState</span>&lt;<span class="code-type">T</span>&gt;,
+    onRetry: () -> <span class="code-type">Unit</span>,
+    content: <span class="code-keyword">@Composable</span> (<span class="code-type">T</span>) -> <span class="code-type">Unit</span>
+) {
+    <span class="code-keyword">when</span> (state) {
+        <span class="code-keyword">is</span> <span class="code-type">UiState.Loading</span> -> {
+            <span class="code-func">Box</span>(<span class="code-type">Modifier</span>.<span class="code-func">fillMaxSize</span>(), <span class="code-type">Alignment</span>.Center) {
+                <span class="code-func">CircularProgressIndicator</span>()
+            }
+        }
+        <span class="code-keyword">is</span> <span class="code-type">UiState.Success</span> -> <span class="code-func">content</span>(state.data)
+        <span class="code-keyword">is</span> <span class="code-type">UiState.Error</span> -> {
+            <span class="code-func">Column</span>(
+                <span class="code-type">Modifier</span>.<span class="code-func">fillMaxSize</span>(),
+                <span class="code-type">Arrangement</span>.Center,
+                <span class="code-type">Alignment</span>.CenterHorizontally
+            ) {
+                <span class="code-func">Text</span>(state.message)
+                <span class="code-func">Button</span>(onClick = onRetry) {
+                    <span class="code-func">Text</span>(<span class="code-string">"重试"</span>)
+                }
+            }
+        }
+    }
+}</code></pre>
+
+        <h3>模式 2：防抖输入</h3>
+
+<pre><code><span class="code-keyword">@Composable</span>
+<span class="code-keyword">fun</span> <span class="code-func">DebouncedTextField</span>(
+    onValueChange: (<span class="code-type">String</span>) -> <span class="code-type">Unit</span>,
+    debounceMs: <span class="code-type">Long</span> = <span class="code-number">300</span>
+) {
+    <span class="code-keyword">var</span> text <span class="code-keyword">by</span> <span class="code-func">remember</span> { <span class="code-func">mutableStateOf</span>(<span class="code-string">""</span>) }
+    
+    <span class="code-func">LaunchedEffect</span>(text) {
+        <span class="code-func">delay</span>(debounceMs)
+        <span class="code-func">onValueChange</span>(text)
+    }
+    
+    <span class="code-func">TextField</span>(
+        value = text,
+        onValueChange = { text = it }
+    )
+}</code></pre>
+
+        <h3>模式 3：超时处理</h3>
+
+<pre><code><span class="code-func">LaunchedEffect</span>(userId) {
+    <span class="code-keyword">try</span> {
+        <span class="code-func">withTimeout</span>(<span class="code-number">5000</span>) {
+            user = <span class="code-func">fetchUser</span>(userId)
+        }
+    } <span class="code-keyword">catch</span> (e: <span class="code-type">TimeoutCancellationException</span>) {
+        error = <span class="code-string">"请求超时，请重试"</span>
+    }
+}</code></pre>
+
+        <h2>十、最佳实践总结</h2>
+
+        <h3>DO ✅</h3>
+
+        <ul>
+            <li>使用 <code>LaunchedEffect</code> 处理自动启动的副作用</li>
+            <li>使用 <code>rememberCoroutineScope</code> 处理事件触发的协程</li>
+            <li>使用 <code>collectAsStateWithLifecycle</code> 收集 Flow</li>
+            <li>正确处理 <code>CancellationException</code></li>
+            <li>为 <code>LaunchedEffect</code> 提供正确的 key</li>
+        </ul>
+
+        <h3>DON'T ❌</h3>
+
+        <ul>
+            <li>不要在 Composable 中直接调用 <code>GlobalScope.launch</code></li>
+            <li>不要吞掉 <code>CancellationException</code></li>
+            <li>不要用状态变化来触发事件（用 <code>rememberCoroutineScope</code>）</li>
+            <li>不要忘记处理协程异常</li>
+        </ul>
+
+        <h2>总结</h2>
+
+        <p>Compose 与 Coroutines 的集成是现代 Android 开发的基石：</p>
+
+        <ul>
+            <li><strong>LaunchedEffect</strong>：自动管理生命周期的副作用</li>
+            <li><strong>rememberCoroutineScope</strong>：事件驱动的协程</li>
+            <li><strong>collectAsStateWithLifecycle</strong>：安全的 Flow 收集</li>
+            <li><strong>produceState</strong>：异步数据转 State</li>
+            <li><strong>snapshotFlow</strong>：State 转 Flow</li>
+        </ul>
+
+        <p>掌握这些 API，你就能写出安全、高效的异步 UI 代码。</p>
+
+        <div class="reference">
+            <div class="reference-title">📚 推荐阅读</div>
+            <a href="https://developer.android.com/jetpack/compose/side-effects" target="_blank">Side Effects in Compose</a><br>
+            <a href="https://developer.android.com/kotlin/flow/stateflow-and-sharedflow" target="_blank">StateFlow and SharedFlow</a><br>
+            <a href="https://www.youtube.com/watch?v=BOHK_w09pVA" target="_blank">Kotlin Coroutines 101 (Video)</a>
+        </div>
+    </article>
+
+    <footer class="footer">
+        <p>&copy; 2024 Fidroid. <a href="../index.html">返回首页</a></p>
+    </footer>
+</body>
+</html>
+
