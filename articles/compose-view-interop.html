@@ -1,0 +1,798 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Compose 与 View 互操作完全指南：渐进式迁移的正确姿势 - Fidroid</title>
+    <meta name="description" content="深入学习 Compose 与 View 的双向互操作，掌握 AndroidView、ComposeView 的使用，以及渐进式迁移的最佳实践。">
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            line-height: 1.8;
+            color: #e5e7eb;
+            background: #020617;
+        }
+        .navbar {
+            background: rgba(15,23,42,0.98);
+            backdrop-filter: blur(10px);
+            position: fixed;
+            top: 0;
+            width: 100%;
+            z-index: 1000;
+        }
+        .nav-container {
+            max-width: 900px;
+            margin: 0 auto;
+            padding: 1rem 20px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .logo {
+            font-size: 1.5rem;
+            font-weight: bold;
+            color: #38bdf8;
+            text-decoration: none;
+            letter-spacing: 0.08em;
+            text-transform: uppercase;
+        }
+        .back-link { color: #9ca3af; text-decoration: none; font-size: 0.9rem; }
+        .back-link:hover { color: #38bdf8; }
+
+        .article-header {
+            padding: 120px 20px 60px;
+            background: radial-gradient(circle at top left, #22c55e 0, transparent 50%),
+                        radial-gradient(circle at bottom right, #3b82f6 0, transparent 55%),
+                        #020617;
+            text-align: center;
+        }
+        .article-header h1 {
+            max-width: 800px;
+            margin: 0 auto 1rem;
+            font-size: 2.5rem;
+            font-weight: 800;
+            letter-spacing: -0.03em;
+            color: #fff;
+        }
+        .article-meta { color: #9ca3af; font-size: 0.9rem; margin-bottom: 1.5rem; }
+        .article-tags { display: flex; justify-content: center; flex-wrap: wrap; gap: 0.5rem; }
+        .article-tag {
+            padding: 0.25rem 0.75rem;
+            border-radius: 999px;
+            font-size: 0.75rem;
+            background: rgba(15,23,42,0.85);
+            border: 1px solid rgba(34,197,94,0.4);
+            color: #4ade80;
+        }
+
+        .article-content {
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 60px 20px 80px;
+        }
+        .article-content h2 {
+            font-size: 1.6rem;
+            margin: 2.5rem 0 1rem;
+            color: #f9fafb;
+            border-left: 4px solid #22c55e;
+            padding-left: 1rem;
+        }
+        .article-content h3 { font-size: 1.25rem; margin: 2rem 0 0.75rem; color: #e5e7eb; }
+        .article-content p { margin-bottom: 1.25rem; color: #d1d5db; }
+        .article-content ul, .article-content ol { margin: 1rem 0 1.5rem 1.5rem; color: #d1d5db; }
+        .article-content li { margin-bottom: 0.5rem; }
+        .article-content strong { color: #f9fafb; }
+        .article-content a { color: #38bdf8; text-decoration: underline; }
+
+        pre {
+            background: #0f172a;
+            border: 1px solid rgba(34,197,94,0.3);
+            border-radius: 12px;
+            padding: 1.25rem;
+            overflow-x: auto;
+            margin: 1.5rem 0;
+            font-size: 0.85rem;
+            line-height: 1.6;
+        }
+        code { font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace; color: #e5e7eb; }
+        .code-keyword { color: #c084fc; }
+        .code-func { color: #38bdf8; }
+        .code-type { color: #4ade80; }
+        .code-string { color: #fb7185; }
+        .code-comment { color: #6b7280; font-style: italic; }
+        .code-number { color: #fbbf24; }
+
+        .callout {
+            background: rgba(34,197,94,0.1);
+            border: 1px solid rgba(34,197,94,0.3);
+            border-radius: 12px;
+            padding: 1.25rem 1.5rem;
+            margin: 1.5rem 0;
+        }
+        .callout-title { font-weight: 600; color: #4ade80; margin-bottom: 0.5rem; }
+        .callout p { margin-bottom: 0; color: #d1d5db; }
+
+        .callout-warning {
+            background: rgba(251,146,60,0.1);
+            border: 1px solid rgba(251,146,60,0.3);
+        }
+        .callout-warning .callout-title { color: #fb923c; }
+
+        .comparison-table { width: 100%; border-collapse: collapse; margin: 1.5rem 0; font-size: 0.9rem; }
+        .comparison-table th, .comparison-table td { border: 1px solid rgba(148,163,184,0.3); padding: 0.75rem 1rem; text-align: left; }
+        .comparison-table th { background: rgba(15,23,42,0.8); color: #f9fafb; }
+        .comparison-table td { color: #d1d5db; }
+
+        .footer {
+            background: #020617;
+            border-top: 1px solid #111827;
+            padding: 2rem;
+            text-align: center;
+            color: #6b7280;
+        }
+        .footer a { color: #38bdf8; text-decoration: none; }
+    </style>
+</head>
+<body>
+    <nav class="navbar">
+        <div class="nav-container">
+            <a href="../index.html" class="logo">Fidroid</a>
+            <a href="../index.html#articles" class="back-link">← 返回博客列表</a>
+        </div>
+    </nav>
+
+    <header class="article-header">
+        <h1>Compose 与 View 互操作完全指南：渐进式迁移的正确姿势</h1>
+        <p class="article-meta">2024-05-08 · 26 min · 互操作</p>
+        <div class="article-tags">
+            <span class="article-tag">AndroidView</span>
+            <span class="article-tag">ComposeView</span>
+            <span class="article-tag">Interoperability</span>
+            <span class="article-tag">Migration</span>
+        </div>
+    </header>
+
+    <article class="article-content">
+        <p>在现实项目中，很少有机会从零开始构建一个纯 Compose 应用。大多数情况下，我们需要在现有的 View 系统中逐步引入 Compose，或者在 Compose 中使用成熟的 View 组件。本文将深入探讨 Compose 与 View 的双向互操作。</p>
+
+        <h2>一、为什么需要互操作？</h2>
+        <p>Compose 虽然是 Android UI 的未来，但现实中有很多场景需要与 View 系统共存：</p>
+        <ul>
+            <li><strong>渐进式迁移</strong>：大型项目无法一次性重写</li>
+            <li><strong>复用现有组件</strong>：MapView、WebView、ExoPlayer 等成熟组件</li>
+            <li><strong>第三方 SDK</strong>：很多 SDK 仍基于 View 系统</li>
+            <li><strong>团队过渡期</strong>：部分成员还在学习 Compose</li>
+        </ul>
+
+        <div class="callout">
+            <p class="callout-title">💡 Google 官方建议</p>
+            <p>采用渐进式迁移策略，从新功能开始使用 Compose，逐步替换旧代码，而非大规模重写。</p>
+        </div>
+
+        <h2>二、在 Compose 中使用 View（AndroidView）</h2>
+        <p><code>AndroidView</code> 是在 Compose 中嵌入传统 View 的桥梁。</p>
+
+        <h3>基本用法</h3>
+
+<pre><code><span class="code-keyword">@Composable</span>
+<span class="code-keyword">fun</span> <span class="code-func">LegacyButtonInCompose</span>() {
+    <span class="code-func">AndroidView</span>(
+        factory = { context ->
+            <span class="code-comment">// 创建 View，只执行一次</span>
+            <span class="code-func">Button</span>(context).<span class="code-func">apply</span> {
+                text = <span class="code-string">"我是传统 Button"</span>
+            }
+        },
+        modifier = <span class="code-type">Modifier</span>
+            .<span class="code-func">fillMaxWidth</span>()
+            .<span class="code-func">padding</span>(<span class="code-number">16</span>.dp)
+    )
+}</code></pre>
+
+        <h3>更新 View 状态</h3>
+        <p>使用 <code>update</code> 参数响应 Compose 状态变化：</p>
+
+<pre><code><span class="code-keyword">@Composable</span>
+<span class="code-keyword">fun</span> <span class="code-func">CounterWithLegacyView</span>() {
+    <span class="code-keyword">var</span> count <span class="code-keyword">by</span> <span class="code-func">remember</span> { <span class="code-func">mutableStateOf</span>(<span class="code-number">0</span>) }
+
+    <span class="code-func">Column</span> {
+        <span class="code-func">AndroidView</span>(
+            factory = { context ->
+                <span class="code-func">TextView</span>(context).<span class="code-func">apply</span> {
+                    textSize = <span class="code-number">24f</span>
+                }
+            },
+            update = { textView ->
+                <span class="code-comment">// count 变化时更新 View</span>
+                textView.text = <span class="code-string">"Count: $count"</span>
+            }
+        )
+
+        <span class="code-func">Button</span>(onClick = { count++ }) {
+            <span class="code-func">Text</span>(<span class="code-string">"增加"</span>)
+        }
+    }
+}</code></pre>
+
+        <h3>实战：嵌入 WebView</h3>
+
+<pre><code><span class="code-keyword">@Composable</span>
+<span class="code-keyword">fun</span> <span class="code-func">WebViewContainer</span>(url: <span class="code-type">String</span>) {
+    <span class="code-keyword">var</span> webView: <span class="code-type">WebView</span>? = <span class="code-keyword">null</span>
+
+    <span class="code-func">AndroidView</span>(
+        factory = { context ->
+            <span class="code-func">WebView</span>(context).<span class="code-func">apply</span> {
+                webViewClient = <span class="code-func">WebViewClient</span>()
+                settings.javaScriptEnabled = <span class="code-keyword">true</span>
+                webView = <span class="code-keyword">this</span>
+            }
+        },
+        update = { view ->
+            view.<span class="code-func">loadUrl</span>(url)
+        },
+        modifier = <span class="code-type">Modifier</span>.<span class="code-func">fillMaxSize</span>()
+    )
+
+    <span class="code-comment">// 处理返回键</span>
+    <span class="code-func">BackHandler</span> {
+        webView?.<span class="code-func">let</span> {
+            <span class="code-keyword">if</span> (it.<span class="code-func">canGoBack</span>()) {
+                it.<span class="code-func">goBack</span>()
+            }
+        }
+    }
+}</code></pre>
+
+        <h3>实战：嵌入 MapView</h3>
+
+<pre><code><span class="code-keyword">@Composable</span>
+<span class="code-keyword">fun</span> <span class="code-func">GoogleMapView</span>(
+    modifier: <span class="code-type">Modifier</span> = <span class="code-type">Modifier</span>,
+    onMapReady: (<span class="code-type">GoogleMap</span>) -> <span class="code-type">Unit</span>
+) {
+    <span class="code-keyword">val</span> context = <span class="code-func">LocalContext</span>.current
+    <span class="code-keyword">val</span> mapView = <span class="code-func">remember</span> { <span class="code-func">MapView</span>(context) }
+    <span class="code-keyword">val</span> lifecycle = <span class="code-func">LocalLifecycleOwner</span>.current.lifecycle
+
+    <span class="code-comment">// 管理 MapView 生命周期</span>
+    <span class="code-func">DisposableEffect</span>(lifecycle) {
+        <span class="code-keyword">val</span> observer = <span class="code-func">LifecycleEventObserver</span> { _, event ->
+            <span class="code-keyword">when</span> (event) {
+                <span class="code-type">Lifecycle.Event</span>.ON_CREATE -> mapView.<span class="code-func">onCreate</span>(<span class="code-func">Bundle</span>())
+                <span class="code-type">Lifecycle.Event</span>.ON_START -> mapView.<span class="code-func">onStart</span>()
+                <span class="code-type">Lifecycle.Event</span>.ON_RESUME -> mapView.<span class="code-func">onResume</span>()
+                <span class="code-type">Lifecycle.Event</span>.ON_PAUSE -> mapView.<span class="code-func">onPause</span>()
+                <span class="code-type">Lifecycle.Event</span>.ON_STOP -> mapView.<span class="code-func">onStop</span>()
+                <span class="code-type">Lifecycle.Event</span>.ON_DESTROY -> mapView.<span class="code-func">onDestroy</span>()
+                <span class="code-keyword">else</span> -> {}
+            }
+        }
+        lifecycle.<span class="code-func">addObserver</span>(observer)
+        <span class="code-func">onDispose</span> {
+            lifecycle.<span class="code-func">removeObserver</span>(observer)
+        }
+    }
+
+    <span class="code-func">AndroidView</span>(
+        factory = {
+            mapView.<span class="code-func">apply</span> {
+                <span class="code-func">getMapAsync</span> { googleMap ->
+                    <span class="code-func">onMapReady</span>(googleMap)
+                }
+            }
+        },
+        modifier = modifier
+    )
+}</code></pre>
+
+        <h2>三、在 View 中使用 Compose（ComposeView）</h2>
+        <p><code>ComposeView</code> 让你可以在传统 View 布局中嵌入 Compose UI。</p>
+
+        <h3>在 Activity 中使用</h3>
+
+<pre><code><span class="code-keyword">class</span> <span class="code-type">MainActivity</span> : <span class="code-type">AppCompatActivity</span>() {
+    <span class="code-keyword">override fun</span> <span class="code-func">onCreate</span>(savedInstanceState: <span class="code-type">Bundle</span>?) {
+        <span class="code-keyword">super</span>.<span class="code-func">onCreate</span>(savedInstanceState)
+
+        <span class="code-comment">// 方式一：setContent 扩展函数（推荐）</span>
+        <span class="code-func">setContent</span> {
+            <span class="code-func">MyAppTheme</span> {
+                <span class="code-func">MainScreen</span>()
+            }
+        }
+
+        <span class="code-comment">// 方式二：使用 ComposeView</span>
+        <span class="code-keyword">val</span> composeView = <span class="code-func">ComposeView</span>(<span class="code-keyword">this</span>).<span class="code-func">apply</span> {
+            <span class="code-func">setContent</span> {
+                <span class="code-func">MyAppTheme</span> {
+                    <span class="code-func">MainScreen</span>()
+                }
+            }
+        }
+        <span class="code-func">setContentView</span>(composeView)
+    }
+}</code></pre>
+
+        <h3>在 Fragment 中使用</h3>
+
+<pre><code><span class="code-keyword">class</span> <span class="code-type">ProfileFragment</span> : <span class="code-type">Fragment</span>() {
+
+    <span class="code-keyword">override fun</span> <span class="code-func">onCreateView</span>(
+        inflater: <span class="code-type">LayoutInflater</span>,
+        container: <span class="code-type">ViewGroup</span>?,
+        savedInstanceState: <span class="code-type">Bundle</span>?
+    ): <span class="code-type">View</span> {
+        <span class="code-keyword">return</span> <span class="code-func">ComposeView</span>(<span class="code-func">requireContext</span>()).<span class="code-func">apply</span> {
+            <span class="code-comment">// 设置 ViewCompositionStrategy</span>
+            <span class="code-func">setViewCompositionStrategy</span>(
+                <span class="code-type">ViewCompositionStrategy</span>.DisposeOnViewTreeLifecycleDestroyed
+            )
+            <span class="code-func">setContent</span> {
+                <span class="code-func">MyAppTheme</span> {
+                    <span class="code-func">ProfileScreen</span>()
+                }
+            }
+        }
+    }
+}</code></pre>
+
+        <h3>在 XML 布局中混用</h3>
+
+<pre><code><span class="code-comment">&lt;!-- fragment_hybrid.xml --&gt;</span>
+&lt;<span class="code-type">LinearLayout</span>
+    android:layout_width=<span class="code-string">"match_parent"</span>
+    android:layout_height=<span class="code-string">"match_parent"</span>
+    android:orientation=<span class="code-string">"vertical"</span>&gt;
+
+    &lt;<span class="code-type">TextView</span>
+        android:id=<span class="code-string">"@+id/title"</span>
+        android:layout_width=<span class="code-string">"wrap_content"</span>
+        android:layout_height=<span class="code-string">"wrap_content"</span>
+        android:text=<span class="code-string">"传统 TextView"</span> /&gt;
+
+    &lt;<span class="code-type">androidx.compose.ui.platform.ComposeView</span>
+        android:id=<span class="code-string">"@+id/compose_view"</span>
+        android:layout_width=<span class="code-string">"match_parent"</span>
+        android:layout_height=<span class="code-string">"wrap_content"</span> /&gt;
+
+    &lt;<span class="code-type">Button</span>
+        android:id=<span class="code-string">"@+id/legacy_button"</span>
+        android:layout_width=<span class="code-string">"wrap_content"</span>
+        android:layout_height=<span class="code-string">"wrap_content"</span>
+        android:text=<span class="code-string">"传统 Button"</span> /&gt;
+
+&lt;/<span class="code-type">LinearLayout</span>&gt;</code></pre>
+
+<pre><code><span class="code-keyword">class</span> <span class="code-type">HybridFragment</span> : <span class="code-type">Fragment</span>(R.layout.fragment_hybrid) {
+
+    <span class="code-keyword">override fun</span> <span class="code-func">onViewCreated</span>(view: <span class="code-type">View</span>, savedInstanceState: <span class="code-type">Bundle</span>?) {
+        <span class="code-keyword">super</span>.<span class="code-func">onViewCreated</span>(view, savedInstanceState)
+
+        view.<span class="code-func">findViewById</span>&lt;<span class="code-type">ComposeView</span>&gt;(R.id.compose_view).<span class="code-func">apply</span> {
+            <span class="code-func">setViewCompositionStrategy</span>(
+                <span class="code-type">ViewCompositionStrategy</span>.DisposeOnViewTreeLifecycleDestroyed
+            )
+            <span class="code-func">setContent</span> {
+                <span class="code-func">ComposeContent</span>()
+            }
+        }
+    }
+}</code></pre>
+
+        <h2>四、ViewCompositionStrategy：生命周期策略</h2>
+        <p><code>ViewCompositionStrategy</code> 控制 Composition 何时被释放，选择正确的策略非常重要：</p>
+
+        <table class="comparison-table">
+            <thead>
+                <tr>
+                    <th>策略</th>
+                    <th>释放时机</th>
+                    <th>适用场景</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr>
+                    <td><code>DisposeOnDetachedFromWindow</code></td>
+                    <td>View 从窗口分离时</td>
+                    <td>默认策略，适用于 Activity</td>
+                </tr>
+                <tr>
+                    <td><code>DisposeOnDetachedFromWindowOrReleasedFromPool</code></td>
+                    <td>分离或从 RecyclerView 池释放时</td>
+                    <td>RecyclerView 中使用</td>
+                </tr>
+                <tr>
+                    <td><code>DisposeOnViewTreeLifecycleDestroyed</code></td>
+                    <td>ViewTreeLifecycleOwner 销毁时</td>
+                    <td><strong>Fragment 推荐</strong></td>
+                </tr>
+                <tr>
+                    <td><code>DisposeOnLifecycleDestroyed</code></td>
+                    <td>指定 Lifecycle 销毁时</td>
+                    <td>自定义生命周期</td>
+                </tr>
+            </tbody>
+        </table>
+
+        <h3>Fragment 中的陷阱</h3>
+
+<pre><code><span class="code-comment">// ❌ 错误：默认策略在 Fragment 中可能导致问题</span>
+<span class="code-keyword">class</span> <span class="code-type">BadFragment</span> : <span class="code-type">Fragment</span>() {
+    <span class="code-keyword">override fun</span> <span class="code-func">onCreateView</span>(...): <span class="code-type">View</span> {
+        <span class="code-keyword">return</span> <span class="code-func">ComposeView</span>(<span class="code-func">requireContext</span>()).<span class="code-func">apply</span> {
+            <span class="code-comment">// 默认使用 DisposeOnDetachedFromWindow</span>
+            <span class="code-comment">// Fragment view 重建时可能出问题</span>
+            <span class="code-func">setContent</span> { ... }
+        }
+    }
+}
+
+<span class="code-comment">// ✅ 正确：使用正确的策略</span>
+<span class="code-keyword">class</span> <span class="code-type">GoodFragment</span> : <span class="code-type">Fragment</span>() {
+    <span class="code-keyword">override fun</span> <span class="code-func">onCreateView</span>(...): <span class="code-type">View</span> {
+        <span class="code-keyword">return</span> <span class="code-func">ComposeView</span>(<span class="code-func">requireContext</span>()).<span class="code-func">apply</span> {
+            <span class="code-func">setViewCompositionStrategy</span>(
+                <span class="code-type">ViewCompositionStrategy</span>.DisposeOnViewTreeLifecycleDestroyed
+            )
+            <span class="code-func">setContent</span> { ... }
+        }
+    }
+}</code></pre>
+
+        <h2>五、状态同步与数据传递</h2>
+
+        <h3>Compose 状态 → View</h3>
+
+<pre><code><span class="code-keyword">@Composable</span>
+<span class="code-keyword">fun</span> <span class="code-func">ComposeToView</span>(items: <span class="code-type">List</span>&lt;<span class="code-type">String</span>&gt;) {
+    <span class="code-func">AndroidView</span>(
+        factory = { context ->
+            <span class="code-func">RecyclerView</span>(context).<span class="code-func">apply</span> {
+                adapter = <span class="code-func">SimpleAdapter</span>()
+                layoutManager = <span class="code-func">LinearLayoutManager</span>(context)
+            }
+        },
+        update = { recyclerView ->
+            <span class="code-comment">// Compose 状态变化时更新 RecyclerView</span>
+            (recyclerView.adapter <span class="code-keyword">as</span> <span class="code-type">SimpleAdapter</span>).<span class="code-func">submitList</span>(items)
+        }
+    )
+}</code></pre>
+
+        <h3>View 事件 → Compose</h3>
+
+<pre><code><span class="code-keyword">@Composable</span>
+<span class="code-keyword">fun</span> <span class="code-func">ViewToCompose</span>() {
+    <span class="code-keyword">var</span> selectedDate <span class="code-keyword">by</span> <span class="code-func">remember</span> { <span class="code-func">mutableStateOf</span>&lt;<span class="code-type">Long</span>?&gt;(<span class="code-keyword">null</span>) }
+
+    <span class="code-func">Column</span> {
+        <span class="code-func">Text</span>(<span class="code-string">"选中日期: ${selectedDate?.let { formatDate(it) } ?: "未选择"}"</span>)
+
+        <span class="code-func">AndroidView</span>(
+            factory = { context ->
+                <span class="code-func">CalendarView</span>(context).<span class="code-func">apply</span> {
+                    <span class="code-func">setOnDateChangeListener</span> { _, year, month, day ->
+                        <span class="code-comment">// View 事件更新 Compose 状态</span>
+                        selectedDate = <span class="code-func">Calendar</span>.<span class="code-func">getInstance</span>().<span class="code-func">apply</span> {
+                            <span class="code-func">set</span>(year, month, day)
+                        }.timeInMillis
+                    }
+                }
+            }
+        )
+    }
+}</code></pre>
+
+        <h3>双向数据绑定模式</h3>
+
+<pre><code><span class="code-keyword">@Composable</span>
+<span class="code-keyword">fun</span> <span class="code-func">TwoWayBinding</span>() {
+    <span class="code-keyword">var</span> text <span class="code-keyword">by</span> <span class="code-func">remember</span> { <span class="code-func">mutableStateOf</span>(<span class="code-string">""</span>) }
+
+    <span class="code-func">Column</span> {
+        <span class="code-comment">// Compose TextField</span>
+        <span class="code-func">OutlinedTextField</span>(
+            value = text,
+            onValueChange = { text = it },
+            label = { <span class="code-func">Text</span>(<span class="code-string">"Compose 输入"</span>) }
+        )
+
+        <span class="code-func">Spacer</span>(modifier = <span class="code-type">Modifier</span>.<span class="code-func">height</span>(<span class="code-number">16</span>.dp))
+
+        <span class="code-comment">// Legacy EditText</span>
+        <span class="code-func">AndroidView</span>(
+            factory = { context ->
+                <span class="code-func">EditText</span>(context).<span class="code-func">apply</span> {
+                    hint = <span class="code-string">"View 输入"</span>
+                    <span class="code-func">addTextChangedListener</span>(<span class="code-keyword">object</span> : <span class="code-type">TextWatcher</span> {
+                        <span class="code-keyword">override fun</span> <span class="code-func">afterTextChanged</span>(s: <span class="code-type">Editable</span>?) {
+                            <span class="code-keyword">val</span> newText = s?.<span class="code-func">toString</span>() ?: <span class="code-string">""</span>
+                            <span class="code-keyword">if</span> (newText != text) {
+                                text = newText
+                            }
+                        }
+                        <span class="code-keyword">override fun</span> <span class="code-func">beforeTextChanged</span>(...) {}
+                        <span class="code-keyword">override fun</span> <span class="code-func">onTextChanged</span>(...) {}
+                    })
+                }
+            },
+            update = { editText ->
+                <span class="code-keyword">if</span> (editText.text.<span class="code-func">toString</span>() != text) {
+                    editText.<span class="code-func">setText</span>(text)
+                }
+            }
+        )
+    }
+}</code></pre>
+
+        <h2>六、Fragment 与 Navigation 集成</h2>
+
+        <h3>在 Navigation Fragment 中使用 Compose</h3>
+
+<pre><code><span class="code-comment">// 使用 navigation-compose 与 fragment 混合</span>
+<span class="code-keyword">class</span> <span class="code-type">NavHostFragment</span> : <span class="code-type">Fragment</span>() {
+
+    <span class="code-keyword">override fun</span> <span class="code-func">onCreateView</span>(
+        inflater: <span class="code-type">LayoutInflater</span>,
+        container: <span class="code-type">ViewGroup</span>?,
+        savedInstanceState: <span class="code-type">Bundle</span>?
+    ): <span class="code-type">View</span> {
+        <span class="code-keyword">return</span> <span class="code-func">ComposeView</span>(<span class="code-func">requireContext</span>()).<span class="code-func">apply</span> {
+            <span class="code-func">setViewCompositionStrategy</span>(
+                <span class="code-type">ViewCompositionStrategy</span>.DisposeOnViewTreeLifecycleDestroyed
+            )
+            <span class="code-func">setContent</span> {
+                <span class="code-keyword">val</span> navController = <span class="code-func">rememberNavController</span>()
+                
+                <span class="code-func">NavHost</span>(navController, startDestination = <span class="code-string">"home"</span>) {
+                    <span class="code-func">composable</span>(<span class="code-string">"home"</span>) { <span class="code-func">HomeScreen</span>(navController) }
+                    <span class="code-func">composable</span>(<span class="code-string">"detail/{id}"</span>) { <span class="code-func">DetailScreen</span>(it) }
+                }
+            }
+        }
+    }
+}</code></pre>
+
+        <h2>七、迁移策略</h2>
+
+        <h3>策略一：自底向上（推荐）</h3>
+        <p>从最小的 UI 组件开始，逐步向上迁移：</p>
+
+<pre><code><span class="code-comment">Phase 1: 基础组件</span>
+Button, TextField, Card → Compose
+
+<span class="code-comment">Phase 2: 复合组件</span>
+ListItem, FormField → Compose
+
+<span class="code-comment">Phase 3: 屏幕组件</span>
+整个 Screen → Compose
+
+<span class="code-comment">Phase 4: 导航</span>
+Navigation → Compose Navigation</code></pre>
+
+<pre><code><span class="code-comment">// Phase 1: 替换单个组件</span>
+<span class="code-keyword">@Composable</span>
+<span class="code-keyword">fun</span> <span class="code-func">ComposeButton</span>(
+    text: <span class="code-type">String</span>,
+    onClick: () -> <span class="code-type">Unit</span>
+) {
+    <span class="code-func">Button</span>(onClick = onClick) {
+        <span class="code-func">Text</span>(text)
+    }
+}
+
+<span class="code-comment">// 在 View 中使用</span>
+<span class="code-keyword">class</span> <span class="code-type">LegacyActivity</span> : <span class="code-type">AppCompatActivity</span>() {
+    <span class="code-keyword">override fun</span> <span class="code-func">onCreate</span>(savedInstanceState: <span class="code-type">Bundle</span>?) {
+        <span class="code-keyword">super</span>.<span class="code-func">onCreate</span>(savedInstanceState)
+        <span class="code-func">setContentView</span>(R.layout.activity_legacy)
+
+        <span class="code-func">findViewById</span>&lt;<span class="code-type">ComposeView</span>&gt;(R.id.compose_button).<span class="code-func">setContent</span> {
+            <span class="code-func">ComposeButton</span>(<span class="code-string">"点击我"</span>) {
+                <span class="code-comment">// 处理点击</span>
+            }
+        }
+    }
+}</code></pre>
+
+        <h3>策略二：自顶向下</h3>
+        <p>适合新功能或独立模块：</p>
+
+<pre><code><span class="code-comment">// 新功能直接用 Compose 实现整个屏幕</span>
+<span class="code-keyword">class</span> <span class="code-type">NewFeatureActivity</span> : <span class="code-type">ComponentActivity</span>() {
+    <span class="code-keyword">override fun</span> <span class="code-func">onCreate</span>(savedInstanceState: <span class="code-type">Bundle</span>?) {
+        <span class="code-keyword">super</span>.<span class="code-func">onCreate</span>(savedInstanceState)
+        <span class="code-func">setContent</span> {
+            <span class="code-func">NewFeatureScreen</span>()
+        }
+    }
+}
+
+<span class="code-keyword">@Composable</span>
+<span class="code-keyword">fun</span> <span class="code-func">NewFeatureScreen</span>() {
+    <span class="code-comment">// 完整的 Compose 屏幕</span>
+    <span class="code-comment">// 需要时使用 AndroidView 嵌入必要的 View</span>
+    <span class="code-func">Column</span> {
+        <span class="code-func">ComposeHeader</span>()
+        
+        <span class="code-comment">// 嵌入必要的 View 组件</span>
+        <span class="code-func">AndroidView</span>(
+            factory = { <span class="code-func">LegacyChartView</span>(it) }
+        )
+        
+        <span class="code-func">ComposeContent</span>()
+    }
+}</code></pre>
+
+        <h3>迁移清单</h3>
+        <ul>
+            <li>✅ 新功能优先使用 Compose</li>
+            <li>✅ 从叶子节点组件开始迁移</li>
+            <li>✅ 建立 Compose 设计系统（Theme、Components）</li>
+            <li>✅ 保持 View 和 Compose 版本组件的 API 一致</li>
+            <li>✅ 编写互操作测试</li>
+            <li>✅ 监控性能指标</li>
+        </ul>
+
+        <h2>八、性能注意事项</h2>
+
+        <h3>避免频繁创建 View</h3>
+
+<pre><code><span class="code-comment">// ❌ 错误：factory 中创建复杂 View 但未缓存</span>
+<span class="code-keyword">@Composable</span>
+<span class="code-keyword">fun</span> <span class="code-func">BadPerformance</span>(items: <span class="code-type">List</span>&lt;<span class="code-type">Item</span>&gt;) {
+    <span class="code-func">LazyColumn</span> {
+        <span class="code-func">items</span>(items) { item ->
+            <span class="code-func">AndroidView</span>(
+                factory = { context ->
+                    <span class="code-comment">// 每个 item 都创建新的复杂 View！</span>
+                    <span class="code-func">ComplexLegacyView</span>(context)
+                }
+            )
+        }
+    }
+}
+
+<span class="code-comment">// ✅ 正确：使用 key 和合理的复用策略</span>
+<span class="code-keyword">@Composable</span>
+<span class="code-keyword">fun</span> <span class="code-func">GoodPerformance</span>(items: <span class="code-type">List</span>&lt;<span class="code-type">Item</span>&gt;) {
+    <span class="code-func">LazyColumn</span> {
+        <span class="code-func">items</span>(items, key = { it.id }) { item ->
+            <span class="code-comment">// 使用 Compose 重写的组件</span>
+            <span class="code-func">ComposeItemView</span>(item)
+        }
+    }
+}</code></pre>
+
+        <h3>AndroidView 的 onReset 和 onRelease</h3>
+
+<pre><code><span class="code-keyword">@Composable</span>
+<span class="code-keyword">fun</span> <span class="code-func">OptimizedAndroidView</span>() {
+    <span class="code-func">AndroidView</span>(
+        factory = { context ->
+            <span class="code-func">ExpensiveView</span>(context)
+        },
+        onReset = { view ->
+            <span class="code-comment">// View 即将被复用时调用</span>
+            view.<span class="code-func">reset</span>()
+        },
+        onRelease = { view ->
+            <span class="code-comment">// View 被释放时调用，清理资源</span>
+            view.<span class="code-func">cleanup</span>()
+        }
+    )
+}</code></pre>
+
+        <h3>减少桥接开销</h3>
+
+<pre><code><span class="code-comment">// ❌ 频繁跨越 View-Compose 边界</span>
+<span class="code-keyword">@Composable</span>
+<span class="code-keyword">fun</span> <span class="code-func">TooManyBridges</span>() {
+    <span class="code-func">Column</span> {
+        <span class="code-func">AndroidView</span> { <span class="code-func">TextView</span>(it) }  <span class="code-comment">// 桥接</span>
+        <span class="code-func">Text</span>(<span class="code-string">"Compose"</span>)
+        <span class="code-func">AndroidView</span> { <span class="code-func">ImageView</span>(it) } <span class="code-comment">// 桥接</span>
+        <span class="code-func">Text</span>(<span class="code-string">"Compose"</span>)
+        <span class="code-func">AndroidView</span> { <span class="code-func">Button</span>(it) }    <span class="code-comment">// 桥接</span>
+    }
+}
+
+<span class="code-comment">// ✅ 减少桥接，批量处理或用 Compose 重写</span>
+<span class="code-keyword">@Composable</span>
+<span class="code-keyword">fun</span> <span class="code-func">FewerBridges</span>() {
+    <span class="code-func">Column</span> {
+        <span class="code-comment">// 直接用 Compose 重写</span>
+        <span class="code-func">Text</span>(<span class="code-string">"Compose Text"</span>)
+        <span class="code-func">Image</span>(...)
+        <span class="code-func">Button</span>(onClick = {}) { <span class="code-func">Text</span>(<span class="code-string">"Compose Button"</span>) }
+    }
+}</code></pre>
+
+        <h2>九、常见问题与解决方案</h2>
+
+        <h3>1. Theme 不一致</h3>
+
+<pre><code><span class="code-comment">// 确保 Compose 使用与 View 一致的主题</span>
+<span class="code-keyword">@Composable</span>
+<span class="code-keyword">fun</span> <span class="code-func">ThemedContent</span>() {
+    <span class="code-comment">// 从 View 系统读取颜色</span>
+    <span class="code-keyword">val</span> context = <span class="code-func">LocalContext</span>.current
+    <span class="code-keyword">val</span> primaryColor = <span class="code-func">remember</span> {
+        context.<span class="code-func">getColor</span>(R.color.primary)
+    }
+
+    <span class="code-func">MaterialTheme</span>(
+        colorScheme = <span class="code-type">MaterialTheme</span>.colorScheme.<span class="code-func">copy</span>(
+            primary = <span class="code-func">Color</span>(primaryColor)
+        )
+    ) {
+        <span class="code-comment">// 内容</span>
+    }
+}</code></pre>
+
+        <h3>2. 软键盘处理</h3>
+
+<pre><code><span class="code-keyword">@Composable</span>
+<span class="code-keyword">fun</span> <span class="code-func">KeyboardAwareAndroidView</span>() {
+    <span class="code-keyword">val</span> imeInsets = <span class="code-type">WindowInsets</span>.ime
+
+    <span class="code-func">AndroidView</span>(
+        factory = { <span class="code-func">EditText</span>(it) },
+        modifier = <span class="code-type">Modifier</span>
+            .<span class="code-func">fillMaxWidth</span>()
+            .<span class="code-func">padding</span>(bottom = <span class="code-func">with</span>(<span class="code-func">LocalDensity</span>.current) {
+                imeInsets.<span class="code-func">getBottom</span>(<span class="code-keyword">this</span>).<span class="code-func">toDp</span>()
+            })
+    )
+}</code></pre>
+
+        <h3>3. 焦点管理</h3>
+
+<pre><code><span class="code-keyword">@Composable</span>
+<span class="code-keyword">fun</span> <span class="code-func">FocusInterop</span>() {
+    <span class="code-keyword">val</span> focusRequester = <span class="code-func">remember</span> { <span class="code-func">FocusRequester</span>() }
+
+    <span class="code-func">Column</span> {
+        <span class="code-func">TextField</span>(
+            value = <span class="code-string">""</span>,
+            onValueChange = {},
+            modifier = <span class="code-type">Modifier</span>.<span class="code-func">focusRequester</span>(focusRequester)
+        )
+
+        <span class="code-func">AndroidView</span>(
+            factory = { context ->
+                <span class="code-func">EditText</span>(context).<span class="code-func">apply</span> {
+                    <span class="code-func">setOnFocusChangeListener</span> { _, hasFocus ->
+                        <span class="code-keyword">if</span> (!hasFocus) {
+                            <span class="code-comment">// View 失去焦点时，转移到 Compose</span>
+                            focusRequester.<span class="code-func">requestFocus</span>()
+                        }
+                    }
+                }
+            }
+        )
+    }
+}</code></pre>
+
+        <h2>总结</h2>
+        <p>Compose 与 View 互操作的核心要点：</p>
+        <ul>
+            <li><strong>AndroidView</strong>：在 Compose 中嵌入 View，用于复用现有组件</li>
+            <li><strong>ComposeView</strong>：在 View 中嵌入 Compose，用于渐进式迁移</li>
+            <li><strong>ViewCompositionStrategy</strong>：Fragment 中务必设置正确的策略</li>
+            <li><strong>状态同步</strong>：通过 <code>update</code> 参数和回调实现双向数据流</li>
+            <li><strong>迁移策略</strong>：推荐自底向上，从小组件开始</li>
+            <li><strong>性能优化</strong>：减少桥接开销，避免频繁创建 View</li>
+        </ul>
+        <p>掌握这些技术，你就可以在任何项目中平滑地引入 Compose，无需担心与现有代码的兼容性问题。</p>
+    </article>
+
+    <footer class="footer">
+        <p>&copy; 2024 Fidroid. <a href="../index.html">返回首页</a></p>
+    </footer>
+</body>
+</html>
+

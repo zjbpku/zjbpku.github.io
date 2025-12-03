@@ -1,0 +1,177 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Compose Text 高级用法：富文本、样式与交互 - Fidroid</title>
+    <meta name="description" content="深入学习 Compose Text 高级用法，掌握 AnnotatedString、ClickableText、文本选择、自定义字体等技术。">
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; line-height: 1.8; color: #e5e7eb; background: #020617; }
+        .navbar { background: rgba(15,23,42,0.98); backdrop-filter: blur(10px); position: fixed; top: 0; width: 100%; z-index: 1000; }
+        .nav-container { max-width: 900px; margin: 0 auto; padding: 1rem 20px; display: flex; justify-content: space-between; align-items: center; }
+        .logo { font-size: 1.5rem; font-weight: bold; color: #38bdf8; text-decoration: none; letter-spacing: 0.08em; text-transform: uppercase; }
+        .back-link { color: #9ca3af; text-decoration: none; font-size: 0.9rem; }
+        .back-link:hover { color: #38bdf8; }
+        .article-header { padding: 120px 20px 60px; background: radial-gradient(circle at top left, #ec4899 0, transparent 50%), radial-gradient(circle at bottom right, #f97316 0, transparent 55%), #020617; text-align: center; }
+        .article-header h1 { max-width: 800px; margin: 0 auto 1rem; font-size: 2.5rem; font-weight: 800; letter-spacing: -0.03em; color: #fff; }
+        .article-meta { color: #9ca3af; font-size: 0.9rem; margin-bottom: 1.5rem; }
+        .article-tags { display: flex; justify-content: center; flex-wrap: wrap; gap: 0.5rem; }
+        .article-tag { padding: 0.25rem 0.75rem; border-radius: 999px; font-size: 0.75rem; background: rgba(15,23,42,0.85); border: 1px solid rgba(236,72,153,0.4); color: #f472b6; }
+        .article-content { max-width: 800px; margin: 0 auto; padding: 60px 20px 80px; }
+        .article-content h2 { font-size: 1.6rem; margin: 2.5rem 0 1rem; color: #f9fafb; border-left: 4px solid #ec4899; padding-left: 1rem; }
+        .article-content h3 { font-size: 1.25rem; margin: 2rem 0 0.75rem; color: #e5e7eb; }
+        .article-content p { margin-bottom: 1.25rem; color: #d1d5db; }
+        .article-content ul { margin: 1rem 0 1.5rem 1.5rem; color: #d1d5db; }
+        .article-content li { margin-bottom: 0.5rem; }
+        .article-content strong { color: #f9fafb; }
+        pre { background: #0f172a; border: 1px solid rgba(236,72,153,0.3); border-radius: 12px; padding: 1.25rem; overflow-x: auto; margin: 1.5rem 0; font-size: 0.85rem; line-height: 1.6; }
+        code { font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace; color: #e5e7eb; }
+        .code-keyword { color: #c084fc; }
+        .code-func { color: #38bdf8; }
+        .code-type { color: #4ade80; }
+        .code-string { color: #fb7185; }
+        .code-comment { color: #6b7280; font-style: italic; }
+        .footer { background: #020617; border-top: 1px solid #111827; padding: 2rem; text-align: center; color: #6b7280; }
+        .footer a { color: #38bdf8; text-decoration: none; }
+    </style>
+</head>
+<body>
+    <nav class="navbar">
+        <div class="nav-container">
+            <a href="../index.html" class="logo">Fidroid</a>
+            <a href="../index.html#articles" class="back-link">← 返回博客列表</a>
+        </div>
+    </nav>
+
+    <header class="article-header">
+        <h1>Compose Text 高级用法：富文本、样式与交互</h1>
+        <p class="article-meta">2024-05-18 · 24 min · 文本处理</p>
+        <div class="article-tags">
+            <span class="article-tag">Text</span>
+            <span class="article-tag">AnnotatedString</span>
+            <span class="article-tag">富文本</span>
+        </div>
+    </header>
+
+    <article class="article-content">
+        <p>Text 是 UI 中最基础也最重要的组件。Compose 提供了强大的文本处理能力，从简单的文字显示到复杂的富文本、可点击文本、文本选择等。</p>
+
+        <h2>一、Text 基础</h2>
+
+<pre><code><span class="code-func">Text</span>(
+    text = <span class="code-string">"Hello, Compose!"</span>,
+    color = <span class="code-type">Color</span>.Blue,
+    fontSize = <span class="code-number">20</span>.sp,
+    fontWeight = <span class="code-type">FontWeight</span>.Bold,
+    maxLines = <span class="code-number">2</span>,
+    overflow = <span class="code-type">TextOverflow</span>.Ellipsis
+)</code></pre>
+
+        <h2>二、AnnotatedString 富文本</h2>
+
+<pre><code><span class="code-keyword">@Composable</span>
+<span class="code-keyword">fun</span> <span class="code-func">RichText</span>() {
+    <span class="code-keyword">val</span> annotatedString = <span class="code-func">buildAnnotatedString</span> {
+        <span class="code-func">append</span>(<span class="code-string">"这是"</span>)
+        
+        <span class="code-func">withStyle</span>(<span class="code-func">SpanStyle</span>(color = <span class="code-type">Color</span>.Red, fontWeight = <span class="code-type">FontWeight</span>.Bold)) {
+            <span class="code-func">append</span>(<span class="code-string">"红色粗体"</span>)
+        }
+        
+        <span class="code-func">append</span>(<span class="code-string">"文字。"</span>)
+    }
+    
+    <span class="code-func">Text</span>(text = annotatedString)
+}</code></pre>
+
+        <h2>三、可点击文本</h2>
+
+<pre><code><span class="code-keyword">val</span> annotatedString = <span class="code-func">buildAnnotatedString</span> {
+    <span class="code-func">append</span>(<span class="code-string">"请阅读"</span>)
+    
+    <span class="code-func">pushStringAnnotation</span>(tag = <span class="code-string">"URL"</span>, annotation = <span class="code-string">"https://example.com"</span>)
+    <span class="code-func">withStyle</span>(<span class="code-func">SpanStyle</span>(color = <span class="code-type">Color</span>.Blue, textDecoration = <span class="code-type">TextDecoration</span>.Underline)) {
+        <span class="code-func">append</span>(<span class="code-string">"服务条款"</span>)
+    }
+    <span class="code-func">pop</span>()
+}
+
+<span class="code-func">ClickableText</span>(
+    text = annotatedString,
+    onClick = { offset ->
+        annotatedString.<span class="code-func">getStringAnnotations</span>(<span class="code-string">"URL"</span>, offset, offset)
+            .<span class="code-func">firstOrNull</span>()?.<span class="code-func">let</span> { <span class="code-func">println</span>(it.item) }
+    }
+)</code></pre>
+
+        <h2>四、文本选择</h2>
+
+<pre><code><span class="code-func">SelectionContainer</span> {
+    <span class="code-func">Column</span> {
+        <span class="code-func">Text</span>(<span class="code-string">"可选择的文字"</span>)
+        
+        <span class="code-func">DisableSelection</span> {
+            <span class="code-func">Text</span>(<span class="code-string">"不可选择的文字"</span>)
+        }
+    }
+}</code></pre>
+
+        <h2>五、TextField 高级用法</h2>
+
+<pre><code><span class="code-keyword">@Composable</span>
+<span class="code-keyword">fun</span> <span class="code-func">PasswordTextField</span>() {
+    <span class="code-keyword">var</span> password <span class="code-keyword">by</span> <span class="code-func">remember</span> { <span class="code-func">mutableStateOf</span>(<span class="code-string">""</span>) }
+    <span class="code-keyword">var</span> visible <span class="code-keyword">by</span> <span class="code-func">remember</span> { <span class="code-func">mutableStateOf</span>(<span class="code-keyword">false</span>) }
+    
+    <span class="code-func">OutlinedTextField</span>(
+        value = password,
+        onValueChange = { password = it },
+        label = { <span class="code-func">Text</span>(<span class="code-string">"密码"</span>) },
+        visualTransformation = <span class="code-keyword">if</span> (visible) 
+            <span class="code-type">VisualTransformation</span>.None 
+        <span class="code-keyword">else</span> 
+            <span class="code-func">PasswordVisualTransformation</span>(),
+        trailingIcon = {
+            <span class="code-func">IconButton</span>(onClick = { visible = !visible }) {
+                <span class="code-func">Icon</span>(
+                    <span class="code-keyword">if</span> (visible) <span class="code-type">Icons</span>.Default.Visibility <span class="code-keyword">else</span> <span class="code-type">Icons</span>.Default.VisibilityOff,
+                    contentDescription = <span class="code-keyword">null</span>
+                )
+            }
+        }
+    )
+}</code></pre>
+
+        <h2>六、文本动画</h2>
+
+<pre><code><span class="code-keyword">@Composable</span>
+<span class="code-keyword">fun</span> <span class="code-func">AnimatedCounter</span>(count: <span class="code-type">Int</span>) {
+    <span class="code-keyword">val</span> animatedCount <span class="code-keyword">by</span> <span class="code-func">animateIntAsState</span>(
+        targetValue = count,
+        animationSpec = <span class="code-func">tween</span>(<span class="code-number">1000</span>),
+        label = <span class="code-string">"counter"</span>
+    )
+    
+    <span class="code-func">Text</span>(
+        text = animatedCount.<span class="code-func">toString</span>(),
+        style = <span class="code-type">MaterialTheme</span>.typography.displayLarge
+    )
+}</code></pre>
+
+        <h2>总结</h2>
+        <ul>
+            <li><strong>Text</strong>：基础文本，支持丰富样式</li>
+            <li><strong>AnnotatedString</strong>：构建富文本</li>
+            <li><strong>ClickableText</strong>：可点击区域</li>
+            <li><strong>SelectionContainer</strong>：启用文本选择</li>
+            <li><strong>BasicTextField</strong>：自定义输入框</li>
+        </ul>
+    </article>
+
+    <footer class="footer">
+        <p>&copy; 2024 Fidroid. <a href="../index.html">返回首页</a></p>
+    </footer>
+</body>
+</html>
+

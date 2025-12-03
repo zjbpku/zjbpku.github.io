@@ -1,0 +1,299 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Compose 手势处理完全指南：点击、拖拽与自定义手势 - Fidroid</title>
+    <meta name="description" content="深入学习 Compose 手势系统，掌握 clickable、draggable、transformable、pointerInput 等 API，构建流畅的交互体验。">
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            line-height: 1.8;
+            color: #e5e7eb;
+            background: #020617;
+        }
+        .navbar {
+            background: rgba(15,23,42,0.98);
+            backdrop-filter: blur(10px);
+            position: fixed;
+            top: 0;
+            width: 100%;
+            z-index: 1000;
+        }
+        .nav-container {
+            max-width: 900px;
+            margin: 0 auto;
+            padding: 1rem 20px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .logo {
+            font-size: 1.5rem;
+            font-weight: bold;
+            color: #38bdf8;
+            text-decoration: none;
+            letter-spacing: 0.08em;
+            text-transform: uppercase;
+        }
+        .back-link { color: #9ca3af; text-decoration: none; font-size: 0.9rem; }
+        .back-link:hover { color: #38bdf8; }
+
+        .article-header {
+            padding: 120px 20px 60px;
+            background: radial-gradient(circle at top left, #06b6d4 0, transparent 50%),
+                        radial-gradient(circle at bottom right, #8b5cf6 0, transparent 55%),
+                        #020617;
+            text-align: center;
+        }
+        .article-header h1 {
+            max-width: 800px;
+            margin: 0 auto 1rem;
+            font-size: 2.5rem;
+            font-weight: 800;
+            letter-spacing: -0.03em;
+            color: #fff;
+        }
+        .article-meta { color: #9ca3af; font-size: 0.9rem; margin-bottom: 1.5rem; }
+        .article-tags { display: flex; justify-content: center; flex-wrap: wrap; gap: 0.5rem; }
+        .article-tag {
+            padding: 0.25rem 0.75rem;
+            border-radius: 999px;
+            font-size: 0.75rem;
+            background: rgba(15,23,42,0.85);
+            border: 1px solid rgba(6,182,212,0.4);
+            color: #22d3ee;
+        }
+
+        .article-content {
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 60px 20px 80px;
+        }
+        .article-content h2 {
+            font-size: 1.6rem;
+            margin: 2.5rem 0 1rem;
+            color: #f9fafb;
+            border-left: 4px solid #06b6d4;
+            padding-left: 1rem;
+        }
+        .article-content h3 { font-size: 1.25rem; margin: 2rem 0 0.75rem; color: #e5e7eb; }
+        .article-content p { margin-bottom: 1.25rem; color: #d1d5db; }
+        .article-content ul, .article-content ol { margin: 1rem 0 1.5rem 1.5rem; color: #d1d5db; }
+        .article-content li { margin-bottom: 0.5rem; }
+        .article-content strong { color: #f9fafb; }
+        .article-content a { color: #38bdf8; text-decoration: underline; }
+
+        pre {
+            background: #0f172a;
+            border: 1px solid rgba(6,182,212,0.3);
+            border-radius: 12px;
+            padding: 1.25rem;
+            overflow-x: auto;
+            margin: 1.5rem 0;
+            font-size: 0.85rem;
+            line-height: 1.6;
+        }
+        code { font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace; color: #e5e7eb; }
+        .code-keyword { color: #c084fc; }
+        .code-func { color: #38bdf8; }
+        .code-type { color: #4ade80; }
+        .code-string { color: #fb7185; }
+        .code-comment { color: #6b7280; font-style: italic; }
+        .code-number { color: #fbbf24; }
+
+        .callout {
+            background: rgba(6,182,212,0.1);
+            border: 1px solid rgba(6,182,212,0.3);
+            border-radius: 12px;
+            padding: 1.25rem 1.5rem;
+            margin: 1.5rem 0;
+        }
+        .callout-title { font-weight: 600; color: #22d3ee; margin-bottom: 0.5rem; }
+        .callout p { margin-bottom: 0; color: #d1d5db; }
+
+        .footer {
+            background: #020617;
+            border-top: 1px solid #111827;
+            padding: 2rem;
+            text-align: center;
+            color: #6b7280;
+        }
+        .footer a { color: #38bdf8; text-decoration: none; }
+    </style>
+</head>
+<body>
+    <nav class="navbar">
+        <div class="nav-container">
+            <a href="../index.html" class="logo">Fidroid</a>
+            <a href="../index.html#articles" class="back-link">← 返回博客列表</a>
+        </div>
+    </nav>
+
+    <header class="article-header">
+        <h1>Compose 手势处理完全指南：点击、拖拽与自定义手势</h1>
+        <p class="article-meta">2024-05-14 · 26 min · 手势交互</p>
+        <div class="article-tags">
+            <span class="article-tag">Gesture</span>
+            <span class="article-tag">pointerInput</span>
+            <span class="article-tag">Drag</span>
+            <span class="article-tag">Transform</span>
+        </div>
+    </header>
+
+    <article class="article-content">
+        <p>手势交互是移动应用的核心体验。Compose 提供了从简单点击到复杂多点触控的完整手势支持。本文将深入讲解 Compose 的手势系统，帮助你构建流畅自然的交互体验。</p>
+
+        <h2>一、点击手势</h2>
+
+<pre><code><span class="code-comment">// 简单点击</span>
+<span class="code-func">Box</span>(
+    modifier = <span class="code-type">Modifier</span>
+        .<span class="code-func">size</span>(<span class="code-number">100</span>.dp)
+        .<span class="code-func">clickable</span> { <span class="code-func">println</span>(<span class="code-string">"点击了"</span>) }
+)
+
+<span class="code-comment">// 组合点击</span>
+<span class="code-func">Box</span>(
+    modifier = <span class="code-type">Modifier</span>
+        .<span class="code-func">combinedClickable</span>(
+            onClick = { <span class="code-func">println</span>(<span class="code-string">"单击"</span>) },
+            onLongClick = { <span class="code-func">println</span>(<span class="code-string">"长按"</span>) },
+            onDoubleClick = { <span class="code-func">println</span>(<span class="code-string">"双击"</span>) }
+        )
+)</code></pre>
+
+        <h3>监听点击状态</h3>
+
+<pre><code><span class="code-keyword">@Composable</span>
+<span class="code-keyword">fun</span> <span class="code-func">InteractiveButton</span>() {
+    <span class="code-keyword">val</span> interactionSource = <span class="code-func">remember</span> { <span class="code-func">MutableInteractionSource</span>() }
+    <span class="code-keyword">val</span> isPressed <span class="code-keyword">by</span> interactionSource.<span class="code-func">collectIsPressedAsState</span>()
+    
+    <span class="code-keyword">val</span> backgroundColor = <span class="code-keyword">if</span> (isPressed) <span class="code-type">Color</span>.DarkGray <span class="code-keyword">else</span> <span class="code-type">Color</span>.Gray
+    
+    <span class="code-func">Box</span>(
+        modifier = <span class="code-type">Modifier</span>
+            .<span class="code-func">background</span>(backgroundColor)
+            .<span class="code-func">clickable</span>(interactionSource = interactionSource, indication = <span class="code-keyword">null</span>) { }
+    ) {
+        <span class="code-func">Text</span>(<span class="code-keyword">if</span> (isPressed) <span class="code-string">"按下中"</span> <span class="code-keyword">else</span> <span class="code-string">"点击我"</span>)
+    }
+}</code></pre>
+
+        <h2>二、拖拽手势</h2>
+
+        <h3>自由拖拽</h3>
+
+<pre><code><span class="code-keyword">@Composable</span>
+<span class="code-keyword">fun</span> <span class="code-func">FreeDraggable</span>() {
+    <span class="code-keyword">var</span> offset <span class="code-keyword">by</span> <span class="code-func">remember</span> { <span class="code-func">mutableStateOf</span>(<span class="code-type">Offset</span>.Zero) }
+    
+    <span class="code-func">Box</span>(
+        modifier = <span class="code-type">Modifier</span>
+            .<span class="code-func">offset</span> { <span class="code-func">IntOffset</span>(offset.x.<span class="code-func">roundToInt</span>(), offset.y.<span class="code-func">roundToInt</span>()) }
+            .<span class="code-func">size</span>(<span class="code-number">50</span>.dp)
+            .<span class="code-func">background</span>(<span class="code-type">Color</span>.Blue)
+            .<span class="code-func">pointerInput</span>(<span class="code-type">Unit</span>) {
+                <span class="code-func">detectDragGestures</span> { change, dragAmount ->
+                    change.<span class="code-func">consume</span>()
+                    offset += dragAmount
+                }
+            }
+    )
+}</code></pre>
+
+        <h2>三、缩放、旋转、平移</h2>
+
+<pre><code><span class="code-keyword">@Composable</span>
+<span class="code-keyword">fun</span> <span class="code-func">TransformableBox</span>() {
+    <span class="code-keyword">var</span> scale <span class="code-keyword">by</span> <span class="code-func">remember</span> { <span class="code-func">mutableFloatStateOf</span>(<span class="code-number">1f</span>) }
+    <span class="code-keyword">var</span> rotation <span class="code-keyword">by</span> <span class="code-func">remember</span> { <span class="code-func">mutableFloatStateOf</span>(<span class="code-number">0f</span>) }
+    <span class="code-keyword">var</span> offset <span class="code-keyword">by</span> <span class="code-func">remember</span> { <span class="code-func">mutableStateOf</span>(<span class="code-type">Offset</span>.Zero) }
+    
+    <span class="code-keyword">val</span> state = <span class="code-func">rememberTransformableState</span> { zoomChange, offsetChange, rotationChange ->
+        scale *= zoomChange
+        rotation += rotationChange
+        offset += offsetChange
+    }
+    
+    <span class="code-func">Box</span>(
+        modifier = <span class="code-type">Modifier</span>
+            .<span class="code-func">fillMaxSize</span>()
+            .<span class="code-func">transformable</span>(state = state),
+        contentAlignment = <span class="code-type">Alignment</span>.Center
+    ) {
+        <span class="code-func">Box</span>(
+            modifier = <span class="code-type">Modifier</span>
+                .<span class="code-func">graphicsLayer</span> {
+                    scaleX = scale
+                    scaleY = scale
+                    rotationZ = rotation
+                    translationX = offset.x
+                    translationY = offset.y
+                }
+                .<span class="code-func">size</span>(<span class="code-number">100</span>.dp)
+                .<span class="code-func">background</span>(<span class="code-type">Color</span>.Blue)
+        )
+    }
+}</code></pre>
+
+        <h2>四、pointerInput：低级手势 API</h2>
+
+<pre><code><span class="code-func">Box</span>(
+    modifier = <span class="code-type">Modifier</span>
+        .<span class="code-func">pointerInput</span>(<span class="code-type">Unit</span>) {
+            <span class="code-func">detectTapGestures</span>(
+                onPress = { <span class="code-func">println</span>(<span class="code-string">"按下"</span>) },
+                onTap = { <span class="code-func">println</span>(<span class="code-string">"点击"</span>) },
+                onDoubleTap = { <span class="code-func">println</span>(<span class="code-string">"双击"</span>) },
+                onLongPress = { <span class="code-func">println</span>(<span class="code-string">"长按"</span>) }
+            )
+        }
+)</code></pre>
+
+        <h2>五、嵌套滚动</h2>
+
+<pre><code><span class="code-keyword">@Composable</span>
+<span class="code-keyword">fun</span> <span class="code-func">CollapsibleToolbar</span>() {
+    <span class="code-keyword">var</span> toolbarHeight <span class="code-keyword">by</span> <span class="code-func">remember</span> { <span class="code-func">mutableFloatStateOf</span>(<span class="code-number">200f</span>) }
+    
+    <span class="code-keyword">val</span> nestedScrollConnection = <span class="code-func">remember</span> {
+        <span class="code-keyword">object</span> : <span class="code-type">NestedScrollConnection</span> {
+            <span class="code-keyword">override fun</span> <span class="code-func">onPreScroll</span>(available: <span class="code-type">Offset</span>, source: <span class="code-type">NestedScrollSource</span>): <span class="code-type">Offset</span> {
+                <span class="code-keyword">val</span> delta = available.y
+                toolbarHeight = (toolbarHeight + delta).<span class="code-func">coerceIn</span>(<span class="code-number">56f</span>, <span class="code-number">200f</span>)
+                <span class="code-keyword">return</span> <span class="code-type">Offset</span>.Zero
+            }
+        }
+    }
+    
+    <span class="code-func">Column</span>(modifier = <span class="code-type">Modifier</span>.<span class="code-func">nestedScroll</span>(nestedScrollConnection)) {
+        <span class="code-func">Box</span>(modifier = <span class="code-type">Modifier</span>.<span class="code-func">height</span>(toolbarHeight.dp).<span class="code-func">background</span>(<span class="code-type">Color</span>.Blue))
+        <span class="code-func">LazyColumn</span> { ... }
+    }
+}</code></pre>
+
+        <div class="callout">
+            <p class="callout-title">💡 最佳实践</p>
+            <p>优先使用高级 API（clickable、draggable、transformable），只在需要自定义行为时使用 pointerInput。使用 graphicsLayer 进行变换以避免触发重组。</p>
+        </div>
+
+        <h2>总结</h2>
+        <ul>
+            <li><strong>clickable</strong>：简单点击，支持涟漪效果</li>
+            <li><strong>combinedClickable</strong>：单击、双击、长按组合</li>
+            <li><strong>draggable</strong>：单轴拖拽</li>
+            <li><strong>transformable</strong>：缩放、旋转、平移</li>
+            <li><strong>pointerInput</strong>：底层 API，自定义手势逻辑</li>
+            <li><strong>nestedScroll</strong>：嵌套滚动协调</li>
+        </ul>
+    </article>
+
+    <footer class="footer">
+        <p>&copy; 2024 Fidroid. <a href="../index.html">返回首页</a></p>
+    </footer>
+</body>
+</html>
+

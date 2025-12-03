@@ -1,0 +1,176 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Hilt 与 Compose 集成：依赖注入最佳实践 - Fidroid</title>
+    <meta name="description" content="深入学习 Hilt 与 Compose 集成，掌握 hiltViewModel、依赖注入模式、测试策略等最佳实践。">
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; line-height: 1.8; color: #e5e7eb; background: #020617; }
+        .navbar { background: rgba(15,23,42,0.98); backdrop-filter: blur(10px); position: fixed; top: 0; width: 100%; z-index: 1000; }
+        .nav-container { max-width: 900px; margin: 0 auto; padding: 1rem 20px; display: flex; justify-content: space-between; align-items: center; }
+        .logo { font-size: 1.5rem; font-weight: bold; color: #38bdf8; text-decoration: none; letter-spacing: 0.08em; text-transform: uppercase; }
+        .back-link { color: #9ca3af; text-decoration: none; font-size: 0.9rem; }
+        .back-link:hover { color: #38bdf8; }
+        .article-header { padding: 120px 20px 60px; background: radial-gradient(circle at top left, #8b5cf6 0, transparent 50%), radial-gradient(circle at bottom right, #06b6d4 0, transparent 55%), #020617; text-align: center; }
+        .article-header h1 { max-width: 800px; margin: 0 auto 1rem; font-size: 2.5rem; font-weight: 800; letter-spacing: -0.03em; color: #fff; }
+        .article-meta { color: #9ca3af; font-size: 0.9rem; margin-bottom: 1.5rem; }
+        .article-tags { display: flex; justify-content: center; flex-wrap: wrap; gap: 0.5rem; }
+        .article-tag { padding: 0.25rem 0.75rem; border-radius: 999px; font-size: 0.75rem; background: rgba(15,23,42,0.85); border: 1px solid rgba(139,92,246,0.4); color: #a78bfa; }
+        .article-content { max-width: 800px; margin: 0 auto; padding: 60px 20px 80px; }
+        .article-content h2 { font-size: 1.6rem; margin: 2.5rem 0 1rem; color: #f9fafb; border-left: 4px solid #8b5cf6; padding-left: 1rem; }
+        .article-content h3 { font-size: 1.25rem; margin: 2rem 0 0.75rem; color: #e5e7eb; }
+        .article-content p { margin-bottom: 1.25rem; color: #d1d5db; }
+        .article-content ul { margin: 1rem 0 1.5rem 1.5rem; color: #d1d5db; }
+        .article-content li { margin-bottom: 0.5rem; }
+        .article-content strong { color: #f9fafb; }
+        pre { background: #0f172a; border: 1px solid rgba(139,92,246,0.3); border-radius: 12px; padding: 1.25rem; overflow-x: auto; margin: 1.5rem 0; font-size: 0.85rem; line-height: 1.6; }
+        code { font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace; color: #e5e7eb; }
+        .code-keyword { color: #c084fc; }
+        .code-func { color: #38bdf8; }
+        .code-type { color: #4ade80; }
+        .code-string { color: #fb7185; }
+        .code-comment { color: #6b7280; font-style: italic; }
+        .callout { background: rgba(139,92,246,0.1); border: 1px solid rgba(139,92,246,0.3); border-radius: 12px; padding: 1.25rem 1.5rem; margin: 1.5rem 0; }
+        .callout-title { font-weight: 600; color: #a78bfa; margin-bottom: 0.5rem; }
+        .callout p { margin-bottom: 0; color: #d1d5db; }
+        .footer { background: #020617; border-top: 1px solid #111827; padding: 2rem; text-align: center; color: #6b7280; }
+        .footer a { color: #38bdf8; text-decoration: none; }
+    </style>
+</head>
+<body>
+    <nav class="navbar">
+        <div class="nav-container">
+            <a href="../index.html" class="logo">Fidroid</a>
+            <a href="../index.html#articles" class="back-link">← 返回博客列表</a>
+        </div>
+    </nav>
+
+    <header class="article-header">
+        <h1>Hilt 与 Compose 集成：依赖注入最佳实践</h1>
+        <p class="article-meta">2024-05-20 · 24 min · 依赖注入</p>
+        <div class="article-tags">
+            <span class="article-tag">Hilt</span>
+            <span class="article-tag">依赖注入</span>
+            <span class="article-tag">ViewModel</span>
+            <span class="article-tag">Navigation</span>
+        </div>
+    </header>
+
+    <article class="article-content">
+        <p>Hilt 是 Android 官方推荐的依赖注入框架，与 Compose 配合使用可以构建可测试、可维护的应用架构。</p>
+
+        <h2>一、基础配置</h2>
+
+<pre><code><span class="code-comment">// Application</span>
+<span class="code-keyword">@HiltAndroidApp</span>
+<span class="code-keyword">class</span> <span class="code-type">MyApplication</span> : <span class="code-type">Application</span>()
+
+<span class="code-comment">// Activity</span>
+<span class="code-keyword">@AndroidEntryPoint</span>
+<span class="code-keyword">class</span> <span class="code-type">MainActivity</span> : <span class="code-type">ComponentActivity</span>()</code></pre>
+
+        <h2>二、hiltViewModel</h2>
+
+<pre><code><span class="code-keyword">@HiltViewModel</span>
+<span class="code-keyword">class</span> <span class="code-type">HomeViewModel</span> <span class="code-keyword">@Inject constructor</span>(
+    <span class="code-keyword">private val</span> repository: <span class="code-type">UserRepository</span>
+) : <span class="code-type">ViewModel</span>() {
+    
+    <span class="code-keyword">private val</span> _uiState = <span class="code-func">MutableStateFlow</span>(<span class="code-func">HomeUiState</span>())
+    <span class="code-keyword">val</span> uiState: <span class="code-type">StateFlow</span>&lt;<span class="code-type">HomeUiState</span>&gt; = _uiState.<span class="code-func">asStateFlow</span>()
+    
+    <span class="code-keyword">fun</span> <span class="code-func">loadUsers</span>() {
+        viewModelScope.<span class="code-func">launch</span> {
+            <span class="code-keyword">val</span> users = repository.<span class="code-func">getUsers</span>()
+            _uiState.<span class="code-func">update</span> { it.<span class="code-func">copy</span>(users = users) }
+        }
+    }
+}
+
+<span class="code-keyword">@Composable</span>
+<span class="code-keyword">fun</span> <span class="code-func">HomeScreen</span>(
+    viewModel: <span class="code-type">HomeViewModel</span> = <span class="code-func">hiltViewModel</span>()
+) {
+    <span class="code-keyword">val</span> uiState <span class="code-keyword">by</span> viewModel.uiState.<span class="code-func">collectAsState</span>()
+    <span class="code-comment">// ...</span>
+}</code></pre>
+
+        <h2>三、与 Navigation 集成</h2>
+
+<pre><code><span class="code-func">NavHost</span>(navController, startDestination = <span class="code-string">"home"</span>) {
+    <span class="code-func">composable</span>(<span class="code-string">"home"</span>) {
+        <span class="code-func">HomeScreen</span>()  <span class="code-comment">// 自动获取正确作用域的 ViewModel</span>
+    }
+    
+    <span class="code-func">composable</span>(
+        route = <span class="code-string">"detail/{itemId}"</span>,
+        arguments = <span class="code-func">listOf</span>(<span class="code-func">navArgument</span>(<span class="code-string">"itemId"</span>) { type = <span class="code-type">NavType</span>.StringType })
+    ) {
+        <span class="code-func">DetailScreen</span>()  <span class="code-comment">// itemId 自动从 SavedStateHandle 获取</span>
+    }
+}</code></pre>
+
+        <h2>四、Module 定义</h2>
+
+<pre><code><span class="code-keyword">@Module</span>
+<span class="code-keyword">@InstallIn</span>(<span class="code-type">SingletonComponent</span>::<span class="code-keyword">class</span>)
+<span class="code-keyword">abstract class</span> <span class="code-type">RepositoryModule</span> {
+    
+    <span class="code-keyword">@Binds</span>
+    <span class="code-keyword">@Singleton</span>
+    <span class="code-keyword">abstract fun</span> <span class="code-func">bindUserRepository</span>(
+        impl: <span class="code-type">UserRepositoryImpl</span>
+    ): <span class="code-type">UserRepository</span>
+}
+
+<span class="code-keyword">@Module</span>
+<span class="code-keyword">@InstallIn</span>(<span class="code-type">SingletonComponent</span>::<span class="code-keyword">class</span>)
+<span class="code-keyword">object</span> <span class="code-type">NetworkModule</span> {
+    
+    <span class="code-keyword">@Provides</span>
+    <span class="code-keyword">@Singleton</span>
+    <span class="code-keyword">fun</span> <span class="code-func">provideRetrofit</span>(): <span class="code-type">Retrofit</span> {
+        <span class="code-keyword">return</span> <span class="code-type">Retrofit</span>.<span class="code-func">Builder</span>()
+            .<span class="code-func">baseUrl</span>(<span class="code-string">"https://api.example.com/"</span>)
+            .<span class="code-func">build</span>()
+    }
+}</code></pre>
+
+        <h2>五、测试</h2>
+
+<pre><code><span class="code-keyword">@Module</span>
+<span class="code-keyword">@TestInstallIn</span>(
+    components = [<span class="code-type">SingletonComponent</span>::<span class="code-keyword">class</span>],
+    replaces = [<span class="code-type">RepositoryModule</span>::<span class="code-keyword">class</span>]
+)
+<span class="code-keyword">abstract class</span> <span class="code-type">FakeRepositoryModule</span> {
+    <span class="code-keyword">@Binds</span>
+    <span class="code-keyword">@Singleton</span>
+    <span class="code-keyword">abstract fun</span> <span class="code-func">bindUserRepository</span>(
+        impl: <span class="code-type">FakeUserRepository</span>
+    ): <span class="code-type">UserRepository</span>
+}</code></pre>
+
+        <div class="callout">
+            <p class="callout-title">💡 最佳实践</p>
+            <p>使用 hiltViewModel() 自动管理 ViewModel 作用域；通过接口抽象依赖便于测试；遵循分层架构原则。</p>
+        </div>
+
+        <h2>总结</h2>
+        <ul>
+            <li><strong>hiltViewModel()</strong>：在 Composable 中获取 ViewModel</li>
+            <li><strong>@HiltViewModel</strong>：标记可注入的 ViewModel</li>
+            <li><strong>SavedStateHandle</strong>：自动获取 Navigation 参数</li>
+            <li><strong>作用域</strong>：Singleton、ActivityRetained、ViewModelScoped</li>
+            <li><strong>测试</strong>：使用 @TestInstallIn 替换模块</li>
+        </ul>
+    </article>
+
+    <footer class="footer">
+        <p>&copy; 2024 Fidroid. <a href="../index.html">返回首页</a></p>
+    </footer>
+</body>
+</html>
+

@@ -1,0 +1,174 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Compose 无障碍开发指南：Semantics 与屏幕阅读器 - Fidroid</title>
+    <meta name="description" content="深入学习 Compose 无障碍开发，掌握 Semantics API、TalkBack 支持、焦点管理等，构建对所有用户友好的应用。">
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; line-height: 1.8; color: #e5e7eb; background: #020617; }
+        .navbar { background: rgba(15,23,42,0.98); backdrop-filter: blur(10px); position: fixed; top: 0; width: 100%; z-index: 1000; }
+        .nav-container { max-width: 900px; margin: 0 auto; padding: 1rem 20px; display: flex; justify-content: space-between; align-items: center; }
+        .logo { font-size: 1.5rem; font-weight: bold; color: #38bdf8; text-decoration: none; letter-spacing: 0.08em; text-transform: uppercase; }
+        .back-link { color: #9ca3af; text-decoration: none; font-size: 0.9rem; }
+        .back-link:hover { color: #38bdf8; }
+        .article-header { padding: 120px 20px 60px; background: radial-gradient(circle at top left, #22c55e 0, transparent 50%), radial-gradient(circle at bottom right, #3b82f6 0, transparent 55%), #020617; text-align: center; }
+        .article-header h1 { max-width: 800px; margin: 0 auto 1rem; font-size: 2.5rem; font-weight: 800; letter-spacing: -0.03em; color: #fff; }
+        .article-meta { color: #9ca3af; font-size: 0.9rem; margin-bottom: 1.5rem; }
+        .article-tags { display: flex; justify-content: center; flex-wrap: wrap; gap: 0.5rem; }
+        .article-tag { padding: 0.25rem 0.75rem; border-radius: 999px; font-size: 0.75rem; background: rgba(15,23,42,0.85); border: 1px solid rgba(34,197,94,0.4); color: #4ade80; }
+        .article-content { max-width: 800px; margin: 0 auto; padding: 60px 20px 80px; }
+        .article-content h2 { font-size: 1.6rem; margin: 2.5rem 0 1rem; color: #f9fafb; border-left: 4px solid #22c55e; padding-left: 1rem; }
+        .article-content h3 { font-size: 1.25rem; margin: 2rem 0 0.75rem; color: #e5e7eb; }
+        .article-content p { margin-bottom: 1.25rem; color: #d1d5db; }
+        .article-content ul, .article-content ol { margin: 1rem 0 1.5rem 1.5rem; color: #d1d5db; }
+        .article-content li { margin-bottom: 0.5rem; }
+        .article-content strong { color: #f9fafb; }
+        pre { background: #0f172a; border: 1px solid rgba(34,197,94,0.3); border-radius: 12px; padding: 1.25rem; overflow-x: auto; margin: 1.5rem 0; font-size: 0.85rem; line-height: 1.6; }
+        code { font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace; color: #e5e7eb; }
+        .code-keyword { color: #c084fc; }
+        .code-func { color: #38bdf8; }
+        .code-type { color: #4ade80; }
+        .code-string { color: #fb7185; }
+        .code-comment { color: #6b7280; font-style: italic; }
+        .callout { background: rgba(34,197,94,0.1); border: 1px solid rgba(34,197,94,0.3); border-radius: 12px; padding: 1.25rem 1.5rem; margin: 1.5rem 0; }
+        .callout-title { font-weight: 600; color: #4ade80; margin-bottom: 0.5rem; }
+        .callout p { margin-bottom: 0; color: #d1d5db; }
+        .footer { background: #020617; border-top: 1px solid #111827; padding: 2rem; text-align: center; color: #6b7280; }
+        .footer a { color: #38bdf8; text-decoration: none; }
+    </style>
+</head>
+<body>
+    <nav class="navbar">
+        <div class="nav-container">
+            <a href="../index.html" class="logo">Fidroid</a>
+            <a href="../index.html#articles" class="back-link">← 返回博客列表</a>
+        </div>
+    </nav>
+
+    <header class="article-header">
+        <h1>Compose 无障碍开发指南：Semantics 与屏幕阅读器</h1>
+        <p class="article-meta">2024-05-16 · 22 min · 无障碍</p>
+        <div class="article-tags">
+            <span class="article-tag">Accessibility</span>
+            <span class="article-tag">Semantics</span>
+            <span class="article-tag">TalkBack</span>
+        </div>
+    </header>
+
+    <article class="article-content">
+        <p>无障碍（Accessibility）是现代应用开发的重要组成部分。Compose 提供了强大的语义系统（Semantics），让你可以轻松构建对屏幕阅读器和辅助服务友好的 UI。</p>
+
+        <div class="callout">
+            <p class="callout-title">💡 无障碍带来的好处</p>
+            <p>扩大用户群体、提升所有用户体验、符合法规要求（ADA、WCAG）、提升可测试性。</p>
+        </div>
+
+        <h2>一、Semantics 语义系统</h2>
+
+<pre><code><span class="code-comment">// 为图标提供描述</span>
+<span class="code-func">Icon</span>(
+    imageVector = <span class="code-type">Icons</span>.Default.Share,
+    contentDescription = <span class="code-string">"分享"</span>
+)
+
+<span class="code-comment">// 装饰性图像</span>
+<span class="code-func">Image</span>(
+    painter = <span class="code-func">painterResource</span>(R.drawable.decorative),
+    contentDescription = <span class="code-keyword">null</span>  <span class="code-comment">// 会被忽略</span>
+)</code></pre>
+
+        <h2>二、自定义语义</h2>
+
+<pre><code><span class="code-func">Box</span>(
+    modifier = <span class="code-type">Modifier</span>
+        .<span class="code-func">clickable</span> { <span class="code-func">onItemClick</span>() }
+        .<span class="code-func">semantics</span> { 
+            role = <span class="code-type">Role</span>.Button
+            contentDescription = <span class="code-string">"自定义按钮"</span>
+        }
+) {
+    <span class="code-func">Text</span>(<span class="code-string">"点击我"</span>)
+}</code></pre>
+
+        <h3>状态描述</h3>
+
+<pre><code><span class="code-keyword">@Composable</span>
+<span class="code-keyword">fun</span> <span class="code-func">ExpandableCard</span>(expanded: <span class="code-type">Boolean</span>) {
+    <span class="code-func">Column</span>(
+        modifier = <span class="code-type">Modifier</span>.<span class="code-func">semantics</span> {
+            stateDescription = <span class="code-keyword">if</span> (expanded) <span class="code-string">"已展开"</span> <span class="code-keyword">else</span> <span class="code-string">"已折叠"</span>
+        }
+    ) { ... }
+}</code></pre>
+
+        <h2>三、合并语义</h2>
+
+<pre><code><span class="code-keyword">@Composable</span>
+<span class="code-keyword">fun</span> <span class="code-func">UserCard</span>(user: <span class="code-type">User</span>) {
+    <span class="code-func">Row</span>(
+        modifier = <span class="code-type">Modifier</span>
+            .<span class="code-func">clickable</span> { <span class="code-func">onUserClick</span>(user) }
+            .<span class="code-func">clearAndSetSemantics</span> {
+                contentDescription = <span class="code-string">"${user.name}，${user.role}，点击查看详情"</span>
+            }
+    ) {
+        <span class="code-func">Avatar</span>(user.avatarUrl)
+        <span class="code-func">Text</span>(user.name)
+    }
+}</code></pre>
+
+        <h2>四、自定义操作</h2>
+
+<pre><code><span class="code-func">Box</span>(
+    modifier = <span class="code-type">Modifier</span>.<span class="code-func">semantics</span> {
+        customActions = <span class="code-func">listOf</span>(
+            <span class="code-func">CustomAccessibilityAction</span>(<span class="code-string">"删除"</span>) {
+                <span class="code-func">onDelete</span>()
+                <span class="code-keyword">true</span>
+            },
+            <span class="code-func">CustomAccessibilityAction</span>(<span class="code-string">"归档"</span>) {
+                <span class="code-func">onArchive</span>()
+                <span class="code-keyword">true</span>
+            }
+        )
+    }
+) { ... }</code></pre>
+
+        <h2>五、Live Region</h2>
+
+<pre><code><span class="code-func">Text</span>(
+    text = <span class="code-string">"计数: $count"</span>,
+    modifier = <span class="code-type">Modifier</span>.<span class="code-func">semantics</span> {
+        liveRegion = <span class="code-type">LiveRegionMode</span>.Polite  <span class="code-comment">// 内容变化时通知</span>
+    }
+)</code></pre>
+
+        <h2>六、最佳实践清单</h2>
+        <ul>
+            <li>✅ 为所有有意义的图标提供 <code>contentDescription</code></li>
+            <li>✅ 装饰性图像使用 <code>contentDescription = null</code></li>
+            <li>✅ 使用 <code>mergeDescendants</code> 合并相关元素</li>
+            <li>✅ 为复杂手势提供替代的 <code>customActions</code></li>
+            <li>✅ 确保触摸目标至少 48dp</li>
+            <li>✅ 使用 <code>heading()</code> 标记标题</li>
+            <li>✅ 使用 TalkBack 实际测试</li>
+        </ul>
+
+        <h2>总结</h2>
+        <ul>
+            <li><strong>Semantics</strong>：向辅助服务描述 UI</li>
+            <li><strong>contentDescription</strong>：为图像提供描述</li>
+            <li><strong>Role</strong>：明确元素交互类型</li>
+            <li><strong>customActions</strong>：为手势提供替代操作</li>
+            <li><strong>liveRegion</strong>：通知动态内容变化</li>
+        </ul>
+    </article>
+
+    <footer class="footer">
+        <p>&copy; 2024 Fidroid. <a href="../index.html">返回首页</a></p>
+    </footer>
+</body>
+</html>
+

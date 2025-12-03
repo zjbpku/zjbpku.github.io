@@ -1,0 +1,456 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CompositionLocal 深度解析：Compose 中的隐式依赖传递 - Fidroid</title>
+    <meta name="description" content="深入理解 CompositionLocal 的工作原理，掌握 staticCompositionLocalOf 和 compositionLocalOf 的使用场景，构建自定义主题系统。">
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            line-height: 1.8;
+            color: #e5e7eb;
+            background: #020617;
+        }
+        .navbar {
+            background: rgba(15,23,42,0.98);
+            backdrop-filter: blur(10px);
+            position: fixed;
+            top: 0;
+            width: 100%;
+            z-index: 1000;
+        }
+        .nav-container {
+            max-width: 900px;
+            margin: 0 auto;
+            padding: 1rem 20px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .logo {
+            font-size: 1.5rem;
+            font-weight: bold;
+            color: #38bdf8;
+            text-decoration: none;
+            letter-spacing: 0.08em;
+            text-transform: uppercase;
+        }
+        .back-link { color: #9ca3af; text-decoration: none; font-size: 0.9rem; }
+        .back-link:hover { color: #38bdf8; }
+
+        .article-header {
+            padding: 120px 20px 60px;
+            background: radial-gradient(circle at top left, #a855f7 0, transparent 50%),
+                        radial-gradient(circle at bottom right, #06b6d4 0, transparent 55%),
+                        #020617;
+            text-align: center;
+        }
+        .article-header h1 {
+            max-width: 800px;
+            margin: 0 auto 1rem;
+            font-size: 2.5rem;
+            font-weight: 800;
+            letter-spacing: -0.03em;
+            color: #fff;
+        }
+        .article-meta { color: #9ca3af; font-size: 0.9rem; margin-bottom: 1.5rem; }
+        .article-tags { display: flex; justify-content: center; flex-wrap: wrap; gap: 0.5rem; }
+        .article-tag {
+            padding: 0.25rem 0.75rem;
+            border-radius: 999px;
+            font-size: 0.75rem;
+            background: rgba(15,23,42,0.85);
+            border: 1px solid rgba(168,85,247,0.4);
+            color: #c084fc;
+        }
+
+        .article-content {
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 60px 20px 80px;
+        }
+        .article-content h2 {
+            font-size: 1.6rem;
+            margin: 2.5rem 0 1rem;
+            color: #f9fafb;
+            border-left: 4px solid #a855f7;
+            padding-left: 1rem;
+        }
+        .article-content h3 { font-size: 1.25rem; margin: 2rem 0 0.75rem; color: #e5e7eb; }
+        .article-content p { margin-bottom: 1.25rem; color: #d1d5db; }
+        .article-content ul, .article-content ol { margin: 1rem 0 1.5rem 1.5rem; color: #d1d5db; }
+        .article-content li { margin-bottom: 0.5rem; }
+        .article-content strong { color: #f9fafb; }
+        .article-content a { color: #38bdf8; text-decoration: underline; }
+
+        pre {
+            background: #0f172a;
+            border: 1px solid rgba(168,85,247,0.3);
+            border-radius: 12px;
+            padding: 1.25rem;
+            overflow-x: auto;
+            margin: 1.5rem 0;
+            font-size: 0.85rem;
+            line-height: 1.6;
+        }
+        code { font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace; color: #e5e7eb; }
+        .code-keyword { color: #c084fc; }
+        .code-func { color: #38bdf8; }
+        .code-type { color: #4ade80; }
+        .code-string { color: #fb7185; }
+        .code-comment { color: #6b7280; font-style: italic; }
+        .code-number { color: #fbbf24; }
+
+        .callout {
+            background: rgba(168,85,247,0.1);
+            border: 1px solid rgba(168,85,247,0.3);
+            border-radius: 12px;
+            padding: 1.25rem 1.5rem;
+            margin: 1.5rem 0;
+        }
+        .callout-title { font-weight: 600; color: #c084fc; margin-bottom: 0.5rem; }
+        .callout p { margin-bottom: 0; color: #d1d5db; }
+
+        .comparison-table { width: 100%; border-collapse: collapse; margin: 1.5rem 0; font-size: 0.9rem; }
+        .comparison-table th, .comparison-table td { border: 1px solid rgba(148,163,184,0.3); padding: 0.75rem 1rem; text-align: left; }
+        .comparison-table th { background: rgba(15,23,42,0.8); color: #f9fafb; }
+        .comparison-table td { color: #d1d5db; }
+
+        .footer {
+            background: #020617;
+            border-top: 1px solid #111827;
+            padding: 2rem;
+            text-align: center;
+            color: #6b7280;
+        }
+        .footer a { color: #38bdf8; text-decoration: none; }
+    </style>
+</head>
+<body>
+    <nav class="navbar">
+        <div class="nav-container">
+            <a href="../index.html" class="logo">Fidroid</a>
+            <a href="../index.html#articles" class="back-link">← 返回博客列表</a>
+        </div>
+    </nav>
+
+    <header class="article-header">
+        <h1>CompositionLocal 深度解析：Compose 中的隐式依赖传递</h1>
+        <p class="article-meta">2024-05-10 · 24 min · 依赖注入</p>
+        <div class="article-tags">
+            <span class="article-tag">CompositionLocal</span>
+            <span class="article-tag">依赖注入</span>
+            <span class="article-tag">Theme</span>
+            <span class="article-tag">Provider</span>
+        </div>
+    </header>
+
+    <article class="article-content">
+        <p>在 Compose 中，数据通常通过参数显式传递。但有些数据（如主题、语言环境、导航控制器）需要在整个组件树中共享，逐层传递会非常繁琐。<code>CompositionLocal</code> 提供了一种隐式传递数据的机制，让深层组件可以直接访问祖先提供的数据。</p>
+
+        <h2>一、什么是 CompositionLocal？</h2>
+        <p><code>CompositionLocal</code> 是 Compose 中的<strong>隐式数据传递机制</strong>，类似于 React 的 Context 或依赖注入框架的作用域。</p>
+
+<pre><code><span class="code-comment">// 不使用 CompositionLocal：需要层层传递</span>
+<span class="code-keyword">@Composable</span>
+<span class="code-keyword">fun</span> <span class="code-func">App</span>(theme: <span class="code-type">AppTheme</span>) {
+    <span class="code-func">Screen</span>(theme = theme)
+}
+
+<span class="code-keyword">@Composable</span>
+<span class="code-keyword">fun</span> <span class="code-func">Screen</span>(theme: <span class="code-type">AppTheme</span>) {
+    <span class="code-func">Card</span>(theme = theme)
+}
+
+<span class="code-keyword">@Composable</span>
+<span class="code-keyword">fun</span> <span class="code-func">Card</span>(theme: <span class="code-type">AppTheme</span>) {
+    <span class="code-func">Text</span>(color = theme.textColor, ...)  <span class="code-comment">// 终于用到了！</span>
+}
+
+<span class="code-comment">// 使用 CompositionLocal：直接获取</span>
+<span class="code-keyword">@Composable</span>
+<span class="code-keyword">fun</span> <span class="code-func">Card</span>() {
+    <span class="code-keyword">val</span> theme = LocalAppTheme.current
+    <span class="code-func">Text</span>(color = theme.textColor, ...)
+}</code></pre>
+
+        <h2>二、内置的 CompositionLocal</h2>
+        <p>Compose 提供了许多内置的 CompositionLocal：</p>
+
+        <table class="comparison-table">
+            <thead>
+                <tr>
+                    <th>CompositionLocal</th>
+                    <th>类型</th>
+                    <th>用途</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr><td><code>LocalContext</code></td><td>Context</td><td>Android Context</td></tr>
+                <tr><td><code>LocalConfiguration</code></td><td>Configuration</td><td>设备配置</td></tr>
+                <tr><td><code>LocalDensity</code></td><td>Density</td><td>像素密度，dp/px 转换</td></tr>
+                <tr><td><code>LocalLayoutDirection</code></td><td>LayoutDirection</td><td>布局方向（LTR/RTL）</td></tr>
+                <tr><td><code>LocalLifecycleOwner</code></td><td>LifecycleOwner</td><td>生命周期所有者</td></tr>
+                <tr><td><code>LocalContentColor</code></td><td>Color</td><td>当前内容颜色</td></tr>
+            </tbody>
+        </table>
+
+        <h3>使用内置 CompositionLocal</h3>
+
+<pre><code><span class="code-keyword">@Composable</span>
+<span class="code-keyword">fun</span> <span class="code-func">DeviceInfo</span>() {
+    <span class="code-keyword">val</span> context = LocalContext.current
+    <span class="code-keyword">val</span> configuration = LocalConfiguration.current
+    <span class="code-keyword">val</span> density = LocalDensity.current
+
+    <span class="code-func">Column</span> {
+        <span class="code-func">Text</span>(<span class="code-string">"屏幕宽度: ${configuration.screenWidthDp}dp"</span>)
+        <span class="code-func">Text</span>(<span class="code-string">"像素密度: ${density.density}"</span>)
+        
+        <span class="code-comment">// dp 转 px</span>
+        <span class="code-keyword">val</span> paddingPx = <span class="code-func">with</span>(density) { <span class="code-number">16</span>.dp.<span class="code-func">toPx</span>() }
+        <span class="code-func">Text</span>(<span class="code-string">"16dp = ${paddingPx}px"</span>)
+    }
+}</code></pre>
+
+        <h2>三、创建自定义 CompositionLocal</h2>
+
+        <h3>staticCompositionLocalOf vs compositionLocalOf</h3>
+        <p>Compose 提供两种创建方式：</p>
+
+<pre><code><span class="code-comment">// 1. staticCompositionLocalOf：值很少变化时使用</span>
+<span class="code-comment">// 值变化时，整个使用该值的子树都会重组</span>
+<span class="code-keyword">val</span> LocalAppConfig = <span class="code-func">staticCompositionLocalOf</span>&lt;<span class="code-type">AppConfig</span>&gt; {
+    <span class="code-func">error</span>(<span class="code-string">"No AppConfig provided"</span>)
+}
+
+<span class="code-comment">// 2. compositionLocalOf：值可能频繁变化时使用</span>
+<span class="code-comment">// 值变化时，只有读取该值的 Composable 重组</span>
+<span class="code-keyword">val</span> LocalUserPreferences = <span class="code-func">compositionLocalOf</span>&lt;<span class="code-type">UserPreferences</span>&gt; {
+    <span class="code-func">UserPreferences</span>()  <span class="code-comment">// 默认值</span>
+}</code></pre>
+
+        <div class="callout">
+            <p class="callout-title">💡 如何选择？</p>
+            <p><strong>staticCompositionLocalOf</strong>：主题、配置等很少变化的数据<br>
+            <strong>compositionLocalOf</strong>：用户偏好、动态设置等可能变化的数据</p>
+        </div>
+
+        <h3>完整示例：自定义主题系统</h3>
+
+<pre><code><span class="code-comment">// 1. 定义数据类</span>
+<span class="code-keyword">@Immutable</span>
+<span class="code-keyword">data class</span> <span class="code-type">CustomColors</span>(
+    <span class="code-keyword">val</span> primary: <span class="code-type">Color</span>,
+    <span class="code-keyword">val</span> secondary: <span class="code-type">Color</span>,
+    <span class="code-keyword">val</span> background: <span class="code-type">Color</span>,
+    <span class="code-keyword">val</span> onBackground: <span class="code-type">Color</span>
+)
+
+<span class="code-comment">// 2. 创建 CompositionLocal</span>
+<span class="code-keyword">val</span> LocalCustomColors = <span class="code-func">staticCompositionLocalOf</span>&lt;<span class="code-type">CustomColors</span>&gt; {
+    <span class="code-func">error</span>(<span class="code-string">"No CustomColors provided"</span>)
+}
+
+<span class="code-comment">// 3. 创建便捷访问对象</span>
+<span class="code-keyword">object</span> <span class="code-type">CustomTheme</span> {
+    <span class="code-keyword">val</span> colors: <span class="code-type">CustomColors</span>
+        <span class="code-keyword">@Composable</span>
+        <span class="code-keyword">@ReadOnlyComposable</span>
+        <span class="code-keyword">get</span>() = LocalCustomColors.current
+}
+
+<span class="code-comment">// 4. 创建主题 Provider</span>
+<span class="code-keyword">@Composable</span>
+<span class="code-keyword">fun</span> <span class="code-func">CustomTheme</span>(
+    darkTheme: <span class="code-type">Boolean</span> = <span class="code-func">isSystemInDarkTheme</span>(),
+    content: <span class="code-keyword">@Composable</span> () -> <span class="code-type">Unit</span>
+) {
+    <span class="code-keyword">val</span> colors = <span class="code-keyword">if</span> (darkTheme) darkColors <span class="code-keyword">else</span> lightColors
+
+    <span class="code-func">CompositionLocalProvider</span>(
+        LocalCustomColors <span class="code-keyword">provides</span> colors
+    ) {
+        <span class="code-func">content</span>()
+    }
+}
+
+<span class="code-comment">// 5. 使用自定义主题</span>
+<span class="code-keyword">@Composable</span>
+<span class="code-keyword">fun</span> <span class="code-func">ThemedCard</span>(title: <span class="code-type">String</span>) {
+    <span class="code-func">Card</span>(backgroundColor = CustomTheme.colors.surface) {
+        <span class="code-func">Text</span>(
+            text = title,
+            color = CustomTheme.colors.onBackground
+        )
+    }
+}</code></pre>
+
+        <h2>四、CompositionLocalProvider 的使用</h2>
+
+        <h3>嵌套覆盖</h3>
+        <p>内层 Provider 可以覆盖外层的值：</p>
+
+<pre><code><span class="code-keyword">@Composable</span>
+<span class="code-keyword">fun</span> <span class="code-func">NestedProviders</span>() {
+    <span class="code-func">CompositionLocalProvider</span>(LocalContentColor <span class="code-keyword">provides</span> <span class="code-type">Color</span>.Black) {
+        <span class="code-func">Text</span>(<span class="code-string">"黑色文字"</span>)  <span class="code-comment">// 黑色</span>
+        
+        <span class="code-func">CompositionLocalProvider</span>(LocalContentColor <span class="code-keyword">provides</span> <span class="code-type">Color</span>.Red) {
+            <span class="code-func">Text</span>(<span class="code-string">"红色文字"</span>)  <span class="code-comment">// 红色（覆盖外层）</span>
+        }
+        
+        <span class="code-func">Text</span>(<span class="code-string">"还是黑色"</span>)  <span class="code-comment">// 黑色</span>
+    }
+}</code></pre>
+
+        <h2>五、性能考量</h2>
+
+        <h3>staticCompositionLocalOf 的重组范围</h3>
+
+<pre><code><span class="code-keyword">val</span> LocalCounter = <span class="code-func">staticCompositionLocalOf</span> { <span class="code-number">0</span> }
+
+<span class="code-keyword">@Composable</span>
+<span class="code-keyword">fun</span> <span class="code-func">Parent</span>() {
+    <span class="code-keyword">var</span> counter <span class="code-keyword">by</span> <span class="code-func">remember</span> { <span class="code-func">mutableStateOf</span>(<span class="code-number">0</span>) }
+
+    <span class="code-func">CompositionLocalProvider</span>(LocalCounter <span class="code-keyword">provides</span> counter) {
+        <span class="code-comment">// counter 变化时，整个 Child 子树都会重组！</span>
+        <span class="code-func">Child</span>()
+    }
+}</code></pre>
+
+        <h3>compositionLocalOf 的精确重组</h3>
+
+<pre><code><span class="code-keyword">val</span> LocalCounter = <span class="code-func">compositionLocalOf</span> { <span class="code-number">0</span> }
+
+<span class="code-keyword">@Composable</span>
+<span class="code-keyword">fun</span> <span class="code-func">Child</span>() {
+    <span class="code-comment">// 不读取 LocalCounter，不会重组</span>
+    <span class="code-func">ExpensiveComponent</span>()
+    
+    <span class="code-comment">// 只有这里重组</span>
+    <span class="code-func">CounterDisplay</span>()
+}
+
+<span class="code-keyword">@Composable</span>
+<span class="code-keyword">fun</span> <span class="code-func">CounterDisplay</span>() {
+    <span class="code-func">Text</span>(<span class="code-string">"Counter: ${LocalCounter.current}"</span>)  <span class="code-comment">// 只有这个重组</span>
+}</code></pre>
+
+        <h2>六、常见使用场景</h2>
+
+        <h3>1. 导航控制器</h3>
+
+<pre><code><span class="code-keyword">val</span> LocalNavController = <span class="code-func">staticCompositionLocalOf</span>&lt;<span class="code-type">NavHostController</span>&gt; {
+    <span class="code-func">error</span>(<span class="code-string">"No NavController provided"</span>)
+}
+
+<span class="code-keyword">@Composable</span>
+<span class="code-keyword">fun</span> <span class="code-func">DeepNestedButton</span>() {
+    <span class="code-keyword">val</span> navController = LocalNavController.current
+    
+    <span class="code-func">Button</span>(onClick = { navController.<span class="code-func">navigate</span>(<span class="code-string">"detail/123"</span>) }) {
+        <span class="code-func">Text</span>(<span class="code-string">"查看详情"</span>)
+    }
+}</code></pre>
+
+        <h3>2. 用户会话</h3>
+
+<pre><code><span class="code-keyword">@Immutable</span>
+<span class="code-keyword">data class</span> <span class="code-type">UserSession</span>(
+    <span class="code-keyword">val</span> userId: <span class="code-type">String</span>?,
+    <span class="code-keyword">val</span> isLoggedIn: <span class="code-type">Boolean</span>,
+    <span class="code-keyword">val</span> permissions: <span class="code-type">Set</span>&lt;<span class="code-type">Permission</span>&gt;
+)
+
+<span class="code-keyword">val</span> LocalUserSession = <span class="code-func">compositionLocalOf</span> {
+    <span class="code-func">UserSession</span>(<span class="code-keyword">null</span>, <span class="code-keyword">false</span>, <span class="code-func">emptySet</span>())
+}</code></pre>
+
+        <h2>七、CompositionLocal vs 其他方案</h2>
+
+        <table class="comparison-table">
+            <thead>
+                <tr>
+                    <th>方案</th>
+                    <th>适用场景</th>
+                    <th>优点</th>
+                    <th>缺点</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr>
+                    <td><strong>参数传递</strong></td>
+                    <td>少量层级、明确依赖</td>
+                    <td>显式、易追踪</td>
+                    <td>层级多时繁琐</td>
+                </tr>
+                <tr>
+                    <td><strong>CompositionLocal</strong></td>
+                    <td>跨多层级的共享数据</td>
+                    <td>简洁、自动传递</td>
+                    <td>隐式依赖、难追踪</td>
+                </tr>
+                <tr>
+                    <td><strong>ViewModel</strong></td>
+                    <td>屏幕级状态、业务逻辑</td>
+                    <td>生命周期感知</td>
+                    <td>需要 Hilt 等 DI</td>
+                </tr>
+            </tbody>
+        </table>
+
+        <h2>八、常见陷阱</h2>
+
+        <h3>1. 忘记提供 Provider</h3>
+
+<pre><code><span class="code-comment">// ❌ 没有默认值，也没有 Provider，运行时崩溃</span>
+<span class="code-keyword">val</span> LocalData = <span class="code-func">staticCompositionLocalOf</span>&lt;<span class="code-type">Data</span>&gt; {
+    <span class="code-func">error</span>(<span class="code-string">"No Data provided"</span>)
+}
+
+<span class="code-keyword">@Composable</span>
+<span class="code-keyword">fun</span> <span class="code-func">Child</span>() {
+    <span class="code-keyword">val</span> data = LocalData.current  <span class="code-comment">// 💥 崩溃！</span>
+}
+
+<span class="code-comment">// ✅ 确保有 Provider</span>
+<span class="code-keyword">@Composable</span>
+<span class="code-keyword">fun</span> <span class="code-func">App</span>() {
+    <span class="code-func">CompositionLocalProvider</span>(LocalData <span class="code-keyword">provides</span> <span class="code-func">Data</span>()) {
+        <span class="code-func">Child</span>()
+    }
+}</code></pre>
+
+        <h3>2. 过度使用 CompositionLocal</h3>
+
+<pre><code><span class="code-comment">// ❌ 所有数据都用 CompositionLocal</span>
+<span class="code-keyword">val</span> LocalUserName = <span class="code-func">compositionLocalOf</span> { <span class="code-string">""</span> }
+<span class="code-keyword">val</span> LocalUserAge = <span class="code-func">compositionLocalOf</span> { <span class="code-number">0</span> }
+
+<span class="code-comment">// ✅ 组合成一个数据类</span>
+<span class="code-keyword">@Immutable</span>
+<span class="code-keyword">data class</span> <span class="code-type">User</span>(<span class="code-keyword">val</span> name: <span class="code-type">String</span>, <span class="code-keyword">val</span> age: <span class="code-type">Int</span>)
+<span class="code-keyword">val</span> LocalUser = <span class="code-func">compositionLocalOf</span>&lt;<span class="code-type">User</span>?&gt; { <span class="code-keyword">null</span> }</code></pre>
+
+        <h2>总结</h2>
+        <p>CompositionLocal 的核心要点：</p>
+        <ul>
+            <li><strong>用途</strong>：跨组件树传递共享数据，避免层层传参</li>
+            <li><strong>staticCompositionLocalOf</strong>：值很少变化，如主题、配置</li>
+            <li><strong>compositionLocalOf</strong>：值可能变化，需要精确重组控制</li>
+            <li><strong>CompositionLocalProvider</strong>：提供值，支持嵌套覆盖</li>
+            <li><strong>性能</strong>：注意选择合适的类型，避免不必要的重组</li>
+            <li><strong>适度使用</strong>：只用于真正需要跨层级共享的数据</li>
+        </ul>
+    </article>
+
+    <footer class="footer">
+        <p>&copy; 2024 Fidroid. <a href="../index.html">返回首页</a></p>
+    </footer>
+</body>
+</html>
+

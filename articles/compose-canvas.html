@@ -1,0 +1,376 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Compose Canvas 自定义绘制：图形、路径与动画 - Fidroid</title>
+    <meta name="description" content="深入学习 Compose Canvas API，掌握 DrawScope、Path、渐变等绘制技术，创建自定义图形和动画效果。">
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            line-height: 1.8;
+            color: #e5e7eb;
+            background: #020617;
+        }
+        .navbar {
+            background: rgba(15,23,42,0.98);
+            backdrop-filter: blur(10px);
+            position: fixed;
+            top: 0;
+            width: 100%;
+            z-index: 1000;
+        }
+        .nav-container {
+            max-width: 900px;
+            margin: 0 auto;
+            padding: 1rem 20px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .logo {
+            font-size: 1.5rem;
+            font-weight: bold;
+            color: #38bdf8;
+            text-decoration: none;
+            letter-spacing: 0.08em;
+            text-transform: uppercase;
+        }
+        .back-link { color: #9ca3af; text-decoration: none; font-size: 0.9rem; }
+        .back-link:hover { color: #38bdf8; }
+
+        .article-header {
+            padding: 120px 20px 60px;
+            background: radial-gradient(circle at top left, #f97316 0, transparent 50%),
+                        radial-gradient(circle at bottom right, #ec4899 0, transparent 55%),
+                        #020617;
+            text-align: center;
+        }
+        .article-header h1 {
+            max-width: 800px;
+            margin: 0 auto 1rem;
+            font-size: 2.5rem;
+            font-weight: 800;
+            letter-spacing: -0.03em;
+            color: #fff;
+        }
+        .article-meta { color: #9ca3af; font-size: 0.9rem; margin-bottom: 1.5rem; }
+        .article-tags { display: flex; justify-content: center; flex-wrap: wrap; gap: 0.5rem; }
+        .article-tag {
+            padding: 0.25rem 0.75rem;
+            border-radius: 999px;
+            font-size: 0.75rem;
+            background: rgba(15,23,42,0.85);
+            border: 1px solid rgba(249,115,22,0.4);
+            color: #fb923c;
+        }
+
+        .article-content {
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 60px 20px 80px;
+        }
+        .article-content h2 {
+            font-size: 1.6rem;
+            margin: 2.5rem 0 1rem;
+            color: #f9fafb;
+            border-left: 4px solid #f97316;
+            padding-left: 1rem;
+        }
+        .article-content h3 { font-size: 1.25rem; margin: 2rem 0 0.75rem; color: #e5e7eb; }
+        .article-content p { margin-bottom: 1.25rem; color: #d1d5db; }
+        .article-content ul, .article-content ol { margin: 1rem 0 1.5rem 1.5rem; color: #d1d5db; }
+        .article-content li { margin-bottom: 0.5rem; }
+        .article-content strong { color: #f9fafb; }
+        .article-content a { color: #38bdf8; text-decoration: underline; }
+
+        pre {
+            background: #0f172a;
+            border: 1px solid rgba(249,115,22,0.3);
+            border-radius: 12px;
+            padding: 1.25rem;
+            overflow-x: auto;
+            margin: 1.5rem 0;
+            font-size: 0.85rem;
+            line-height: 1.6;
+        }
+        code { font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace; color: #e5e7eb; }
+        .code-keyword { color: #c084fc; }
+        .code-func { color: #38bdf8; }
+        .code-type { color: #4ade80; }
+        .code-string { color: #fb7185; }
+        .code-comment { color: #6b7280; font-style: italic; }
+        .code-number { color: #fbbf24; }
+
+        .callout {
+            background: rgba(249,115,22,0.1);
+            border: 1px solid rgba(249,115,22,0.3);
+            border-radius: 12px;
+            padding: 1.25rem 1.5rem;
+            margin: 1.5rem 0;
+        }
+        .callout-title { font-weight: 600; color: #fb923c; margin-bottom: 0.5rem; }
+        .callout p { margin-bottom: 0; color: #d1d5db; }
+
+        .footer {
+            background: #020617;
+            border-top: 1px solid #111827;
+            padding: 2rem;
+            text-align: center;
+            color: #6b7280;
+        }
+        .footer a { color: #38bdf8; text-decoration: none; }
+    </style>
+</head>
+<body>
+    <nav class="navbar">
+        <div class="nav-container">
+            <a href="../index.html" class="logo">Fidroid</a>
+            <a href="../index.html#articles" class="back-link">← 返回博客列表</a>
+        </div>
+    </nav>
+
+    <header class="article-header">
+        <h1>Compose Canvas 自定义绘制：图形、路径与动画</h1>
+        <p class="article-meta">2024-05-12 · 28 min · 自定义绘制</p>
+        <div class="article-tags">
+            <span class="article-tag">Canvas</span>
+            <span class="article-tag">DrawScope</span>
+            <span class="article-tag">Path</span>
+            <span class="article-tag">自定义绘制</span>
+        </div>
+    </header>
+
+    <article class="article-content">
+        <p>当内置组件无法满足设计需求时，你需要使用 Canvas 进行自定义绘制。Compose 的 Canvas API 提供了强大而简洁的绘制能力，让你可以创建任意复杂的图形和动画效果。</p>
+
+        <h2>一、Canvas 基础</h2>
+        <h3>Canvas Composable</h3>
+
+<pre><code><span class="code-keyword">@Composable</span>
+<span class="code-keyword">fun</span> <span class="code-func">SimpleCanvas</span>() {
+    <span class="code-func">Canvas</span>(
+        modifier = <span class="code-type">Modifier</span>
+            .<span class="code-func">fillMaxWidth</span>()
+            .<span class="code-func">height</span>(<span class="code-number">200</span>.dp)
+    ) {
+        <span class="code-comment">// this: DrawScope</span>
+        <span class="code-comment">// size: Size - 画布尺寸</span>
+        <span class="code-comment">// center: Offset - 画布中心点</span>
+        
+        <span class="code-func">drawCircle</span>(
+            color = <span class="code-type">Color</span>.Blue,
+            radius = <span class="code-number">100f</span>,
+            center = center
+        )
+    }
+}</code></pre>
+
+        <h2>二、基础图形绘制</h2>
+        <h3>绘制矩形</h3>
+
+<pre><code><span class="code-func">Canvas</span>(modifier = <span class="code-type">Modifier</span>.<span class="code-func">size</span>(<span class="code-number">300</span>.dp)) {
+    <span class="code-comment">// 填充矩形</span>
+    <span class="code-func">drawRect</span>(
+        color = <span class="code-type">Color</span>.Blue,
+        topLeft = <span class="code-func">Offset</span>(<span class="code-number">20f</span>, <span class="code-number">20f</span>),
+        size = <span class="code-func">Size</span>(<span class="code-number">200f</span>, <span class="code-number">100f</span>)
+    )
+    
+    <span class="code-comment">// 描边矩形</span>
+    <span class="code-func">drawRect</span>(
+        color = <span class="code-type">Color</span>.Red,
+        topLeft = <span class="code-func">Offset</span>(<span class="code-number">20f</span>, <span class="code-number">140f</span>),
+        size = <span class="code-func">Size</span>(<span class="code-number">200f</span>, <span class="code-number">100f</span>),
+        style = <span class="code-func">Stroke</span>(width = <span class="code-number">4f</span>)
+    )
+    
+    <span class="code-comment">// 圆角矩形</span>
+    <span class="code-func">drawRoundRect</span>(
+        color = <span class="code-type">Color</span>.Green,
+        cornerRadius = <span class="code-func">CornerRadius</span>(<span class="code-number">16f</span>)
+    )
+}</code></pre>
+
+        <h3>绘制圆形和弧形</h3>
+
+<pre><code><span class="code-func">Canvas</span>(modifier = <span class="code-type">Modifier</span>.<span class="code-func">size</span>(<span class="code-number">300</span>.dp)) {
+    <span class="code-comment">// 圆形</span>
+    <span class="code-func">drawCircle</span>(
+        color = <span class="code-type">Color</span>.Blue,
+        radius = <span class="code-number">80f</span>,
+        center = <span class="code-func">Offset</span>(<span class="code-number">100f</span>, <span class="code-number">100f</span>)
+    )
+    
+    <span class="code-comment">// 弧线</span>
+    <span class="code-func">drawArc</span>(
+        color = <span class="code-type">Color</span>.Red,
+        startAngle = <span class="code-number">0f</span>,
+        sweepAngle = <span class="code-number">270f</span>,
+        useCenter = <span class="code-keyword">false</span>,
+        style = <span class="code-func">Stroke</span>(width = <span class="code-number">8f</span>, cap = <span class="code-type">StrokeCap</span>.Round)
+    )
+}</code></pre>
+
+        <h2>三、Path 路径绘制</h2>
+        <p>Path 是自定义绘制的核心，可以创建任意复杂的形状。</p>
+
+        <h3>基本 Path 操作</h3>
+
+<pre><code><span class="code-func">Canvas</span>(modifier = <span class="code-type">Modifier</span>.<span class="code-func">size</span>(<span class="code-number">300</span>.dp)) {
+    <span class="code-keyword">val</span> path = <span class="code-func">Path</span>().<span class="code-func">apply</span> {
+        <span class="code-func">moveTo</span>(<span class="code-number">50f</span>, <span class="code-number">200f</span>)       <span class="code-comment">// 移动到起点</span>
+        <span class="code-func">lineTo</span>(<span class="code-number">150f</span>, <span class="code-number">50f</span>)      <span class="code-comment">// 直线到下一点</span>
+        <span class="code-func">lineTo</span>(<span class="code-number">250f</span>, <span class="code-number">200f</span>)
+        <span class="code-func">close</span>()                  <span class="code-comment">// 闭合路径</span>
+    }
+    
+    <span class="code-func">drawPath</span>(path = path, color = <span class="code-type">Color</span>.Blue)
+}</code></pre>
+
+        <h3>贝塞尔曲线</h3>
+
+<pre><code><span class="code-keyword">val</span> path = <span class="code-func">Path</span>().<span class="code-func">apply</span> {
+    <span class="code-func">moveTo</span>(<span class="code-number">50f</span>, <span class="code-number">200f</span>)
+    
+    <span class="code-comment">// 二次贝塞尔曲线</span>
+    <span class="code-func">quadraticBezierTo</span>(
+        x1 = <span class="code-number">150f</span>, y1 = <span class="code-number">0f</span>,   <span class="code-comment">// 控制点</span>
+        x2 = <span class="code-number">250f</span>, y2 = <span class="code-number">200f</span>  <span class="code-comment">// 终点</span>
+    )
+}
+
+<span class="code-keyword">val</span> cubicPath = <span class="code-func">Path</span>().<span class="code-func">apply</span> {
+    <span class="code-func">moveTo</span>(<span class="code-number">50f</span>, <span class="code-number">350f</span>)
+    
+    <span class="code-comment">// 三次贝塞尔曲线</span>
+    <span class="code-func">cubicTo</span>(
+        x1 = <span class="code-number">100f</span>, y1 = <span class="code-number">200f</span>,  <span class="code-comment">// 控制点1</span>
+        x2 = <span class="code-number">200f</span>, y2 = <span class="code-number">500f</span>,  <span class="code-comment">// 控制点2</span>
+        x3 = <span class="code-number">250f</span>, y3 = <span class="code-number">350f</span>   <span class="code-comment">// 终点</span>
+    )
+}</code></pre>
+
+        <h2>四、渐变与画刷</h2>
+
+<pre><code><span class="code-func">Canvas</span>(modifier = <span class="code-type">Modifier</span>.<span class="code-func">size</span>(<span class="code-number">300</span>.dp)) {
+    <span class="code-comment">// 线性渐变</span>
+    <span class="code-keyword">val</span> linearGradient = <span class="code-type">Brush</span>.<span class="code-func">linearGradient</span>(
+        colors = <span class="code-func">listOf</span>(<span class="code-type">Color</span>.Red, <span class="code-type">Color</span>.Yellow, <span class="code-type">Color</span>.Green),
+        start = <span class="code-type">Offset</span>.Zero,
+        end = <span class="code-func">Offset</span>(size.width, size.height)
+    )
+    <span class="code-func">drawRect</span>(brush = linearGradient)
+    
+    <span class="code-comment">// 径向渐变</span>
+    <span class="code-keyword">val</span> radialGradient = <span class="code-type">Brush</span>.<span class="code-func">radialGradient</span>(
+        colors = <span class="code-func">listOf</span>(<span class="code-type">Color</span>.Yellow, <span class="code-type">Color</span>.Transparent),
+        center = center,
+        radius = size.minDimension / <span class="code-number">2</span>
+    )
+    <span class="code-func">drawCircle</span>(brush = radialGradient)
+}</code></pre>
+
+        <h2>五、实战：环形进度条</h2>
+
+<pre><code><span class="code-keyword">@Composable</span>
+<span class="code-keyword">fun</span> <span class="code-func">CircularProgressIndicator</span>(
+    progress: <span class="code-type">Float</span>,  <span class="code-comment">// 0f - 1f</span>
+    strokeWidth: <span class="code-type">Dp</span> = <span class="code-number">8</span>.dp,
+    trackColor: <span class="code-type">Color</span> = <span class="code-type">Color</span>.LightGray,
+    progressColor: <span class="code-type">Color</span> = <span class="code-type">Color</span>.Blue
+) {
+    <span class="code-func">Canvas</span>(modifier = <span class="code-type">Modifier</span>.<span class="code-func">size</span>(<span class="code-number">100</span>.dp)) {
+        <span class="code-keyword">val</span> stroke = strokeWidth.<span class="code-func">toPx</span>()
+        <span class="code-keyword">val</span> radius = (size.minDimension - stroke) / <span class="code-number">2</span>
+        
+        <span class="code-comment">// 绘制轨道</span>
+        <span class="code-func">drawCircle</span>(
+            color = trackColor,
+            radius = radius,
+            style = <span class="code-func">Stroke</span>(width = stroke)
+        )
+        
+        <span class="code-comment">// 绘制进度</span>
+        <span class="code-func">drawArc</span>(
+            color = progressColor,
+            startAngle = -<span class="code-number">90f</span>,
+            sweepAngle = <span class="code-number">360f</span> * progress,
+            useCenter = <span class="code-keyword">false</span>,
+            style = <span class="code-func">Stroke</span>(width = stroke, cap = <span class="code-type">StrokeCap</span>.Round)
+        )
+    }
+}</code></pre>
+
+        <h2>六、Canvas 动画</h2>
+
+<pre><code><span class="code-keyword">@Composable</span>
+<span class="code-keyword">fun</span> <span class="code-func">RotatingArc</span>() {
+    <span class="code-keyword">val</span> infiniteTransition = <span class="code-func">rememberInfiniteTransition</span>(label = <span class="code-string">"rotation"</span>)
+    <span class="code-keyword">val</span> rotation <span class="code-keyword">by</span> infiniteTransition.<span class="code-func">animateFloat</span>(
+        initialValue = <span class="code-number">0f</span>,
+        targetValue = <span class="code-number">360f</span>,
+        animationSpec = <span class="code-func">infiniteRepeatable</span>(
+            animation = <span class="code-func">tween</span>(<span class="code-number">2000</span>, easing = <span class="code-type">LinearEasing</span>)
+        ),
+        label = <span class="code-string">"rotation"</span>
+    )
+    
+    <span class="code-func">Canvas</span>(modifier = <span class="code-type">Modifier</span>.<span class="code-func">size</span>(<span class="code-number">100</span>.dp)) {
+        <span class="code-func">rotate</span>(rotation) {
+            <span class="code-func">drawArc</span>(
+                color = <span class="code-type">Color</span>.Blue,
+                startAngle = <span class="code-number">0f</span>,
+                sweepAngle = <span class="code-number">270f</span>,
+                useCenter = <span class="code-keyword">false</span>,
+                style = <span class="code-func">Stroke</span>(width = <span class="code-number">8f</span>, cap = <span class="code-type">StrokeCap</span>.Round)
+            )
+        }
+    }
+}</code></pre>
+
+        <h2>七、性能优化</h2>
+
+        <h3>使用 drawWithCache</h3>
+
+<pre><code><span class="code-keyword">@Composable</span>
+<span class="code-keyword">fun</span> <span class="code-func">CachedDrawing</span>() {
+    <span class="code-func">Box</span>(
+        modifier = <span class="code-type">Modifier</span>
+            .<span class="code-func">size</span>(<span class="code-number">200</span>.dp)
+            .<span class="code-func">drawWithCache</span> {
+                <span class="code-comment">// 这里的计算只在尺寸变化时执行</span>
+                <span class="code-keyword">val</span> path = <span class="code-func">Path</span>().<span class="code-func">apply</span> { ... }
+                <span class="code-keyword">val</span> brush = <span class="code-type">Brush</span>.<span class="code-func">linearGradient</span>(...)
+                
+                <span class="code-func">onDrawBehind</span> {
+                    <span class="code-comment">// 这里每帧执行，但使用缓存的对象</span>
+                    <span class="code-func">drawPath</span>(path, brush)
+                }
+            }
+    )
+}</code></pre>
+
+        <div class="callout">
+            <p class="callout-title">💡 性能建议</p>
+            <p>避免在 Canvas lambda 中创建对象（Path、Brush 等），使用 remember 或 drawWithCache 缓存复杂计算。</p>
+        </div>
+
+        <h2>总结</h2>
+        <ul>
+            <li><strong>Canvas Composable</strong>：提供 DrawScope，是自定义绘制的入口</li>
+            <li><strong>基础图形</strong>：drawRect、drawCircle、drawLine、drawArc</li>
+            <li><strong>Path</strong>：创建任意复杂形状，支持贝塞尔曲线</li>
+            <li><strong>Brush</strong>：线性、径向、扫描渐变</li>
+            <li><strong>动画</strong>：结合 animate*AsState 创建动态效果</li>
+            <li><strong>性能</strong>：使用 drawWithCache 缓存复杂计算</li>
+        </ul>
+    </article>
+
+    <footer class="footer">
+        <p>&copy; 2024 Fidroid. <a href="../index.html">返回首页</a></p>
+    </footer>
+</body>
+</html>
+
