@@ -1,0 +1,177 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Compose 表单处理完全指南：验证、状态管理与最佳实践 - Fidroid</title>
+    <meta name="description" content="深入学习 Compose 表单处理，掌握表单状态管理、验证策略、焦点管理、多步骤表单等最佳实践。">
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; line-height: 1.8; color: #e5e7eb; background: #020617; }
+        .navbar { background: rgba(15,23,42,0.98); backdrop-filter: blur(10px); position: fixed; top: 0; width: 100%; z-index: 1000; }
+        .nav-container { max-width: 900px; margin: 0 auto; padding: 1rem 20px; display: flex; justify-content: space-between; align-items: center; }
+        .logo { font-size: 1.5rem; font-weight: bold; color: #38bdf8; text-decoration: none; letter-spacing: 0.08em; text-transform: uppercase; }
+        .back-link { color: #9ca3af; text-decoration: none; font-size: 0.9rem; }
+        .back-link:hover { color: #38bdf8; }
+        .article-header { padding: 120px 20px 60px; background: radial-gradient(circle at top left, #f59e0b 0, transparent 50%), radial-gradient(circle at bottom right, #ef4444 0, transparent 55%), #020617; text-align: center; }
+        .article-header h1 { max-width: 800px; margin: 0 auto 1rem; font-size: 2.5rem; font-weight: 800; letter-spacing: -0.03em; color: #fff; }
+        .article-meta { color: #9ca3af; font-size: 0.9rem; margin-bottom: 1.5rem; }
+        .article-tags { display: flex; justify-content: center; flex-wrap: wrap; gap: 0.5rem; }
+        .article-tag { padding: 0.25rem 0.75rem; border-radius: 999px; font-size: 0.75rem; background: rgba(15,23,42,0.85); border: 1px solid rgba(245,158,11,0.4); color: #fbbf24; }
+        .article-content { max-width: 800px; margin: 0 auto; padding: 60px 20px 80px; }
+        .article-content h2 { font-size: 1.6rem; margin: 2.5rem 0 1rem; color: #f9fafb; border-left: 4px solid #f59e0b; padding-left: 1rem; }
+        .article-content h3 { font-size: 1.25rem; margin: 2rem 0 0.75rem; color: #e5e7eb; }
+        .article-content p { margin-bottom: 1.25rem; color: #d1d5db; }
+        .article-content ul { margin: 1rem 0 1.5rem 1.5rem; color: #d1d5db; }
+        .article-content li { margin-bottom: 0.5rem; }
+        .article-content strong { color: #f9fafb; }
+        pre { background: #0f172a; border: 1px solid rgba(245,158,11,0.3); border-radius: 12px; padding: 1.25rem; overflow-x: auto; margin: 1.5rem 0; font-size: 0.85rem; line-height: 1.6; }
+        code { font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace; color: #e5e7eb; }
+        .code-keyword { color: #c084fc; }
+        .code-func { color: #38bdf8; }
+        .code-type { color: #4ade80; }
+        .code-string { color: #fb7185; }
+        .code-comment { color: #6b7280; font-style: italic; }
+        .footer { background: #020617; border-top: 1px solid #111827; padding: 2rem; text-align: center; color: #6b7280; }
+        .footer a { color: #38bdf8; text-decoration: none; }
+    </style>
+</head>
+<body>
+    <nav class="navbar">
+        <div class="nav-container">
+            <a href="../index.html" class="logo">Fidroid</a>
+            <a href="../index.html#articles" class="back-link">← 返回博客列表</a>
+        </div>
+    </nav>
+
+    <header class="article-header">
+        <h1>Compose 表单处理完全指南：验证、状态管理与最佳实践</h1>
+        <p class="article-meta">2024-05-26 · 26 min · 表单处理</p>
+        <div class="article-tags">
+            <span class="article-tag">Form</span>
+            <span class="article-tag">Validation</span>
+            <span class="article-tag">TextField</span>
+            <span class="article-tag">表单</span>
+        </div>
+    </header>
+
+    <article class="article-content">
+        <p>表单是应用中最常见的交互形式之一。从简单的登录表单到复杂的多步骤注册流程，正确处理表单状态和验证是构建良好用户体验的关键。</p>
+
+        <h2>一、表单状态管理</h2>
+<pre><code><span class="code-keyword">data class</span> <span class="code-type">LoginFormState</span>(
+    <span class="code-keyword">val</span> email: <span class="code-type">String</span> = <span class="code-string">""</span>,
+    <span class="code-keyword">val</span> password: <span class="code-type">String</span> = <span class="code-string">""</span>,
+    <span class="code-keyword">val</span> rememberMe: <span class="code-type">Boolean</span> = <span class="code-keyword">false</span>
+)
+
+<span class="code-keyword">@Composable</span>
+<span class="code-keyword">fun</span> <span class="code-func">LoginForm</span>() {
+    <span class="code-keyword">var</span> formState <span class="code-keyword">by</span> <span class="code-func">remember</span> { <span class="code-func">mutableStateOf</span>(<span class="code-func">LoginFormState</span>()) }
+    
+    <span class="code-func">OutlinedTextField</span>(
+        value = formState.email,
+        onValueChange = { formState = formState.<span class="code-func">copy</span>(email = it) },
+        label = { <span class="code-func">Text</span>(<span class="code-string">"邮箱"</span>) }
+    )
+}</code></pre>
+
+        <h2>二、表单验证</h2>
+<pre><code><span class="code-keyword">data class</span> <span class="code-type">FormField</span>(
+    <span class="code-keyword">val</span> value: <span class="code-type">String</span> = <span class="code-string">""</span>,
+    <span class="code-keyword">val</span> error: <span class="code-type">String</span>? = <span class="code-keyword">null</span>
+)
+
+<span class="code-keyword">class</span> <span class="code-type">FormValidator</span> {
+    <span class="code-keyword">fun</span> <span class="code-func">validateEmail</span>(email: <span class="code-type">String</span>): <span class="code-type">String</span>? {
+        <span class="code-keyword">return when</span> {
+            email.<span class="code-func">isBlank</span>() -> <span class="code-string">"邮箱不能为空"</span>
+            !<span class="code-type">Patterns</span>.EMAIL_ADDRESS.<span class="code-func">matcher</span>(email).<span class="code-func">matches</span>() -> <span class="code-string">"邮箱格式不正确"</span>
+            <span class="code-keyword">else</span> -> <span class="code-keyword">null</span>
+        }
+    }
+    
+    <span class="code-keyword">fun</span> <span class="code-func">validatePassword</span>(password: <span class="code-type">String</span>): <span class="code-type">String</span>? {
+        <span class="code-keyword">return when</span> {
+            password.<span class="code-func">isBlank</span>() -> <span class="code-string">"密码不能为空"</span>
+            password.length < <span class="code-number">8</span> -> <span class="code-string">"密码至少8个字符"</span>
+            <span class="code-keyword">else</span> -> <span class="code-keyword">null</span>
+        }
+    }
+}</code></pre>
+
+        <h2>三、ViewModel 集成</h2>
+<pre><code><span class="code-keyword">class</span> <span class="code-type">LoginViewModel</span> : <span class="code-type">ViewModel</span>() {
+    <span class="code-keyword">private val</span> _formState = <span class="code-func">MutableStateFlow</span>(<span class="code-func">LoginFormState</span>())
+    <span class="code-keyword">val</span> formState = _formState.<span class="code-func">asStateFlow</span>()
+    
+    <span class="code-keyword">fun</span> <span class="code-func">onEmailChange</span>(email: <span class="code-type">String</span>) {
+        _formState.<span class="code-func">update</span> { it.<span class="code-func">copy</span>(email = email) }
+    }
+    
+    <span class="code-keyword">fun</span> <span class="code-func">submit</span>() {
+        viewModelScope.<span class="code-func">launch</span> {
+            <span class="code-comment">// 验证并提交</span>
+        }
+    }
+}</code></pre>
+
+        <h2>四、焦点管理</h2>
+<pre><code><span class="code-keyword">@Composable</span>
+<span class="code-keyword">fun</span> <span class="code-func">FormWithFocus</span>() {
+    <span class="code-keyword">val</span> focusManager = <span class="code-func">LocalFocusManager</span>.current
+    
+    <span class="code-func">OutlinedTextField</span>(
+        value = username,
+        onValueChange = { username = it },
+        keyboardOptions = <span class="code-func">KeyboardOptions</span>(imeAction = <span class="code-type">ImeAction</span>.Next),
+        keyboardActions = <span class="code-func">KeyboardActions</span>(
+            onNext = { focusManager.<span class="code-func">moveFocus</span>(<span class="code-type">FocusDirection</span>.Down) }
+        )
+    )
+}</code></pre>
+
+        <h2>五、多步骤表单</h2>
+<pre><code><span class="code-keyword">enum class</span> <span class="code-type">Step</span> { ACCOUNT, PERSONAL, PREFERENCES }
+
+<span class="code-keyword">@Composable</span>
+<span class="code-keyword">fun</span> <span class="code-func">MultiStepForm</span>() {
+    <span class="code-keyword">var</span> currentStep <span class="code-keyword">by</span> <span class="code-func">remember</span> { <span class="code-func">mutableStateOf</span>(<span class="code-type">Step</span>.ACCOUNT) }
+    
+    <span class="code-keyword">when</span> (currentStep) {
+        <span class="code-type">Step</span>.ACCOUNT -> <span class="code-func">AccountStep</span>()
+        <span class="code-type">Step</span>.PERSONAL -> <span class="code-func">PersonalStep</span>()
+        <span class="code-type">Step</span>.PREFERENCES -> <span class="code-func">PreferencesStep</span>()
+    }
+    
+    <span class="code-func">Button</span>(onClick = { <span class="code-comment">/* 下一步 */</span> }) {
+        <span class="code-func">Text</span>(<span class="code-string">"下一步"</span>)
+    }
+}</code></pre>
+
+        <h2>六、最佳实践</h2>
+        <ul>
+            <li>✅ 使用数据类封装表单状态</li>
+            <li>✅ 将验证逻辑与 UI 分离</li>
+            <li>✅ 提供清晰的错误提示</li>
+            <li>✅ 合理使用实时验证和提交验证</li>
+            <li>✅ 管理键盘焦点流转</li>
+            <li>✅ 在 ViewModel 中处理表单逻辑</li>
+        </ul>
+
+        <h2>总结</h2>
+        <ul>
+            <li><strong>状态管理</strong>：数据类封装表单字段</li>
+            <li><strong>验证策略</strong>：实时、失焦、提交验证</li>
+            <li><strong>ViewModel 集成</strong>：业务逻辑与 UI 分离</li>
+            <li><strong>焦点管理</strong>：FocusManager、FocusRequester</li>
+            <li><strong>多步骤表单</strong>：步骤指示器、状态保持</li>
+        </ul>
+    </article>
+
+    <footer class="footer">
+        <p>&copy; 2024 Fidroid. <a href="../index.html">返回首页</a></p>
+    </footer>
+</body>
+</html>
+

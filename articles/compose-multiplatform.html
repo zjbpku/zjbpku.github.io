@@ -1,0 +1,182 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Compose Multiplatform 入门：跨平台 UI 开发实战 - Fidroid</title>
+    <meta name="description" content="深入学习 Compose Multiplatform，掌握 KMP 项目配置、共享 UI、平台特定实现、资源管理等跨平台开发技术。">
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; line-height: 1.8; color: #e5e7eb; background: #020617; }
+        .navbar { background: rgba(15,23,42,0.98); backdrop-filter: blur(10px); position: fixed; top: 0; width: 100%; z-index: 1000; }
+        .nav-container { max-width: 900px; margin: 0 auto; padding: 1rem 20px; display: flex; justify-content: space-between; align-items: center; }
+        .logo { font-size: 1.5rem; font-weight: bold; color: #38bdf8; text-decoration: none; letter-spacing: 0.08em; text-transform: uppercase; }
+        .back-link { color: #9ca3af; text-decoration: none; font-size: 0.9rem; }
+        .back-link:hover { color: #38bdf8; }
+        .article-header { padding: 120px 20px 60px; background: radial-gradient(circle at top left, #7c3aed 0, transparent 50%), radial-gradient(circle at bottom right, #f97316 0, transparent 55%), #020617; text-align: center; }
+        .article-header h1 { max-width: 800px; margin: 0 auto 1rem; font-size: 2.5rem; font-weight: 800; letter-spacing: -0.03em; color: #fff; }
+        .article-meta { color: #9ca3af; font-size: 0.9rem; margin-bottom: 1.5rem; }
+        .article-tags { display: flex; justify-content: center; flex-wrap: wrap; gap: 0.5rem; }
+        .article-tag { padding: 0.25rem 0.75rem; border-radius: 999px; font-size: 0.75rem; background: rgba(15,23,42,0.85); border: 1px solid rgba(124,58,237,0.4); color: #a78bfa; }
+        .article-content { max-width: 800px; margin: 0 auto; padding: 60px 20px 80px; }
+        .article-content h2 { font-size: 1.6rem; margin: 2.5rem 0 1rem; color: #f9fafb; border-left: 4px solid #7c3aed; padding-left: 1rem; }
+        .article-content h3 { font-size: 1.25rem; margin: 2rem 0 0.75rem; color: #e5e7eb; }
+        .article-content p { margin-bottom: 1.25rem; color: #d1d5db; }
+        .article-content ul { margin: 1rem 0 1.5rem 1.5rem; color: #d1d5db; }
+        .article-content li { margin-bottom: 0.5rem; }
+        .article-content strong { color: #f9fafb; }
+        pre { background: #0f172a; border: 1px solid rgba(124,58,237,0.3); border-radius: 12px; padding: 1.25rem; overflow-x: auto; margin: 1.5rem 0; font-size: 0.85rem; line-height: 1.6; }
+        code { font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace; color: #e5e7eb; }
+        .code-keyword { color: #c084fc; }
+        .code-func { color: #38bdf8; }
+        .code-type { color: #4ade80; }
+        .code-string { color: #fb7185; }
+        .code-comment { color: #6b7280; font-style: italic; }
+        .comparison-table { width: 100%; border-collapse: collapse; margin: 1.5rem 0; font-size: 0.9rem; }
+        .comparison-table th, .comparison-table td { border: 1px solid rgba(148,163,184,0.3); padding: 0.75rem 1rem; text-align: left; }
+        .comparison-table th { background: rgba(15,23,42,0.8); color: #f9fafb; }
+        .comparison-table td { color: #d1d5db; }
+        .footer { background: #020617; border-top: 1px solid #111827; padding: 2rem; text-align: center; color: #6b7280; }
+        .footer a { color: #38bdf8; text-decoration: none; }
+    </style>
+</head>
+<body>
+    <nav class="navbar">
+        <div class="nav-container">
+            <a href="../index.html" class="logo">Fidroid</a>
+            <a href="../index.html#articles" class="back-link">← 返回博客列表</a>
+        </div>
+    </nav>
+
+    <header class="article-header">
+        <h1>Compose Multiplatform 入门：跨平台 UI 开发实战</h1>
+        <p class="article-meta">2024-05-22 · 28 min · 跨平台</p>
+        <div class="article-tags">
+            <span class="article-tag">KMP</span>
+            <span class="article-tag">Compose Multiplatform</span>
+            <span class="article-tag">跨平台</span>
+            <span class="article-tag">iOS</span>
+        </div>
+    </header>
+
+    <article class="article-content">
+        <p>Compose Multiplatform 是 JetBrains 基于 Jetpack Compose 打造的跨平台 UI 框架，让你可以用 Kotlin 和 Compose 编写一次代码，运行在 Android、iOS、Desktop 和 Web 上。</p>
+
+        <h2>一、与其他框架对比</h2>
+        <table class="comparison-table">
+            <thead>
+                <tr><th>特性</th><th>Compose Multiplatform</th><th>Flutter</th><th>React Native</th></tr>
+            </thead>
+            <tbody>
+                <tr><td>语言</td><td>Kotlin</td><td>Dart</td><td>JavaScript</td></tr>
+                <tr><td>UI 渲染</td><td>原生/Skia</td><td>Skia</td><td>原生组件</td></tr>
+                <tr><td>与原生互操作</td><td>无缝</td><td>需要 Channel</td><td>需要 Bridge</td></tr>
+            </tbody>
+        </table>
+
+        <h2>二、项目结构</h2>
+<pre><code>my-kmp-app/
+├── composeApp/
+│   ├── src/
+│   │   ├── commonMain/     <span class="code-comment"># 共享代码</span>
+│   │   ├── androidMain/    <span class="code-comment"># Android 特定</span>
+│   │   ├── iosMain/        <span class="code-comment"># iOS 特定</span>
+│   │   └── desktopMain/    <span class="code-comment"># Desktop 特定</span>
+├── iosApp/                 <span class="code-comment"># iOS 宿主应用</span>
+└── build.gradle.kts</code></pre>
+
+        <h2>三、共享 UI</h2>
+<pre><code><span class="code-comment">// commonMain/kotlin/App.kt</span>
+<span class="code-keyword">@Composable</span>
+<span class="code-keyword">fun</span> <span class="code-func">App</span>() {
+    <span class="code-func">MaterialTheme</span> {
+        <span class="code-keyword">var</span> count <span class="code-keyword">by</span> <span class="code-func">remember</span> { <span class="code-func">mutableStateOf</span>(<span class="code-number">0</span>) }
+        
+        <span class="code-func">Column</span>(
+            modifier = <span class="code-type">Modifier</span>.<span class="code-func">fillMaxSize</span>(),
+            horizontalAlignment = <span class="code-type">Alignment</span>.CenterHorizontally
+        ) {
+            <span class="code-func">Text</span>(<span class="code-string">"Count: $count"</span>)
+            <span class="code-func">Button</span>(onClick = { count++ }) {
+                <span class="code-func">Text</span>(<span class="code-string">"Increment"</span>)
+            }
+            <span class="code-func">Text</span>(<span class="code-string">"Running on: ${getPlatform().name}"</span>)
+        }
+    }
+}</code></pre>
+
+        <h2>四、expect/actual 机制</h2>
+<pre><code><span class="code-comment">// commonMain - 声明</span>
+<span class="code-keyword">interface</span> <span class="code-type">Platform</span> {
+    <span class="code-keyword">val</span> name: <span class="code-type">String</span>
+}
+<span class="code-keyword">expect fun</span> <span class="code-func">getPlatform</span>(): <span class="code-type">Platform</span>
+
+<span class="code-comment">// androidMain - 实现</span>
+<span class="code-keyword">class</span> <span class="code-type">AndroidPlatform</span> : <span class="code-type">Platform</span> {
+    <span class="code-keyword">override val</span> name = <span class="code-string">"Android ${android.os.Build.VERSION.SDK_INT}"</span>
+}
+<span class="code-keyword">actual fun</span> <span class="code-func">getPlatform</span>(): <span class="code-type">Platform</span> = <span class="code-func">AndroidPlatform</span>()
+
+<span class="code-comment">// iosMain - 实现</span>
+<span class="code-keyword">class</span> <span class="code-type">IOSPlatform</span> : <span class="code-type">Platform</span> {
+    <span class="code-keyword">override val</span> name = <span class="code-type">UIDevice</span>.currentDevice.systemName()
+}
+<span class="code-keyword">actual fun</span> <span class="code-func">getPlatform</span>(): <span class="code-type">Platform</span> = <span class="code-func">IOSPlatform</span>()</code></pre>
+
+        <h2>五、网络请求（Ktor）</h2>
+<pre><code><span class="code-keyword">class</span> <span class="code-type">ApiClient</span> {
+    <span class="code-keyword">private val</span> httpClient = <span class="code-func">HttpClient</span> {
+        <span class="code-func">install</span>(<span class="code-type">ContentNegotiation</span>) {
+            <span class="code-func">json</span>(<span class="code-func">Json</span> { ignoreUnknownKeys = <span class="code-keyword">true</span> })
+        }
+    }
+    
+    <span class="code-keyword">suspend fun</span> <span class="code-func">getUsers</span>(): <span class="code-type">List</span>&lt;<span class="code-type">User</span>&gt; {
+        <span class="code-keyword">return</span> httpClient.<span class="code-func">get</span>(<span class="code-string">"https://api.example.com/users"</span>).<span class="code-func">body</span>()
+    }
+}</code></pre>
+
+        <h2>六、ViewModel 共享</h2>
+<pre><code><span class="code-keyword">class</span> <span class="code-type">HomeViewModel</span> : <span class="code-type">ViewModel</span>() {
+    <span class="code-keyword">private val</span> _uiState = <span class="code-func">MutableStateFlow</span>(<span class="code-func">HomeUiState</span>())
+    <span class="code-keyword">val</span> uiState = _uiState.<span class="code-func">asStateFlow</span>()
+    
+    <span class="code-keyword">fun</span> <span class="code-func">loadUsers</span>() {
+        viewModelScope.<span class="code-func">launch</span> {
+            <span class="code-keyword">val</span> users = apiClient.<span class="code-func">getUsers</span>()
+            _uiState.<span class="code-func">update</span> { it.<span class="code-func">copy</span>(users = users) }
+        }
+    }
+}
+
+<span class="code-comment">// 使用</span>
+<span class="code-keyword">@Composable</span>
+<span class="code-keyword">fun</span> <span class="code-func">HomeScreen</span>(viewModel: <span class="code-type">HomeViewModel</span> = <span class="code-func">viewModel</span> { <span class="code-func">HomeViewModel</span>() }) {
+    <span class="code-keyword">val</span> uiState <span class="code-keyword">by</span> viewModel.uiState.<span class="code-func">collectAsState</span>()
+}</code></pre>
+
+        <h2>七、最佳实践</h2>
+        <ul>
+            <li>✅ 最大化共享代码：业务逻辑、ViewModel 放在 commonMain</li>
+            <li>✅ 使用 expect/actual 处理平台差异</li>
+            <li>✅ 资源放在 composeResources 目录</li>
+            <li>✅ 使用 Koin 或手动 DI 管理依赖</li>
+            <li>✅ 为每个平台配置独立的 CI/CD</li>
+        </ul>
+
+        <h2>总结</h2>
+        <ul>
+            <li><strong>KMP + Compose</strong>：共享业务逻辑 + 共享 UI</li>
+            <li><strong>expect/actual</strong>：处理平台差异</li>
+            <li><strong>Ktor</strong>：跨平台网络请求</li>
+            <li><strong>资源管理</strong>：统一管理图片、字符串</li>
+        </ul>
+    </article>
+
+    <footer class="footer">
+        <p>&copy; 2024 Fidroid. <a href="../index.html">返回首页</a></p>
+    </footer>
+</body>
+</html>
+
