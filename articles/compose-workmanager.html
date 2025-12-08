@@ -1,0 +1,159 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Compose + WorkManager：后台任务处理最佳实践 - Fidroid</title>
+    <meta name="description" content="深入学习 WorkManager 在 Compose 中的集成，掌握 Worker 创建、任务调度、状态观察等最佳实践。">
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; line-height: 1.8; color: #e5e7eb; background: #020617; }
+        .navbar { background: rgba(15,23,42,0.98); backdrop-filter: blur(10px); position: fixed; top: 0; width: 100%; z-index: 1000; }
+        .nav-container { max-width: 900px; margin: 0 auto; padding: 1rem 20px; display: flex; justify-content: space-between; align-items: center; }
+        .logo { font-size: 1.5rem; font-weight: bold; color: #38bdf8; text-decoration: none; letter-spacing: 0.08em; text-transform: uppercase; }
+        .back-link { color: #9ca3af; text-decoration: none; font-size: 0.9rem; }
+        .back-link:hover { color: #38bdf8; }
+        .article-header { padding: 120px 20px 60px; background: radial-gradient(circle at top left, #059669 0, transparent 50%), radial-gradient(circle at bottom right, #0284c7 0, transparent 55%), #020617; text-align: center; }
+        .article-header h1 { max-width: 800px; margin: 0 auto 1rem; font-size: 2.5rem; font-weight: 800; letter-spacing: -0.03em; color: #fff; }
+        .article-meta { color: #9ca3af; font-size: 0.9rem; margin-bottom: 1.5rem; }
+        .article-tags { display: flex; justify-content: center; flex-wrap: wrap; gap: 0.5rem; }
+        .article-tag { padding: 0.25rem 0.75rem; border-radius: 999px; font-size: 0.75rem; background: rgba(15,23,42,0.85); border: 1px solid rgba(5,150,105,0.4); color: #34d399; }
+        .article-content { max-width: 800px; margin: 0 auto; padding: 60px 20px 80px; }
+        .article-content h2 { font-size: 1.6rem; margin: 2.5rem 0 1rem; color: #f9fafb; border-left: 4px solid #059669; padding-left: 1rem; }
+        .article-content h3 { font-size: 1.25rem; margin: 2rem 0 0.75rem; color: #e5e7eb; }
+        .article-content p { margin-bottom: 1.25rem; color: #d1d5db; }
+        .article-content ul { margin: 1rem 0 1.5rem 1.5rem; color: #d1d5db; }
+        .article-content li { margin-bottom: 0.5rem; }
+        .article-content strong { color: #f9fafb; }
+        pre { background: #0f172a; border: 1px solid rgba(5,150,105,0.3); border-radius: 12px; padding: 1.25rem; overflow-x: auto; margin: 1.5rem 0; font-size: 0.85rem; line-height: 1.6; }
+        code { font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace; color: #e5e7eb; }
+        .code-keyword { color: #c084fc; }
+        .code-func { color: #38bdf8; }
+        .code-type { color: #4ade80; }
+        .code-string { color: #fb7185; }
+        .code-comment { color: #6b7280; font-style: italic; }
+        .footer { background: #020617; border-top: 1px solid #111827; padding: 2rem; text-align: center; color: #6b7280; }
+        .footer a { color: #38bdf8; text-decoration: none; }
+    </style>
+</head>
+<body>
+    <nav class="navbar">
+        <div class="nav-container">
+            <a href="../index.html" class="logo">Fidroid</a>
+            <a href="../index.html#articles" class="back-link">← 返回博客列表</a>
+        </div>
+    </nav>
+
+    <header class="article-header">
+        <h1>Compose + WorkManager：后台任务处理最佳实践</h1>
+        <p class="article-meta">2024-06-01 · 24 min · 后台任务</p>
+        <div class="article-tags">
+            <span class="article-tag">WorkManager</span>
+            <span class="article-tag">Background</span>
+            <span class="article-tag">Worker</span>
+            <span class="article-tag">后台任务</span>
+        </div>
+    </header>
+
+    <article class="article-content">
+        <p>WorkManager 是 Android 官方推荐的后台任务解决方案，用于处理需要保证执行的延迟任务。本文将深入讲解如何在 Compose 应用中集成 WorkManager。</p>
+
+        <h2>一、创建 Worker</h2>
+<pre><code><span class="code-keyword">class</span> <span class="code-type">UploadLogsWorker</span>(
+    context: <span class="code-type">Context</span>,
+    params: <span class="code-type">WorkerParameters</span>
+) : <span class="code-type">CoroutineWorker</span>(context, params) {
+    
+    <span class="code-keyword">override suspend fun</span> <span class="code-func">doWork</span>(): <span class="code-type">Result</span> {
+        <span class="code-keyword">return try</span> {
+            <span class="code-keyword">val</span> userId = inputData.<span class="code-func">getString</span>(<span class="code-string">"user_id"</span>)
+            <span class="code-func">uploadLogs</span>(userId)
+            <span class="code-type">Result</span>.<span class="code-func">success</span>()
+        } <span class="code-keyword">catch</span> (e: <span class="code-type">Exception</span>) {
+            <span class="code-type">Result</span>.<span class="code-func">retry</span>()
+        }
+    }
+}</code></pre>
+
+        <h2>二、调度任务</h2>
+<pre><code><span class="code-keyword">val</span> request = <span class="code-func">OneTimeWorkRequestBuilder</span>&lt;<span class="code-type">UploadLogsWorker</span>&gt;()
+    .<span class="code-func">setInputData</span>(<span class="code-func">workDataOf</span>(<span class="code-string">"user_id"</span> <span class="code-keyword">to</span> userId))
+    .<span class="code-func">setConstraints</span>(
+        <span class="code-type">Constraints</span>.<span class="code-func">Builder</span>()
+            .<span class="code-func">setRequiredNetworkType</span>(<span class="code-type">NetworkType</span>.CONNECTED)
+            .<span class="code-func">build</span>()
+    )
+    .<span class="code-func">build</span>()
+
+<span class="code-type">WorkManager</span>.<span class="code-func">getInstance</span>(context).<span class="code-func">enqueue</span>(request)</code></pre>
+
+        <h2>三、在 Compose 中观察状态</h2>
+<pre><code><span class="code-keyword">@Composable</span>
+<span class="code-keyword">fun</span> <span class="code-func">WorkStatusScreen</span>(workId: <span class="code-type">UUID</span>) {
+    <span class="code-keyword">val</span> context = <span class="code-func">LocalContext</span>.current
+    <span class="code-keyword">val</span> workInfo <span class="code-keyword">by</span> <span class="code-type">WorkManager</span>.<span class="code-func">getInstance</span>(context)
+        .<span class="code-func">getWorkInfoByIdFlow</span>(workId)
+        .<span class="code-func">collectAsState</span>(initial = <span class="code-keyword">null</span>)
+    
+    <span class="code-keyword">when</span> (workInfo?.state) {
+        <span class="code-type">WorkInfo.State</span>.RUNNING -> <span class="code-func">CircularProgressIndicator</span>()
+        <span class="code-type">WorkInfo.State</span>.SUCCEEDED -> <span class="code-func">Text</span>(<span class="code-string">"完成！"</span>)
+        <span class="code-type">WorkInfo.State</span>.FAILED -> <span class="code-func">Text</span>(<span class="code-string">"失败"</span>)
+        <span class="code-keyword">else</span> -> <span class="code-func">Text</span>(<span class="code-string">"等待中..."</span>)
+    }
+}</code></pre>
+
+        <h2>四、带进度的 Worker</h2>
+<pre><code><span class="code-keyword">class</span> <span class="code-type">DownloadWorker</span>(...) : <span class="code-type">CoroutineWorker</span>(...) {
+    <span class="code-keyword">override suspend fun</span> <span class="code-func">doWork</span>(): <span class="code-type">Result</span> {
+        <span class="code-keyword">for</span> (i <span class="code-keyword">in</span> <span class="code-number">0</span>..<span class="code-number">100</span> step <span class="code-number">10</span>) {
+            <span class="code-func">delay</span>(<span class="code-number">500</span>)
+            <span class="code-func">setProgress</span>(<span class="code-func">workDataOf</span>(<span class="code-string">"progress"</span> <span class="code-keyword">to</span> i))
+        }
+        <span class="code-keyword">return</span> <span class="code-type">Result</span>.<span class="code-func">success</span>()
+    }
+}
+
+<span class="code-comment">// 观察进度</span>
+<span class="code-keyword">val</span> progress = workInfo?.progress?.<span class="code-func">getInt</span>(<span class="code-string">"progress"</span>, <span class="code-number">0</span>) ?: <span class="code-number">0</span></code></pre>
+
+        <h2>五、Hilt 集成</h2>
+<pre><code><span class="code-keyword">@HiltWorker</span>
+<span class="code-keyword">class</span> <span class="code-type">SyncWorker</span> <span class="code-keyword">@AssistedInject constructor</span>(
+    <span class="code-keyword">@Assisted</span> context: <span class="code-type">Context</span>,
+    <span class="code-keyword">@Assisted</span> params: <span class="code-type">WorkerParameters</span>,
+    <span class="code-keyword">private val</span> repository: <span class="code-type">DataRepository</span>
+) : <span class="code-type">CoroutineWorker</span>(context, params) {
+    
+    <span class="code-keyword">override suspend fun</span> <span class="code-func">doWork</span>(): <span class="code-type">Result</span> {
+        repository.<span class="code-func">syncData</span>()
+        <span class="code-keyword">return</span> <span class="code-type">Result</span>.<span class="code-func">success</span>()
+    }
+}</code></pre>
+
+        <h2>六、最佳实践</h2>
+        <ul>
+            <li>✅ 使用 <code>CoroutineWorker</code> 支持协程</li>
+            <li>✅ 设置合理的约束条件</li>
+            <li>✅ 实现重试策略和错误处理</li>
+            <li>✅ 使用 <code>enqueueUniqueWork</code> 避免重复</li>
+            <li>✅ 通过 Flow 观察任务状态</li>
+            <li>✅ 使用 Hilt 注入 Worker 依赖</li>
+        </ul>
+
+        <h2>总结</h2>
+        <ul>
+            <li><strong>CoroutineWorker</strong>：支持协程的 Worker</li>
+            <li><strong>约束条件</strong>：网络、电量等限制</li>
+            <li><strong>Flow 观察</strong>：实时显示任务状态</li>
+            <li><strong>进度更新</strong>：setProgress 报告进度</li>
+            <li><strong>Hilt 集成</strong>：@HiltWorker 注入依赖</li>
+        </ul>
+    </article>
+
+    <footer class="footer">
+        <p>&copy; 2024 Fidroid. <a href="../index.html">返回首页</a></p>
+    </footer>
+</body>
+</html>
+

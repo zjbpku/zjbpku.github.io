@@ -1,0 +1,149 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Compose 调试技巧：Layout Inspector 与性能分析 - Fidroid</title>
+    <meta name="description" content="深入学习 Compose 调试技巧，掌握 Layout Inspector、重组追踪、性能分析等工具的使用方法。">
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; line-height: 1.8; color: #e5e7eb; background: #020617; }
+        .navbar { background: rgba(15,23,42,0.98); backdrop-filter: blur(10px); position: fixed; top: 0; width: 100%; z-index: 1000; }
+        .nav-container { max-width: 900px; margin: 0 auto; padding: 1rem 20px; display: flex; justify-content: space-between; align-items: center; }
+        .logo { font-size: 1.5rem; font-weight: bold; color: #38bdf8; text-decoration: none; letter-spacing: 0.08em; text-transform: uppercase; }
+        .back-link { color: #9ca3af; text-decoration: none; font-size: 0.9rem; }
+        .back-link:hover { color: #38bdf8; }
+        .article-header { padding: 120px 20px 60px; background: radial-gradient(circle at top left, #dc2626 0, transparent 50%), radial-gradient(circle at bottom right, #7c3aed 0, transparent 55%), #020617; text-align: center; }
+        .article-header h1 { max-width: 800px; margin: 0 auto 1rem; font-size: 2.5rem; font-weight: 800; letter-spacing: -0.03em; color: #fff; }
+        .article-meta { color: #9ca3af; font-size: 0.9rem; margin-bottom: 1.5rem; }
+        .article-tags { display: flex; justify-content: center; flex-wrap: wrap; gap: 0.5rem; }
+        .article-tag { padding: 0.25rem 0.75rem; border-radius: 999px; font-size: 0.75rem; background: rgba(15,23,42,0.85); border: 1px solid rgba(220,38,38,0.4); color: #f87171; }
+        .article-content { max-width: 800px; margin: 0 auto; padding: 60px 20px 80px; }
+        .article-content h2 { font-size: 1.6rem; margin: 2.5rem 0 1rem; color: #f9fafb; border-left: 4px solid #dc2626; padding-left: 1rem; }
+        .article-content h3 { font-size: 1.25rem; margin: 2rem 0 0.75rem; color: #e5e7eb; }
+        .article-content p { margin-bottom: 1.25rem; color: #d1d5db; }
+        .article-content ul, .article-content ol { margin: 1rem 0 1.5rem 1.5rem; color: #d1d5db; }
+        .article-content li { margin-bottom: 0.5rem; }
+        .article-content strong { color: #f9fafb; }
+        pre { background: #0f172a; border: 1px solid rgba(220,38,38,0.3); border-radius: 12px; padding: 1.25rem; overflow-x: auto; margin: 1.5rem 0; font-size: 0.85rem; line-height: 1.6; }
+        code { font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace; color: #e5e7eb; }
+        .code-keyword { color: #c084fc; }
+        .code-func { color: #38bdf8; }
+        .code-type { color: #4ade80; }
+        .code-string { color: #fb7185; }
+        .code-comment { color: #6b7280; font-style: italic; }
+        .footer { background: #020617; border-top: 1px solid #111827; padding: 2rem; text-align: center; color: #6b7280; }
+        .footer a { color: #38bdf8; text-decoration: none; }
+    </style>
+</head>
+<body>
+    <nav class="navbar">
+        <div class="nav-container">
+            <a href="../index.html" class="logo">Fidroid</a>
+            <a href="../index.html#articles" class="back-link">← 返回博客列表</a>
+        </div>
+    </nav>
+
+    <header class="article-header">
+        <h1>Compose 调试技巧：Layout Inspector 与性能分析</h1>
+        <p class="article-meta">2024-05-30 · 22 min · 调试</p>
+        <div class="article-tags">
+            <span class="article-tag">Debug</span>
+            <span class="article-tag">Layout Inspector</span>
+            <span class="article-tag">Recomposition</span>
+            <span class="article-tag">Performance</span>
+        </div>
+    </header>
+
+    <article class="article-content">
+        <p>调试是开发过程中不可或缺的一环。Compose 提供了丰富的调试工具，从 Layout Inspector 到重组追踪，帮助你快速定位和解决问题。</p>
+
+        <h2>一、Layout Inspector</h2>
+        <p>Layout Inspector 是 Android Studio 内置的布局检查工具，支持 Compose 实时检查。</p>
+        <ol>
+            <li>运行应用到设备或模拟器</li>
+            <li>菜单：View → Tool Windows → Layout Inspector</li>
+            <li>选择正在运行的进程</li>
+        </ol>
+        <p>可以查看：修饰符链、参数值、尺寸位置、重组次数。</p>
+
+        <h2>二、重组追踪</h2>
+<pre><code><span class="code-keyword">@Composable</span>
+<span class="code-keyword">fun</span> <span class="code-func">TrackedComposable</span>(data: <span class="code-type">String</span>) {
+    <span class="code-func">SideEffect</span> {
+        <span class="code-type">Log</span>.<span class="code-func">d</span>(<span class="code-string">"Recomposition"</span>, <span class="code-string">"Recomposed with: $data"</span>)
+    }
+    
+    <span class="code-func">Text</span>(text = data)
+}</code></pre>
+
+        <h3>重组计数器</h3>
+<pre><code><span class="code-keyword">@Composable</span>
+<span class="code-keyword">fun</span> <span class="code-func">RecompositionCounter</span>(name: <span class="code-type">String</span>) {
+    <span class="code-keyword">val</span> count = <span class="code-func">remember</span> { <span class="code-func">mutableIntStateOf</span>(<span class="code-number">0</span>) }
+    <span class="code-func">SideEffect</span> { count.intValue++ }
+    
+    <span class="code-keyword">if</span> (<span class="code-type">BuildConfig</span>.DEBUG) {
+        <span class="code-func">Text</span>(<span class="code-string">"$name: ${count.intValue}"</span>, color = <span class="code-type">Color</span>.Red)
+    }
+}</code></pre>
+
+        <h2>三、编译器报告</h2>
+<pre><code><span class="code-comment">// build.gradle.kts</span>
+composeCompiler {
+    reportsDestination = layout.buildDirectory.<span class="code-func">dir</span>(<span class="code-string">"compose_reports"</span>)
+    metricsDestination = layout.buildDirectory.<span class="code-func">dir</span>(<span class="code-string">"compose_metrics"</span>)
+}</code></pre>
+        <p>生成类稳定性信息和 Composable 函数详情。</p>
+
+        <h2>四、常见问题调试</h2>
+        <h3>无限重组</h3>
+<pre><code><span class="code-comment">// ❌ 错误：在组合中修改状态</span>
+<span class="code-keyword">@Composable</span>
+<span class="code-keyword">fun</span> <span class="code-func">InfiniteRecomposition</span>() {
+    <span class="code-keyword">var</span> count <span class="code-keyword">by</span> <span class="code-func">remember</span> { <span class="code-func">mutableIntStateOf</span>(<span class="code-number">0</span>) }
+    count++ <span class="code-comment">// 触发无限重组！</span>
+}
+
+<span class="code-comment">// ✅ 正确：在事件中修改状态</span>
+<span class="code-keyword">@Composable</span>
+<span class="code-keyword">fun</span> <span class="code-func">CorrectRecomposition</span>() {
+    <span class="code-keyword">var</span> count <span class="code-keyword">by</span> <span class="code-func">remember</span> { <span class="code-func">mutableIntStateOf</span>(<span class="code-number">0</span>) }
+    <span class="code-func">Button</span>(onClick = { count++ }) {
+        <span class="code-func">Text</span>(<span class="code-string">"Count: $count"</span>)
+    }
+}</code></pre>
+
+        <h2>五、调试工具函数</h2>
+<pre><code><span class="code-keyword">fun</span> <span class="code-type">Modifier</span>.<span class="code-func">debugBorder</span>(color: <span class="code-type">Color</span> = <span class="code-type">Color</span>.Red) = 
+    <span class="code-keyword">if</span> (<span class="code-type">BuildConfig</span>.DEBUG) {
+        <span class="code-keyword">this</span>.<span class="code-func">border</span>(<span class="code-number">1</span>.dp, color)
+    } <span class="code-keyword">else</span> {
+        <span class="code-keyword">this</span>
+    }</code></pre>
+
+        <h2>六、最佳实践</h2>
+        <ul>
+            <li>✅ 使用 Layout Inspector 检查层级</li>
+            <li>✅ 开启重组高亮定位问题</li>
+            <li>✅ 使用编译器报告分析稳定性</li>
+            <li>✅ 使用 CPU/Memory Profiler</li>
+            <li>✅ 使用 remember 避免重复创建对象</li>
+            <li>✅ 调试代码仅在 DEBUG 模式启用</li>
+        </ul>
+
+        <h2>总结</h2>
+        <ul>
+            <li><strong>Layout Inspector</strong>：检查 Compose 层级</li>
+            <li><strong>重组追踪</strong>：定位不必要的重组</li>
+            <li><strong>编译器报告</strong>：分析稳定性</li>
+            <li><strong>Profiler</strong>：性能和内存分析</li>
+        </ul>
+    </article>
+
+    <footer class="footer">
+        <p>&copy; 2024 Fidroid. <a href="../index.html">返回首页</a></p>
+    </footer>
+</body>
+</html>
+
