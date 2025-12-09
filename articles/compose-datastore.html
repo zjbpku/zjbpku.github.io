@@ -1,0 +1,134 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Compose + DataStore：数据持久化最佳实践 - Fidroid</title>
+    <meta name="description" content="深入学习 DataStore 在 Compose 中的使用，掌握 Preferences DataStore、Proto DataStore、迁移策略等最佳实践。">
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; line-height: 1.8; color: #e5e7eb; background: #020617; }
+        .navbar { background: rgba(15,23,42,0.98); backdrop-filter: blur(10px); position: fixed; top: 0; width: 100%; z-index: 1000; }
+        .nav-container { max-width: 900px; margin: 0 auto; padding: 1rem 20px; display: flex; justify-content: space-between; align-items: center; }
+        .logo { font-size: 1.5rem; font-weight: bold; color: #38bdf8; text-decoration: none; letter-spacing: 0.08em; text-transform: uppercase; }
+        .back-link { color: #9ca3af; text-decoration: none; font-size: 0.9rem; }
+        .back-link:hover { color: #38bdf8; }
+        .article-header { padding: 120px 20px 60px; background: radial-gradient(circle at top left, #0d9488 0, transparent 50%), radial-gradient(circle at bottom right, #6366f1 0, transparent 55%), #020617; text-align: center; }
+        .article-header h1 { max-width: 800px; margin: 0 auto 1rem; font-size: 2.5rem; font-weight: 800; letter-spacing: -0.03em; color: #fff; }
+        .article-meta { color: #9ca3af; font-size: 0.9rem; margin-bottom: 1.5rem; }
+        .article-tags { display: flex; justify-content: center; flex-wrap: wrap; gap: 0.5rem; }
+        .article-tag { padding: 0.25rem 0.75rem; border-radius: 999px; font-size: 0.75rem; background: rgba(15,23,42,0.85); border: 1px solid rgba(13,148,136,0.4); color: #2dd4bf; }
+        .article-content { max-width: 800px; margin: 0 auto; padding: 60px 20px 80px; }
+        .article-content h2 { font-size: 1.6rem; margin: 2.5rem 0 1rem; color: #f9fafb; border-left: 4px solid #0d9488; padding-left: 1rem; }
+        .article-content h3 { font-size: 1.25rem; margin: 2rem 0 0.75rem; color: #e5e7eb; }
+        .article-content p { margin-bottom: 1.25rem; color: #d1d5db; }
+        .article-content ul { margin: 1rem 0 1.5rem 1.5rem; color: #d1d5db; }
+        .article-content li { margin-bottom: 0.5rem; }
+        .article-content strong { color: #f9fafb; }
+        pre { background: #0f172a; border: 1px solid rgba(13,148,136,0.3); border-radius: 12px; padding: 1.25rem; overflow-x: auto; margin: 1.5rem 0; font-size: 0.85rem; line-height: 1.6; }
+        code { font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace; color: #e5e7eb; }
+        .code-keyword { color: #c084fc; }
+        .code-func { color: #38bdf8; }
+        .code-type { color: #4ade80; }
+        .code-string { color: #fb7185; }
+        .code-comment { color: #6b7280; font-style: italic; }
+        .footer { background: #020617; border-top: 1px solid #111827; padding: 2rem; text-align: center; color: #6b7280; }
+        .footer a { color: #38bdf8; text-decoration: none; }
+    </style>
+</head>
+<body>
+    <nav class="navbar">
+        <div class="nav-container">
+            <a href="../index.html" class="logo">Fidroid</a>
+            <a href="../index.html#articles" class="back-link">← 返回博客列表</a>
+        </div>
+    </nav>
+
+    <header class="article-header">
+        <h1>Compose + DataStore：数据持久化最佳实践</h1>
+        <p class="article-meta">2024-06-07 · 22 min · 持久化</p>
+        <div class="article-tags">
+            <span class="article-tag">DataStore</span>
+            <span class="article-tag">Preferences</span>
+            <span class="article-tag">Proto</span>
+            <span class="article-tag">持久化</span>
+        </div>
+    </header>
+
+    <article class="article-content">
+        <p>DataStore 是 Android 官方推荐的数据持久化方案，用于替代 SharedPreferences。它提供异步、一致性的 API，并与 Kotlin 协程和 Flow 无缝集成。</p>
+
+        <h2>一、Preferences DataStore</h2>
+<pre><code><span class="code-comment">// 创建 DataStore</span>
+<span class="code-keyword">val</span> <span class="code-type">Context</span>.settingsDataStore: <span class="code-type">DataStore</span>&lt;<span class="code-type">Preferences</span>&gt; <span class="code-keyword">by</span> <span class="code-func">preferencesDataStore</span>(
+    name = <span class="code-string">"settings"</span>
+)
+
+<span class="code-comment">// 定义键</span>
+<span class="code-keyword">object</span> <span class="code-type">PreferencesKeys</span> {
+    <span class="code-keyword">val</span> THEME_MODE = <span class="code-func">stringPreferencesKey</span>(<span class="code-string">"theme_mode"</span>)
+    <span class="code-keyword">val</span> NOTIFICATIONS_ENABLED = <span class="code-func">booleanPreferencesKey</span>(<span class="code-string">"notifications_enabled"</span>)
+}</code></pre>
+
+        <h2>二、读写数据</h2>
+<pre><code><span class="code-keyword">class</span> <span class="code-type">SettingsRepository</span>(<span class="code-keyword">private val</span> dataStore: <span class="code-type">DataStore</span>&lt;<span class="code-type">Preferences</span>&gt;) {
+    
+    <span class="code-comment">// 读取（返回 Flow）</span>
+    <span class="code-keyword">val</span> themeMode: <span class="code-type">Flow</span>&lt;<span class="code-type">String</span>&gt; = dataStore.data
+        .<span class="code-func">map</span> { preferences ->
+            preferences[<span class="code-type">PreferencesKeys</span>.THEME_MODE] ?: <span class="code-string">"system"</span>
+        }
+    
+    <span class="code-comment">// 写入</span>
+    <span class="code-keyword">suspend fun</span> <span class="code-func">setThemeMode</span>(mode: <span class="code-type">String</span>) {
+        dataStore.<span class="code-func">edit</span> { preferences ->
+            preferences[<span class="code-type">PreferencesKeys</span>.THEME_MODE] = mode
+        }
+    }
+}</code></pre>
+
+        <h2>三、在 Compose 中使用</h2>
+<pre><code><span class="code-keyword">@Composable</span>
+<span class="code-keyword">fun</span> <span class="code-func">SettingsScreen</span>(viewModel: <span class="code-type">SettingsViewModel</span> = <span class="code-func">hiltViewModel</span>()) {
+    <span class="code-keyword">val</span> themeMode <span class="code-keyword">by</span> viewModel.themeMode.<span class="code-func">collectAsState</span>()
+    
+    <span class="code-func">ThemeModeSelector</span>(
+        currentMode = themeMode,
+        onModeSelected = { viewModel.<span class="code-func">setThemeMode</span>(it) }
+    )
+}</code></pre>
+
+        <h2>四、从 SharedPreferences 迁移</h2>
+<pre><code><span class="code-keyword">val</span> <span class="code-type">Context</span>.dataStore: <span class="code-type">DataStore</span>&lt;<span class="code-type">Preferences</span>&gt; <span class="code-keyword">by</span> <span class="code-func">preferencesDataStore</span>(
+    name = <span class="code-string">"settings"</span>,
+    produceMigrations = { context ->
+        <span class="code-func">listOf</span>(
+            <span class="code-func">SharedPreferencesMigration</span>(context, <span class="code-string">"old_settings"</span>)
+        )
+    }
+)</code></pre>
+
+        <h2>五、最佳实践</h2>
+        <ul>
+            <li>✅ 在顶层声明 DataStore（避免多实例）</li>
+            <li>✅ 使用 Flow 观察数据变化</li>
+            <li>✅ 处理 IOException 异常</li>
+            <li>✅ Proto DataStore 用于复杂类型</li>
+            <li>✅ 使用迁移从 SharedPreferences 升级</li>
+        </ul>
+
+        <h2>总结</h2>
+        <ul>
+            <li><strong>Preferences DataStore</strong>：简单键值对</li>
+            <li><strong>Proto DataStore</strong>：类型安全复杂对象</li>
+            <li><strong>Flow</strong>：响应式数据观察</li>
+            <li><strong>Migration</strong>：平滑迁移</li>
+        </ul>
+    </article>
+
+    <footer class="footer">
+        <p>&copy; 2024 Fidroid. <a href="../index.html">返回首页</a></p>
+    </footer>
+</body>
+</html>
+

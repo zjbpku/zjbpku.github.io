@@ -1,0 +1,160 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Compose + Paging 3：分页加载与无限列表 - Fidroid</title>
+    <meta name="description" content="深入学习 Paging 3 在 Compose 中的使用，掌握 PagingSource、LazyPagingItems、RemoteMediator 等分页技术。">
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; line-height: 1.8; color: #e5e7eb; background: #020617; }
+        .navbar { background: rgba(15,23,42,0.98); backdrop-filter: blur(10px); position: fixed; top: 0; width: 100%; z-index: 1000; }
+        .nav-container { max-width: 900px; margin: 0 auto; padding: 1rem 20px; display: flex; justify-content: space-between; align-items: center; }
+        .logo { font-size: 1.5rem; font-weight: bold; color: #38bdf8; text-decoration: none; letter-spacing: 0.08em; text-transform: uppercase; }
+        .back-link { color: #9ca3af; text-decoration: none; font-size: 0.9rem; }
+        .back-link:hover { color: #38bdf8; }
+        .article-header { padding: 120px 20px 60px; background: radial-gradient(circle at top left, #0891b2 0, transparent 50%), radial-gradient(circle at bottom right, #7c3aed 0, transparent 55%), #020617; text-align: center; }
+        .article-header h1 { max-width: 800px; margin: 0 auto 1rem; font-size: 2.5rem; font-weight: 800; letter-spacing: -0.03em; color: #fff; }
+        .article-meta { color: #9ca3af; font-size: 0.9rem; margin-bottom: 1.5rem; }
+        .article-tags { display: flex; justify-content: center; flex-wrap: wrap; gap: 0.5rem; }
+        .article-tag { padding: 0.25rem 0.75rem; border-radius: 999px; font-size: 0.75rem; background: rgba(15,23,42,0.85); border: 1px solid rgba(8,145,178,0.4); color: #22d3ee; }
+        .article-content { max-width: 800px; margin: 0 auto; padding: 60px 20px 80px; }
+        .article-content h2 { font-size: 1.6rem; margin: 2.5rem 0 1rem; color: #f9fafb; border-left: 4px solid #0891b2; padding-left: 1rem; }
+        .article-content h3 { font-size: 1.25rem; margin: 2rem 0 0.75rem; color: #e5e7eb; }
+        .article-content p { margin-bottom: 1.25rem; color: #d1d5db; }
+        .article-content ul { margin: 1rem 0 1.5rem 1.5rem; color: #d1d5db; }
+        .article-content li { margin-bottom: 0.5rem; }
+        .article-content strong { color: #f9fafb; }
+        pre { background: #0f172a; border: 1px solid rgba(8,145,178,0.3); border-radius: 12px; padding: 1.25rem; overflow-x: auto; margin: 1.5rem 0; font-size: 0.85rem; line-height: 1.6; }
+        code { font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace; color: #e5e7eb; }
+        .code-keyword { color: #c084fc; }
+        .code-func { color: #38bdf8; }
+        .code-type { color: #4ade80; }
+        .code-string { color: #fb7185; }
+        .code-comment { color: #6b7280; font-style: italic; }
+        .footer { background: #020617; border-top: 1px solid #111827; padding: 2rem; text-align: center; color: #6b7280; }
+        .footer a { color: #38bdf8; text-decoration: none; }
+    </style>
+</head>
+<body>
+    <nav class="navbar">
+        <div class="nav-container">
+            <a href="../index.html" class="logo">Fidroid</a>
+            <a href="../index.html#articles" class="back-link">← 返回博客列表</a>
+        </div>
+    </nav>
+
+    <header class="article-header">
+        <h1>Compose + Paging 3：分页加载与无限列表</h1>
+        <p class="article-meta">2024-06-03 · 26 min · 分页加载</p>
+        <div class="article-tags">
+            <span class="article-tag">Paging 3</span>
+            <span class="article-tag">LazyColumn</span>
+            <span class="article-tag">分页</span>
+            <span class="article-tag">无限滚动</span>
+        </div>
+    </header>
+
+    <article class="article-content">
+        <p>Paging 3 是 Jetpack 提供的分页加载库，可以高效地加载和显示大量数据。结合 Compose 的 LazyColumn，可以轻松实现无限滚动列表。</p>
+
+        <h2>一、实现 PagingSource</h2>
+<pre><code><span class="code-keyword">class</span> <span class="code-type">ArticlePagingSource</span>(
+    <span class="code-keyword">private val</span> apiService: <span class="code-type">ApiService</span>
+) : <span class="code-type">PagingSource</span>&lt;<span class="code-type">Int</span>, <span class="code-type">Article</span>&gt;() {
+    
+    <span class="code-keyword">override suspend fun</span> <span class="code-func">load</span>(params: <span class="code-type">LoadParams</span>&lt;<span class="code-type">Int</span>&gt;): <span class="code-type">LoadResult</span>&lt;<span class="code-type">Int</span>, <span class="code-type">Article</span>&gt; {
+        <span class="code-keyword">val</span> page = params.key ?: <span class="code-number">1</span>
+        
+        <span class="code-keyword">return try</span> {
+            <span class="code-keyword">val</span> response = apiService.<span class="code-func">getArticles</span>(page, params.loadSize)
+            <span class="code-type">LoadResult</span>.<span class="code-func">Page</span>(
+                data = response.articles,
+                prevKey = <span class="code-keyword">if</span> (page == <span class="code-number">1</span>) <span class="code-keyword">null</span> <span class="code-keyword">else</span> page - <span class="code-number">1</span>,
+                nextKey = <span class="code-keyword">if</span> (response.articles.<span class="code-func">isEmpty</span>()) <span class="code-keyword">null</span> <span class="code-keyword">else</span> page + <span class="code-number">1</span>
+            )
+        } <span class="code-keyword">catch</span> (e: <span class="code-type">Exception</span>) {
+            <span class="code-type">LoadResult</span>.<span class="code-func">Error</span>(e)
+        }
+    }
+}</code></pre>
+
+        <h2>二、创建 Pager</h2>
+<pre><code><span class="code-keyword">val</span> articles: <span class="code-type">Flow</span>&lt;<span class="code-type">PagingData</span>&lt;<span class="code-type">Article</span>&gt;&gt; = <span class="code-func">Pager</span>(
+    config = <span class="code-func">PagingConfig</span>(
+        pageSize = <span class="code-number">20</span>,
+        prefetchDistance = <span class="code-number">5</span>,
+        enablePlaceholders = <span class="code-keyword">false</span>
+    ),
+    pagingSourceFactory = { <span class="code-func">ArticlePagingSource</span>(apiService) }
+).flow.<span class="code-func">cachedIn</span>(viewModelScope)</code></pre>
+
+        <h2>三、在 Compose 中使用</h2>
+<pre><code><span class="code-keyword">@Composable</span>
+<span class="code-keyword">fun</span> <span class="code-func">ArticleList</span>(viewModel: <span class="code-type">ArticleViewModel</span>) {
+    <span class="code-keyword">val</span> articles = viewModel.articles.<span class="code-func">collectAsLazyPagingItems</span>()
+    
+    <span class="code-func">LazyColumn</span> {
+        <span class="code-func">items</span>(
+            count = articles.itemCount,
+            key = articles.<span class="code-func">itemKey</span> { it.id }
+        ) { index ->
+            articles[index]?.<span class="code-func">let</span> { <span class="code-func">ArticleCard</span>(it) }
+        }
+        
+        <span class="code-comment">// 底部加载状态</span>
+        <span class="code-keyword">when</span> (articles.loadState.append) {
+            <span class="code-keyword">is</span> <span class="code-type">LoadState</span>.Loading -> {
+                <span class="code-func">item</span> { <span class="code-func">CircularProgressIndicator</span>() }
+            }
+            <span class="code-keyword">is</span> <span class="code-type">LoadState</span>.Error -> {
+                <span class="code-func">item</span> { <span class="code-func">ErrorItem</span>(onRetry = { articles.<span class="code-func">retry</span>() }) }
+            }
+            <span class="code-keyword">else</span> -> {}
+        }
+    }
+}</code></pre>
+
+        <h2>四、RemoteMediator 离线优先</h2>
+<pre><code><span class="code-keyword">@OptIn</span>(<span class="code-type">ExperimentalPagingApi</span>::<span class="code-keyword">class</span>)
+<span class="code-keyword">class</span> <span class="code-type">ArticleRemoteMediator</span>(...) : <span class="code-type">RemoteMediator</span>&lt;<span class="code-type">Int</span>, <span class="code-type">ArticleEntity</span>&gt;() {
+    
+    <span class="code-keyword">override suspend fun</span> <span class="code-func">load</span>(
+        loadType: <span class="code-type">LoadType</span>,
+        state: <span class="code-type">PagingState</span>&lt;<span class="code-type">Int</span>, <span class="code-type">ArticleEntity</span>&gt;
+    ): <span class="code-type">MediatorResult</span> {
+        <span class="code-comment">// 从网络加载并存入数据库</span>
+        database.<span class="code-func">withTransaction</span> {
+            <span class="code-keyword">if</span> (loadType == <span class="code-type">LoadType</span>.REFRESH) {
+                articleDao.<span class="code-func">clearAll</span>()
+            }
+            articleDao.<span class="code-func">insertAll</span>(entities)
+        }
+        <span class="code-keyword">return</span> <span class="code-type">MediatorResult</span>.<span class="code-func">Success</span>(endOfPaginationReached)
+    }
+}</code></pre>
+
+        <h2>五、最佳实践</h2>
+        <ul>
+            <li>✅ 使用 <code>cachedIn(viewModelScope)</code> 缓存</li>
+            <li>✅ 使用 <code>itemKey</code> 提供稳定的 key</li>
+            <li>✅ 处理所有 LoadState</li>
+            <li>✅ 实现下拉刷新</li>
+            <li>✅ 使用 RemoteMediator 实现离线优先</li>
+        </ul>
+
+        <h2>总结</h2>
+        <ul>
+            <li><strong>PagingSource</strong>：定义数据加载逻辑</li>
+            <li><strong>collectAsLazyPagingItems()</strong>：在 Compose 中收集</li>
+            <li><strong>LoadState</strong>：处理加载状态</li>
+            <li><strong>RemoteMediator</strong>：离线优先架构</li>
+        </ul>
+    </article>
+
+    <footer class="footer">
+        <p>&copy; 2024 Fidroid. <a href="../index.html">返回首页</a></p>
+    </footer>
+</body>
+</html>
+

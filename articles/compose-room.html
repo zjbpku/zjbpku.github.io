@@ -1,0 +1,139 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Compose + Room：数据库集成与 Flow 观察 - Fidroid</title>
+    <meta name="description" content="深入学习 Room 在 Compose 中的使用，掌握 DAO、Flow 观察、数据库迁移等最佳实践。">
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; line-height: 1.8; color: #e5e7eb; background: #020617; }
+        .navbar { background: rgba(15,23,42,0.98); backdrop-filter: blur(10px); position: fixed; top: 0; width: 100%; z-index: 1000; }
+        .nav-container { max-width: 900px; margin: 0 auto; padding: 1rem 20px; display: flex; justify-content: space-between; align-items: center; }
+        .logo { font-size: 1.5rem; font-weight: bold; color: #38bdf8; text-decoration: none; letter-spacing: 0.08em; text-transform: uppercase; }
+        .back-link { color: #9ca3af; text-decoration: none; font-size: 0.9rem; }
+        .back-link:hover { color: #38bdf8; }
+        .article-header { padding: 120px 20px 60px; background: radial-gradient(circle at top left, #ea580c 0, transparent 50%), radial-gradient(circle at bottom right, #4f46e5 0, transparent 55%), #020617; text-align: center; }
+        .article-header h1 { max-width: 800px; margin: 0 auto 1rem; font-size: 2.5rem; font-weight: 800; letter-spacing: -0.03em; color: #fff; }
+        .article-meta { color: #9ca3af; font-size: 0.9rem; margin-bottom: 1.5rem; }
+        .article-tags { display: flex; justify-content: center; flex-wrap: wrap; gap: 0.5rem; }
+        .article-tag { padding: 0.25rem 0.75rem; border-radius: 999px; font-size: 0.75rem; background: rgba(15,23,42,0.85); border: 1px solid rgba(234,88,12,0.4); color: #fb923c; }
+        .article-content { max-width: 800px; margin: 0 auto; padding: 60px 20px 80px; }
+        .article-content h2 { font-size: 1.6rem; margin: 2.5rem 0 1rem; color: #f9fafb; border-left: 4px solid #ea580c; padding-left: 1rem; }
+        .article-content h3 { font-size: 1.25rem; margin: 2rem 0 0.75rem; color: #e5e7eb; }
+        .article-content p { margin-bottom: 1.25rem; color: #d1d5db; }
+        .article-content ul { margin: 1rem 0 1.5rem 1.5rem; color: #d1d5db; }
+        .article-content li { margin-bottom: 0.5rem; }
+        .article-content strong { color: #f9fafb; }
+        pre { background: #0f172a; border: 1px solid rgba(234,88,12,0.3); border-radius: 12px; padding: 1.25rem; overflow-x: auto; margin: 1.5rem 0; font-size: 0.85rem; line-height: 1.6; }
+        code { font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace; color: #e5e7eb; }
+        .code-keyword { color: #c084fc; }
+        .code-func { color: #38bdf8; }
+        .code-type { color: #4ade80; }
+        .code-string { color: #fb7185; }
+        .code-comment { color: #6b7280; font-style: italic; }
+        .footer { background: #020617; border-top: 1px solid #111827; padding: 2rem; text-align: center; color: #6b7280; }
+        .footer a { color: #38bdf8; text-decoration: none; }
+    </style>
+</head>
+<body>
+    <nav class="navbar">
+        <div class="nav-container">
+            <a href="../index.html" class="logo">Fidroid</a>
+            <a href="../index.html#articles" class="back-link">← 返回博客列表</a>
+        </div>
+    </nav>
+
+    <header class="article-header">
+        <h1>Compose + Room：数据库集成与 Flow 观察</h1>
+        <p class="article-meta">2024-06-05 · 24 min · 数据库</p>
+        <div class="article-tags">
+            <span class="article-tag">Room</span>
+            <span class="article-tag">Database</span>
+            <span class="article-tag">Flow</span>
+            <span class="article-tag">DAO</span>
+        </div>
+    </header>
+
+    <article class="article-content">
+        <p>Room 是 Android 官方的 SQLite 抽象层，提供编译时验证和流畅的 API。结合 Kotlin Flow，可以在 Compose 中实现响应式的数据库观察。</p>
+
+        <h2>一、DAO with Flow</h2>
+<pre><code><span class="code-keyword">@Dao</span>
+<span class="code-keyword">interface</span> <span class="code-type">ArticleDao</span> {
+    
+    <span class="code-comment">// 返回 Flow，自动观察变化</span>
+    <span class="code-keyword">@Query</span>(<span class="code-string">"SELECT * FROM articles ORDER BY published_at DESC"</span>)
+    <span class="code-keyword">fun</span> <span class="code-func">getAllArticles</span>(): <span class="code-type">Flow</span>&lt;<span class="code-type">List</span>&lt;<span class="code-type">ArticleEntity</span>&gt;&gt;
+    
+    <span class="code-keyword">@Query</span>(<span class="code-string">"SELECT * FROM articles WHERE id = :id"</span>)
+    <span class="code-keyword">fun</span> <span class="code-func">getArticleById</span>(id: <span class="code-type">String</span>): <span class="code-type">Flow</span>&lt;<span class="code-type">ArticleEntity</span>?&gt;
+    
+    <span class="code-keyword">@Insert</span>(onConflict = <span class="code-type">OnConflictStrategy</span>.REPLACE)
+    <span class="code-keyword">suspend fun</span> <span class="code-func">insert</span>(article: <span class="code-type">ArticleEntity</span>)
+}</code></pre>
+
+        <h2>二、ViewModel 集成</h2>
+<pre><code><span class="code-keyword">@HiltViewModel</span>
+<span class="code-keyword">class</span> <span class="code-type">ArticleViewModel</span> <span class="code-keyword">@Inject constructor</span>(
+    <span class="code-keyword">private val</span> repository: <span class="code-type">ArticleRepository</span>
+) : <span class="code-type">ViewModel</span>() {
+    
+    <span class="code-keyword">val</span> articles: <span class="code-type">StateFlow</span>&lt;<span class="code-type">List</span>&lt;<span class="code-type">ArticleEntity</span>&gt;&gt; = repository.allArticles
+        .<span class="code-func">stateIn</span>(
+            scope = viewModelScope,
+            started = <span class="code-type">SharingStarted</span>.<span class="code-func">WhileSubscribed</span>(<span class="code-number">5000</span>),
+            initialValue = <span class="code-func">emptyList</span>()
+        )
+}</code></pre>
+
+        <h2>三、在 Compose 中使用</h2>
+<pre><code><span class="code-keyword">@Composable</span>
+<span class="code-keyword">fun</span> <span class="code-func">ArticleListScreen</span>(viewModel: <span class="code-type">ArticleViewModel</span> = <span class="code-func">hiltViewModel</span>()) {
+    <span class="code-keyword">val</span> articles <span class="code-keyword">by</span> viewModel.articles.<span class="code-func">collectAsState</span>()
+    
+    <span class="code-func">LazyColumn</span> {
+        <span class="code-func">items</span>(articles, key = { it.id }) { article ->
+            <span class="code-func">ArticleCard</span>(article)
+        }
+    }
+}</code></pre>
+
+        <h2>四、数据库迁移</h2>
+<pre><code><span class="code-keyword">val</span> MIGRATION_1_2 = <span class="code-keyword">object</span> : <span class="code-type">Migration</span>(<span class="code-number">1</span>, <span class="code-number">2</span>) {
+    <span class="code-keyword">override fun</span> <span class="code-func">migrate</span>(database: <span class="code-type">SupportSQLiteDatabase</span>) {
+        database.<span class="code-func">execSQL</span>(
+            <span class="code-string">"ALTER TABLE articles ADD COLUMN category TEXT NOT NULL DEFAULT ''"</span>
+        )
+    }
+}
+
+<span class="code-keyword">val</span> database = <span class="code-type">Room</span>.<span class="code-func">databaseBuilder</span>(context, <span class="code-type">AppDatabase</span>::<span class="code-keyword">class</span>.java, <span class="code-string">"app.db"</span>)
+    .<span class="code-func">addMigrations</span>(MIGRATION_1_2)
+    .<span class="code-func">build</span>()</code></pre>
+
+        <h2>五、最佳实践</h2>
+        <ul>
+            <li>✅ DAO 返回 Flow 实现响应式观察</li>
+            <li>✅ 使用 <code>stateIn</code> 转换为 StateFlow</li>
+            <li>✅ Repository 层封装数据库操作</li>
+            <li>✅ 使用 Hilt 注入数据库依赖</li>
+            <li>✅ 实现迁移而非破坏性重建</li>
+            <li>✅ 使用内存数据库进行测试</li>
+        </ul>
+
+        <h2>总结</h2>
+        <ul>
+            <li><strong>Flow 返回值</strong>：自动观察变化</li>
+            <li><strong>stateIn</strong>：转换为 StateFlow</li>
+            <li><strong>Repository</strong>：封装数据访问</li>
+            <li><strong>Migration</strong>：保留用户数据</li>
+        </ul>
+    </article>
+
+    <footer class="footer">
+        <p>&copy; 2024 Fidroid. <a href="../index.html">返回首页</a></p>
+    </footer>
+</body>
+</html>
+
