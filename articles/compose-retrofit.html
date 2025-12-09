@@ -1,0 +1,130 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Compose + Retrofit：网络请求与状态处理 - Fidroid</title>
+    <meta name="description" content="深入学习 Retrofit 在 Compose 中的使用，掌握 UiState、错误处理、下拉刷新等最佳实践。">
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; line-height: 1.8; color: #e5e7eb; background: #020617; }
+        .navbar { background: rgba(15,23,42,0.98); backdrop-filter: blur(10px); position: fixed; top: 0; width: 100%; z-index: 1000; }
+        .nav-container { max-width: 900px; margin: 0 auto; padding: 1rem 20px; display: flex; justify-content: space-between; align-items: center; }
+        .logo { font-size: 1.5rem; font-weight: bold; color: #38bdf8; text-decoration: none; letter-spacing: 0.08em; text-transform: uppercase; }
+        .back-link { color: #9ca3af; text-decoration: none; font-size: 0.9rem; }
+        .back-link:hover { color: #38bdf8; }
+        .article-header { padding: 120px 20px 60px; background: radial-gradient(circle at top left, #2563eb 0, transparent 50%), radial-gradient(circle at bottom right, #dc2626 0, transparent 55%), #020617; text-align: center; }
+        .article-header h1 { max-width: 800px; margin: 0 auto 1rem; font-size: 2.5rem; font-weight: 800; letter-spacing: -0.03em; color: #fff; }
+        .article-meta { color: #9ca3af; font-size: 0.9rem; margin-bottom: 1.5rem; }
+        .article-tags { display: flex; justify-content: center; flex-wrap: wrap; gap: 0.5rem; }
+        .article-tag { padding: 0.25rem 0.75rem; border-radius: 999px; font-size: 0.75rem; background: rgba(15,23,42,0.85); border: 1px solid rgba(37,99,235,0.4); color: #60a5fa; }
+        .article-content { max-width: 800px; margin: 0 auto; padding: 60px 20px 80px; }
+        .article-content h2 { font-size: 1.6rem; margin: 2.5rem 0 1rem; color: #f9fafb; border-left: 4px solid #2563eb; padding-left: 1rem; }
+        .article-content h3 { font-size: 1.25rem; margin: 2rem 0 0.75rem; color: #e5e7eb; }
+        .article-content p { margin-bottom: 1.25rem; color: #d1d5db; }
+        .article-content ul { margin: 1rem 0 1.5rem 1.5rem; color: #d1d5db; }
+        .article-content li { margin-bottom: 0.5rem; }
+        pre { background: #0f172a; border: 1px solid rgba(37,99,235,0.3); border-radius: 12px; padding: 1.25rem; overflow-x: auto; margin: 1.5rem 0; font-size: 0.85rem; line-height: 1.6; }
+        code { font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace; color: #e5e7eb; }
+        .code-keyword { color: #c084fc; }
+        .code-func { color: #38bdf8; }
+        .code-type { color: #4ade80; }
+        .code-string { color: #fb7185; }
+        .code-comment { color: #6b7280; font-style: italic; }
+        .footer { background: #020617; border-top: 1px solid #111827; padding: 2rem; text-align: center; color: #6b7280; }
+        .footer a { color: #38bdf8; text-decoration: none; }
+    </style>
+</head>
+<body>
+    <nav class="navbar">
+        <div class="nav-container">
+            <a href="../index.html" class="logo">Fidroid</a>
+            <a href="../index.html#articles" class="back-link">← 返回博客列表</a>
+        </div>
+    </nav>
+
+    <header class="article-header">
+        <h1>Compose + Retrofit：网络请求与状态处理</h1>
+        <p class="article-meta">2024-06-09 · 24 min · 网络</p>
+        <div class="article-tags">
+            <span class="article-tag">Retrofit</span>
+            <span class="article-tag">网络请求</span>
+            <span class="article-tag">UiState</span>
+            <span class="article-tag">Error Handling</span>
+        </div>
+    </header>
+
+    <article class="article-content">
+        <p>Retrofit 是 Android 最流行的网络请求库，与 Kotlin 协程和 Compose 完美配合。本文将深入讲解如何优雅地处理网络请求和状态管理。</p>
+
+        <h2>一、UiState 密封类</h2>
+<pre><code><span class="code-keyword">sealed interface</span> <span class="code-type">UiState</span>&lt;<span class="code-keyword">out</span> <span class="code-type">T</span>&gt; {
+    <span class="code-keyword">data object</span> Loading : <span class="code-type">UiState</span>&lt;<span class="code-type">Nothing</span>&gt;
+    <span class="code-keyword">data class</span> <span class="code-type">Success</span>&lt;<span class="code-type">T</span>&gt;(<span class="code-keyword">val</span> data: <span class="code-type">T</span>) : <span class="code-type">UiState</span>&lt;<span class="code-type">T</span>&gt;
+    <span class="code-keyword">data class</span> <span class="code-type">Error</span>(<span class="code-keyword">val</span> message: <span class="code-type">String</span>) : <span class="code-type">UiState</span>&lt;<span class="code-type">Nothing</span>&gt;
+}</code></pre>
+
+        <h2>二、安全 API 调用</h2>
+<pre><code><span class="code-keyword">suspend fun</span> &lt;<span class="code-type">T</span>&gt; <span class="code-func">safeApiCall</span>(apiCall: <span class="code-keyword">suspend</span> () -> <span class="code-type">T</span>): <span class="code-type">Result</span>&lt;<span class="code-type">T</span>&gt; {
+    <span class="code-keyword">return try</span> {
+        <span class="code-type">Result</span>.<span class="code-func">Success</span>(<span class="code-func">apiCall</span>())
+    } <span class="code-keyword">catch</span> (e: <span class="code-type">Exception</span>) {
+        <span class="code-type">Result</span>.<span class="code-func">Error</span>(e)
+    }
+}</code></pre>
+
+        <h2>三、ViewModel 实现</h2>
+<pre><code><span class="code-keyword">@HiltViewModel</span>
+<span class="code-keyword">class</span> <span class="code-type">ArticleListViewModel</span> <span class="code-keyword">@Inject constructor</span>(
+    <span class="code-keyword">private val</span> repository: <span class="code-type">ArticleRepository</span>
+) : <span class="code-type">ViewModel</span>() {
+    
+    <span class="code-keyword">private val</span> _uiState = <span class="code-func">MutableStateFlow</span>&lt;<span class="code-type">UiState</span>&lt;<span class="code-type">List</span>&lt;<span class="code-type">Article</span>&gt;&gt;&gt;(<span class="code-type">UiState</span>.Loading)
+    <span class="code-keyword">val</span> uiState = _uiState.<span class="code-func">asStateFlow</span>()
+    
+    <span class="code-keyword">fun</span> <span class="code-func">loadArticles</span>() {
+        viewModelScope.<span class="code-func">launch</span> {
+            _uiState.value = <span class="code-type">UiState</span>.Loading
+            <span class="code-keyword">when</span> (<span class="code-keyword">val</span> result = repository.<span class="code-func">getArticles</span>()) {
+                <span class="code-keyword">is</span> <span class="code-type">Result</span>.Success -> _uiState.value = <span class="code-type">UiState</span>.<span class="code-func">Success</span>(result.data)
+                <span class="code-keyword">is</span> <span class="code-type">Result</span>.Error -> _uiState.value = <span class="code-type">UiState</span>.<span class="code-func">Error</span>(result.exception.<span class="code-func">toUserMessage</span>())
+            }
+        }
+    }
+}</code></pre>
+
+        <h2>四、在 Compose 中处理状态</h2>
+<pre><code><span class="code-keyword">@Composable</span>
+<span class="code-keyword">fun</span> <span class="code-func">ArticleListContent</span>(uiState: <span class="code-type">UiState</span>&lt;<span class="code-type">List</span>&lt;<span class="code-type">Article</span>&gt;&gt;) {
+    <span class="code-keyword">when</span> (uiState) {
+        <span class="code-keyword">is</span> <span class="code-type">UiState</span>.Loading -> <span class="code-func">LoadingContent</span>()
+        <span class="code-keyword">is</span> <span class="code-type">UiState</span>.Success -> <span class="code-func">ArticleList</span>(uiState.data)
+        <span class="code-keyword">is</span> <span class="code-type">UiState</span>.Error -> <span class="code-func">ErrorContent</span>(uiState.message)
+    }
+}</code></pre>
+
+        <h2>五、最佳实践</h2>
+        <ul>
+            <li>✅ 使用密封类封装 UI 状态</li>
+            <li>✅ Repository 返回 Result 包装类</li>
+            <li>✅ 将异常转换为用户友好消息</li>
+            <li>✅ 处理 Loading、Success、Error 状态</li>
+            <li>✅ 实现下拉刷新</li>
+            <li>✅ 使用 Snackbar 显示非阻塞错误</li>
+        </ul>
+
+        <h2>总结</h2>
+        <ul>
+            <li><strong>UiState</strong>：统一管理加载状态</li>
+            <li><strong>Result</strong>：安全处理网络结果</li>
+            <li><strong>错误处理</strong>：转换异常为用户消息</li>
+            <li><strong>状态驱动 UI</strong>：根据状态显示内容</li>
+        </ul>
+    </article>
+
+    <footer class="footer">
+        <p>&copy; 2024 Fidroid. <a href="../index.html">返回首页</a></p>
+    </footer>
+</body>
+</html>
+
