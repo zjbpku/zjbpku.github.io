@@ -1,0 +1,123 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Compose 列表优化进阶：LazyColumn 高级技巧 - Fidroid</title>
+    <meta name="description" content="深入学习 LazyColumn 进阶，掌握 Key 优化、Sticky Header、LazyGrid、性能优化等高级技巧。">
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; line-height: 1.8; color: #e5e7eb; background: #020617; }
+        .navbar { background: rgba(15,23,42,0.98); backdrop-filter: blur(10px); position: fixed; top: 0; width: 100%; z-index: 1000; }
+        .nav-container { max-width: 900px; margin: 0 auto; padding: 1rem 20px; display: flex; justify-content: space-between; align-items: center; }
+        .logo { font-size: 1.5rem; font-weight: bold; color: #38bdf8; text-decoration: none; letter-spacing: 0.08em; text-transform: uppercase; }
+        .back-link { color: #9ca3af; text-decoration: none; font-size: 0.9rem; }
+        .back-link:hover { color: #38bdf8; }
+        .article-header { padding: 120px 20px 60px; background: radial-gradient(circle at top left, #ef4444 0, transparent 50%), radial-gradient(circle at bottom right, #22c55e 0, transparent 55%), #020617; text-align: center; }
+        .article-header h1 { max-width: 800px; margin: 0 auto 1rem; font-size: 2.5rem; font-weight: 800; letter-spacing: -0.03em; color: #fff; }
+        .article-meta { color: #9ca3af; font-size: 0.9rem; margin-bottom: 1.5rem; }
+        .article-tags { display: flex; justify-content: center; flex-wrap: wrap; gap: 0.5rem; }
+        .article-tag { padding: 0.25rem 0.75rem; border-radius: 999px; font-size: 0.75rem; background: rgba(15,23,42,0.85); border: 1px solid rgba(239,68,68,0.4); color: #f87171; }
+        .article-content { max-width: 800px; margin: 0 auto; padding: 60px 20px 80px; }
+        .article-content h2 { font-size: 1.6rem; margin: 2.5rem 0 1rem; color: #f9fafb; border-left: 4px solid #ef4444; padding-left: 1rem; }
+        .article-content p { margin-bottom: 1.25rem; color: #d1d5db; }
+        .article-content ul { margin: 1rem 0 1.5rem 1.5rem; color: #d1d5db; }
+        .article-content li { margin-bottom: 0.5rem; }
+        pre { background: #0f172a; border: 1px solid rgba(239,68,68,0.3); border-radius: 12px; padding: 1.25rem; overflow-x: auto; margin: 1.5rem 0; font-size: 0.85rem; line-height: 1.6; }
+        code { font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace; color: #e5e7eb; }
+        .code-keyword { color: #c084fc; }
+        .code-func { color: #38bdf8; }
+        .code-type { color: #4ade80; }
+        .code-comment { color: #6b7280; font-style: italic; }
+        .footer { background: #020617; border-top: 1px solid #111827; padding: 2rem; text-align: center; color: #6b7280; }
+        .footer a { color: #38bdf8; text-decoration: none; }
+    </style>
+</head>
+<body>
+    <nav class="navbar">
+        <div class="nav-container">
+            <a href="../index.html" class="logo">Fidroid</a>
+            <a href="../index.html#articles" class="back-link">← 返回博客列表</a>
+        </div>
+    </nav>
+
+    <header class="article-header">
+        <h1>Compose 列表优化进阶：LazyColumn 高级技巧</h1>
+        <p class="article-meta">2024-06-19 · 24 min · 性能</p>
+        <div class="article-tags">
+            <span class="article-tag">LazyColumn</span>
+            <span class="article-tag">LazyGrid</span>
+            <span class="article-tag">性能优化</span>
+            <span class="article-tag">列表</span>
+        </div>
+    </header>
+
+    <article class="article-content">
+        <p>LazyColumn 是 Compose 中最常用的列表组件，掌握其高级用法对于构建高性能应用至关重要。</p>
+
+        <h2>一、使用稳定的 Key</h2>
+<pre><code><span class="code-func">LazyColumn</span> {
+    <span class="code-func">items</span>(
+        items = articles,
+        key = { article -> article.id }  <span class="code-comment">// 唯一稳定的 key</span>
+    ) { article ->
+        <span class="code-func">ArticleCard</span>(article)
+    }
+}</code></pre>
+
+        <h2>二、Sticky Headers</h2>
+<pre><code><span class="code-keyword">@OptIn</span>(<span class="code-type">ExperimentalFoundationApi</span>::<span class="code-keyword">class</span>)
+<span class="code-func">LazyColumn</span> {
+    groups.<span class="code-func">forEach</span> { (letter, contacts) ->
+        <span class="code-func">stickyHeader</span> {
+            <span class="code-func">Text</span>(letter)
+        }
+        <span class="code-func">items</span>(contacts) { contact ->
+            <span class="code-func">ContactItem</span>(contact)
+        }
+    }
+}</code></pre>
+
+        <h2>三、LazyGrid</h2>
+<pre><code><span class="code-func">LazyVerticalGrid</span>(
+    columns = <span class="code-type">GridCells</span>.<span class="code-func">Adaptive</span>(minSize = <span class="code-number">160</span>.dp)
+) {
+    <span class="code-func">items</span>(items, key = { it.id }) { item ->
+        <span class="code-func">ItemCard</span>(item)
+    }
+}</code></pre>
+
+        <h2>四、使用 derivedStateOf</h2>
+<pre><code><span class="code-keyword">val</span> showButton = <span class="code-func">remember</span> {
+    <span class="code-func">derivedStateOf</span> { listState.firstVisibleItemIndex > <span class="code-number">0</span> }
+}
+
+<span class="code-comment">// 只有 showButton 变化时才重组</span>
+<span class="code-keyword">if</span> (showButton.value) {
+    <span class="code-func">ScrollToTopButton</span>()
+}</code></pre>
+
+        <h2>五、最佳实践</h2>
+        <ul>
+            <li>✅ 始终提供稳定的 key</li>
+            <li>✅ 使用 contentType 优化复用</li>
+            <li>✅ 使用 derivedStateOf 减少重组</li>
+            <li>✅ 避免在 items 中创建新 lambda</li>
+            <li>✅ 使用 animateItem 添加动画</li>
+        </ul>
+
+        <h2>总结</h2>
+        <ul>
+            <li><strong>Key</strong>：提供稳定唯一标识</li>
+            <li><strong>contentType</strong>：优化 item 复用</li>
+            <li><strong>Sticky Header</strong>：分组固定头部</li>
+            <li><strong>LazyGrid</strong>：网格布局</li>
+        </ul>
+    </article>
+
+    <footer class="footer">
+        <p>&copy; 2024 Fidroid. <a href="../index.html">返回首页</a></p>
+    </footer>
+</body>
+</html>
+

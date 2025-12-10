@@ -1,0 +1,125 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Compose + ViewModel：状态管理与最佳实践 - Fidroid</title>
+    <meta name="description" content="深入学习 ViewModel 在 Compose 中的使用，掌握 StateFlow、UiState、SavedStateHandle 等最佳实践。">
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; line-height: 1.8; color: #e5e7eb; background: #020617; }
+        .navbar { background: rgba(15,23,42,0.98); backdrop-filter: blur(10px); position: fixed; top: 0; width: 100%; z-index: 1000; }
+        .nav-container { max-width: 900px; margin: 0 auto; padding: 1rem 20px; display: flex; justify-content: space-between; align-items: center; }
+        .logo { font-size: 1.5rem; font-weight: bold; color: #38bdf8; text-decoration: none; letter-spacing: 0.08em; text-transform: uppercase; }
+        .back-link { color: #9ca3af; text-decoration: none; font-size: 0.9rem; }
+        .back-link:hover { color: #38bdf8; }
+        .article-header { padding: 120px 20px 60px; background: radial-gradient(circle at top left, #10b981 0, transparent 50%), radial-gradient(circle at bottom right, #6366f1 0, transparent 55%), #020617; text-align: center; }
+        .article-header h1 { max-width: 800px; margin: 0 auto 1rem; font-size: 2.5rem; font-weight: 800; letter-spacing: -0.03em; color: #fff; }
+        .article-meta { color: #9ca3af; font-size: 0.9rem; margin-bottom: 1.5rem; }
+        .article-tags { display: flex; justify-content: center; flex-wrap: wrap; gap: 0.5rem; }
+        .article-tag { padding: 0.25rem 0.75rem; border-radius: 999px; font-size: 0.75rem; background: rgba(15,23,42,0.85); border: 1px solid rgba(16,185,129,0.4); color: #34d399; }
+        .article-content { max-width: 800px; margin: 0 auto; padding: 60px 20px 80px; }
+        .article-content h2 { font-size: 1.6rem; margin: 2.5rem 0 1rem; color: #f9fafb; border-left: 4px solid #10b981; padding-left: 1rem; }
+        .article-content p { margin-bottom: 1.25rem; color: #d1d5db; }
+        .article-content ul { margin: 1rem 0 1.5rem 1.5rem; color: #d1d5db; }
+        .article-content li { margin-bottom: 0.5rem; }
+        pre { background: #0f172a; border: 1px solid rgba(16,185,129,0.3); border-radius: 12px; padding: 1.25rem; overflow-x: auto; margin: 1.5rem 0; font-size: 0.85rem; line-height: 1.6; }
+        code { font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace; color: #e5e7eb; }
+        .code-keyword { color: #c084fc; }
+        .code-func { color: #38bdf8; }
+        .code-type { color: #4ade80; }
+        .code-comment { color: #6b7280; font-style: italic; }
+        .footer { background: #020617; border-top: 1px solid #111827; padding: 2rem; text-align: center; color: #6b7280; }
+        .footer a { color: #38bdf8; text-decoration: none; }
+    </style>
+</head>
+<body>
+    <nav class="navbar">
+        <div class="nav-container">
+            <a href="../index.html" class="logo">Fidroid</a>
+            <a href="../index.html#articles" class="back-link">← 返回博客列表</a>
+        </div>
+    </nav>
+
+    <header class="article-header">
+        <h1>Compose + ViewModel：状态管理与最佳实践</h1>
+        <p class="article-meta">2024-06-15 · 24 min · 架构</p>
+        <div class="article-tags">
+            <span class="article-tag">ViewModel</span>
+            <span class="article-tag">StateFlow</span>
+            <span class="article-tag">UiState</span>
+            <span class="article-tag">SavedStateHandle</span>
+        </div>
+    </header>
+
+    <article class="article-content">
+        <p>ViewModel 是 Android 架构组件的核心，负责管理 UI 相关数据和业务逻辑。本文将深入讲解 ViewModel 在 Compose 项目中的最佳实践。</p>
+
+        <h2>一、StateFlow 状态管理</h2>
+<pre><code><span class="code-keyword">@HiltViewModel</span>
+<span class="code-keyword">class</span> <span class="code-type">ArticleViewModel</span> <span class="code-keyword">@Inject constructor</span>(...) : <span class="code-type">ViewModel</span>() {
+    
+    <span class="code-keyword">private val</span> _uiState = <span class="code-func">MutableStateFlow</span>(<span class="code-func">ArticleUiState</span>())
+    <span class="code-keyword">val</span> uiState = _uiState.<span class="code-func">asStateFlow</span>()
+    
+    <span class="code-keyword">fun</span> <span class="code-func">loadArticles</span>() {
+        viewModelScope.<span class="code-func">launch</span> {
+            _uiState.<span class="code-func">update</span> { it.<span class="code-func">copy</span>(isLoading = <span class="code-keyword">true</span>) }
+            <span class="code-comment">// 加载数据...</span>
+        }
+    }
+}</code></pre>
+
+        <h2>二、一次性事件</h2>
+<pre><code><span class="code-keyword">private val</span> _events = <span class="code-func">Channel</span>&lt;<span class="code-type">LoginEvent</span>&gt;()
+<span class="code-keyword">val</span> events = _events.<span class="code-func">receiveAsFlow</span>()
+
+<span class="code-comment">// 在 Compose 中处理</span>
+<span class="code-func">LaunchedEffect</span>(<span class="code-type">Unit</span>) {
+    viewModel.events.<span class="code-func">collect</span> { event ->
+        <span class="code-keyword">when</span> (event) {
+            <span class="code-keyword">is</span> <span class="code-type">LoginEvent</span>.NavigateToHome -> <span class="code-func">onNavigateToHome</span>()
+            <span class="code-keyword">is</span> <span class="code-type">LoginEvent</span>.ShowError -> snackbar.<span class="code-func">showSnackbar</span>(event.message)
+        }
+    }
+}</code></pre>
+
+        <h2>三、SavedStateHandle</h2>
+<pre><code><span class="code-keyword">@HiltViewModel</span>
+<span class="code-keyword">class</span> <span class="code-type">SearchViewModel</span> <span class="code-keyword">@Inject constructor</span>(
+    savedStateHandle: <span class="code-type">SavedStateHandle</span>
+) : <span class="code-type">ViewModel</span>() {
+    
+    <span class="code-comment">// 自动保存到 SavedState</span>
+    <span class="code-keyword">val</span> searchQuery = savedStateHandle.<span class="code-func">getStateFlow</span>(<span class="code-string">"query"</span>, <span class="code-string">""</span>)
+    
+    <span class="code-keyword">fun</span> <span class="code-func">updateQuery</span>(query: <span class="code-type">String</span>) {
+        savedStateHandle[<span class="code-string">"query"</span>] = query
+    }
+}</code></pre>
+
+        <h2>四、最佳实践</h2>
+        <ul>
+            <li>✅ 使用 StateFlow 暴露 UI 状态</li>
+            <li>✅ 使用 <code>update</code> 函数更新状态</li>
+            <li>✅ 使用 Channel 发送一次性事件</li>
+            <li>✅ 使用 SavedStateHandle 保存状态</li>
+            <li>✅ 表单验证逻辑放在 ViewModel</li>
+            <li>✅ 使用 Hilt 注入依赖</li>
+        </ul>
+
+        <h2>总结</h2>
+        <ul>
+            <li><strong>StateFlow</strong>：响应式状态管理</li>
+            <li><strong>UiState</strong>：单一状态源</li>
+            <li><strong>SavedStateHandle</strong>：进程重建恢复</li>
+            <li><strong>Channel</strong>：一次性事件</li>
+        </ul>
+    </article>
+
+    <footer class="footer">
+        <p>&copy; 2024 Fidroid. <a href="../index.html">返回首页</a></p>
+    </footer>
+</body>
+</html>
+

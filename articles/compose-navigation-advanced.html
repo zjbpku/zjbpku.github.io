@@ -1,0 +1,109 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Compose Navigation 进阶：深层链接与嵌套导航 - Fidroid</title>
+    <meta name="description" content="深入学习 Compose Navigation 进阶，掌握类型安全路由、嵌套导航、深层链接等高级特性。">
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; line-height: 1.8; color: #e5e7eb; background: #020617; }
+        .navbar { background: rgba(15,23,42,0.98); backdrop-filter: blur(10px); position: fixed; top: 0; width: 100%; z-index: 1000; }
+        .nav-container { max-width: 900px; margin: 0 auto; padding: 1rem 20px; display: flex; justify-content: space-between; align-items: center; }
+        .logo { font-size: 1.5rem; font-weight: bold; color: #38bdf8; text-decoration: none; letter-spacing: 0.08em; text-transform: uppercase; }
+        .back-link { color: #9ca3af; text-decoration: none; font-size: 0.9rem; }
+        .back-link:hover { color: #38bdf8; }
+        .article-header { padding: 120px 20px 60px; background: radial-gradient(circle at top left, #3b82f6 0, transparent 50%), radial-gradient(circle at bottom right, #ec4899 0, transparent 55%), #020617; text-align: center; }
+        .article-header h1 { max-width: 800px; margin: 0 auto 1rem; font-size: 2.5rem; font-weight: 800; letter-spacing: -0.03em; color: #fff; }
+        .article-meta { color: #9ca3af; font-size: 0.9rem; margin-bottom: 1.5rem; }
+        .article-tags { display: flex; justify-content: center; flex-wrap: wrap; gap: 0.5rem; }
+        .article-tag { padding: 0.25rem 0.75rem; border-radius: 999px; font-size: 0.75rem; background: rgba(15,23,42,0.85); border: 1px solid rgba(59,130,246,0.4); color: #60a5fa; }
+        .article-content { max-width: 800px; margin: 0 auto; padding: 60px 20px 80px; }
+        .article-content h2 { font-size: 1.6rem; margin: 2.5rem 0 1rem; color: #f9fafb; border-left: 4px solid #3b82f6; padding-left: 1rem; }
+        .article-content p { margin-bottom: 1.25rem; color: #d1d5db; }
+        .article-content ul { margin: 1rem 0 1.5rem 1.5rem; color: #d1d5db; }
+        .article-content li { margin-bottom: 0.5rem; }
+        pre { background: #0f172a; border: 1px solid rgba(59,130,246,0.3); border-radius: 12px; padding: 1.25rem; overflow-x: auto; margin: 1.5rem 0; font-size: 0.85rem; line-height: 1.6; }
+        code { font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace; color: #e5e7eb; }
+        .code-keyword { color: #c084fc; }
+        .code-func { color: #38bdf8; }
+        .code-type { color: #4ade80; }
+        .code-comment { color: #6b7280; font-style: italic; }
+        .footer { background: #020617; border-top: 1px solid #111827; padding: 2rem; text-align: center; color: #6b7280; }
+        .footer a { color: #38bdf8; text-decoration: none; }
+    </style>
+</head>
+<body>
+    <nav class="navbar">
+        <div class="nav-container">
+            <a href="../index.html" class="logo">Fidroid</a>
+            <a href="../index.html#articles" class="back-link">← 返回博客列表</a>
+        </div>
+    </nav>
+
+    <header class="article-header">
+        <h1>Compose Navigation 进阶：深层链接与嵌套导航</h1>
+        <p class="article-meta">2024-06-17 · 26 min · 导航</p>
+        <div class="article-tags">
+            <span class="article-tag">Navigation</span>
+            <span class="article-tag">DeepLink</span>
+            <span class="article-tag">嵌套导航</span>
+            <span class="article-tag">BottomNavigation</span>
+        </div>
+    </header>
+
+    <article class="article-content">
+        <p>Compose Navigation 提供了强大的导航功能，支持深层链接、嵌套导航、类型安全参数等高级特性。</p>
+
+        <h2>一、类型安全路由</h2>
+<pre><code><span class="code-keyword">@Serializable</span>
+<span class="code-keyword">data class</span> <span class="code-type">ArticleDetail</span>(<span class="code-keyword">val</span> id: <span class="code-type">String</span>)
+
+<span class="code-func">NavHost</span>(navController, startDestination = Home) {
+    <span class="code-func">composable</span>&lt;<span class="code-type">ArticleDetail</span>&gt; { backStackEntry ->
+        <span class="code-keyword">val</span> detail: <span class="code-type">ArticleDetail</span> = backStackEntry.<span class="code-func">toRoute</span>()
+        <span class="code-func">ArticleDetailScreen</span>(articleId = detail.id)
+    }
+}</code></pre>
+
+        <h2>二、嵌套导航</h2>
+<pre><code><span class="code-keyword">fun</span> <span class="code-type">NavGraphBuilder</span>.<span class="code-func">homeGraph</span>(navController: <span class="code-type">NavController</span>) {
+    <span class="code-func">navigation</span>&lt;<span class="code-type">HomeGraph</span>&gt;(startDestination = Home) {
+        <span class="code-func">composable</span>&lt;<span class="code-type">Home</span>&gt; { <span class="code-func">HomeScreen</span>() }
+        <span class="code-func">composable</span>&lt;<span class="code-type">ArticleDetail</span>&gt; { ... }
+    }
+}</code></pre>
+
+        <h2>三、深层链接</h2>
+<pre><code><span class="code-func">composable</span>&lt;<span class="code-type">ArticleDetail</span>&gt;(
+    deepLinks = <span class="code-func">listOf</span>(
+        <span class="code-func">navDeepLink</span>&lt;<span class="code-type">ArticleDetail</span>&gt;(
+            basePath = <span class="code-string">"https://example.com/article"</span>
+        )
+    )
+) { ... }</code></pre>
+
+        <h2>四、最佳实践</h2>
+        <ul>
+            <li>✅ 使用类型安全路由</li>
+            <li>✅ 合理划分导航图层级</li>
+            <li>✅ Bottom Navigation 保存状态</li>
+            <li>✅ 使用深层链接增强体验</li>
+            <li>✅ 添加导航过渡动画</li>
+        </ul>
+
+        <h2>总结</h2>
+        <ul>
+            <li><strong>类型安全路由</strong>：编译时检查</li>
+            <li><strong>嵌套导航</strong>：分层管理</li>
+            <li><strong>深层链接</strong>：支持外部跳转</li>
+            <li><strong>导航动画</strong>：提升体验</li>
+        </ul>
+    </article>
+
+    <footer class="footer">
+        <p>&copy; 2024 Fidroid. <a href="../index.html">返回首页</a></p>
+    </footer>
+</body>
+</html>
+
