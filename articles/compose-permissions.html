@@ -1,0 +1,111 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Compose 权限处理：请求与状态管理 - Fidroid</title>
+    <meta name="description" content="深入学习 Compose 权限处理，掌握 ActivityResult、Accompanist Permissions、永久拒绝处理等最佳实践。">
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; line-height: 1.8; color: #e5e7eb; background: #020617; }
+        .navbar { background: rgba(15,23,42,0.98); backdrop-filter: blur(10px); position: fixed; top: 0; width: 100%; z-index: 1000; }
+        .nav-container { max-width: 900px; margin: 0 auto; padding: 1rem 20px; display: flex; justify-content: space-between; align-items: center; }
+        .logo { font-size: 1.5rem; font-weight: bold; color: #38bdf8; text-decoration: none; letter-spacing: 0.08em; text-transform: uppercase; }
+        .back-link { color: #9ca3af; text-decoration: none; font-size: 0.9rem; }
+        .back-link:hover { color: #38bdf8; }
+        .article-header { padding: 120px 20px 60px; background: radial-gradient(circle at top left, #8b5cf6 0, transparent 50%), radial-gradient(circle at bottom right, #06b6d4 0, transparent 55%), #020617; text-align: center; }
+        .article-header h1 { max-width: 800px; margin: 0 auto 1rem; font-size: 2.5rem; font-weight: 800; letter-spacing: -0.03em; color: #fff; }
+        .article-meta { color: #9ca3af; font-size: 0.9rem; margin-bottom: 1.5rem; }
+        .article-tags { display: flex; justify-content: center; flex-wrap: wrap; gap: 0.5rem; }
+        .article-tag { padding: 0.25rem 0.75rem; border-radius: 999px; font-size: 0.75rem; background: rgba(15,23,42,0.85); border: 1px solid rgba(139,92,246,0.4); color: #a78bfa; }
+        .article-content { max-width: 800px; margin: 0 auto; padding: 60px 20px 80px; }
+        .article-content h2 { font-size: 1.6rem; margin: 2.5rem 0 1rem; color: #f9fafb; border-left: 4px solid #8b5cf6; padding-left: 1rem; }
+        .article-content p { margin-bottom: 1.25rem; color: #d1d5db; }
+        .article-content ul { margin: 1rem 0 1.5rem 1.5rem; color: #d1d5db; }
+        .article-content li { margin-bottom: 0.5rem; }
+        pre { background: #0f172a; border: 1px solid rgba(139,92,246,0.3); border-radius: 12px; padding: 1.25rem; overflow-x: auto; margin: 1.5rem 0; font-size: 0.85rem; line-height: 1.6; }
+        code { font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace; color: #e5e7eb; }
+        .code-keyword { color: #c084fc; }
+        .code-func { color: #38bdf8; }
+        .code-type { color: #4ade80; }
+        .code-comment { color: #6b7280; font-style: italic; }
+        .footer { background: #020617; border-top: 1px solid #111827; padding: 2rem; text-align: center; color: #6b7280; }
+        .footer a { color: #38bdf8; text-decoration: none; }
+    </style>
+</head>
+<body>
+    <nav class="navbar">
+        <div class="nav-container">
+            <a href="../index.html" class="logo">Fidroid</a>
+            <a href="../index.html#articles" class="back-link">← 返回博客列表</a>
+        </div>
+    </nav>
+
+    <header class="article-header">
+        <h1>Compose 权限处理：请求与状态管理</h1>
+        <p class="article-meta">2024-06-21 · 22 min · 系统</p>
+        <div class="article-tags">
+            <span class="article-tag">Permissions</span>
+            <span class="article-tag">ActivityResult</span>
+            <span class="article-tag">Runtime Permission</span>
+        </div>
+    </header>
+
+    <article class="article-content">
+        <p>Android 运行时权限是应用开发中的重要环节。Compose 提供了简洁的 API 来处理权限请求。</p>
+
+        <h2>一、单个权限请求</h2>
+<pre><code><span class="code-keyword">val</span> permissionLauncher = <span class="code-func">rememberLauncherForActivityResult</span>(
+    contract = <span class="code-type">ActivityResultContracts</span>.<span class="code-func">RequestPermission</span>()
+) { isGranted ->
+    hasCameraPermission = isGranted
+}
+
+<span class="code-func">Button</span>(onClick = { 
+    permissionLauncher.<span class="code-func">launch</span>(<span class="code-type">Manifest</span>.permission.CAMERA) 
+}) {
+    <span class="code-func">Text</span>(<span class="code-string">"请求相机权限"</span>)
+}</code></pre>
+
+        <h2>二、多个权限请求</h2>
+<pre><code><span class="code-keyword">val</span> launcher = <span class="code-func">rememberLauncherForActivityResult</span>(
+    <span class="code-type">ActivityResultContracts</span>.<span class="code-func">RequestMultiplePermissions</span>()
+) { permissionsMap ->
+    allGranted = permissionsMap.values.<span class="code-func">all</span> { it }
+}
+
+launcher.<span class="code-func">launch</span>(<span class="code-func">arrayOf</span>(
+    <span class="code-type">Manifest</span>.permission.CAMERA,
+    <span class="code-type">Manifest</span>.permission.RECORD_AUDIO
+))</code></pre>
+
+        <h2>三、处理永久拒绝</h2>
+<pre><code><span class="code-comment">// 引导用户到设置页面</span>
+<span class="code-func">Intent</span>(<span class="code-type">Settings</span>.ACTION_APPLICATION_DETAILS_SETTINGS).<span class="code-func">apply</span> {
+    data = <span class="code-type">Uri</span>.<span class="code-func">fromParts</span>(<span class="code-string">"package"</span>, context.packageName, <span class="code-keyword">null</span>)
+    context.<span class="code-func">startActivity</span>(<span class="code-keyword">this</span>)
+}</code></pre>
+
+        <h2>四、最佳实践</h2>
+        <ul>
+            <li>✅ 在需要时才请求权限</li>
+            <li>✅ 解释为什么需要权限</li>
+            <li>✅ 处理永久拒绝情况</li>
+            <li>✅ 分步请求敏感权限</li>
+            <li>✅ Android 13+ 单独处理通知权限</li>
+        </ul>
+
+        <h2>总结</h2>
+        <ul>
+            <li><strong>rememberLauncherForActivityResult</strong>：请求权限核心 API</li>
+            <li><strong>shouldShowRationale</strong>：判断是否需要解释</li>
+            <li><strong>永久拒绝</strong>：引导到应用设置</li>
+        </ul>
+    </article>
+
+    <footer class="footer">
+        <p>&copy; 2024 Fidroid. <a href="../index.html">返回首页</a></p>
+    </footer>
+</body>
+</html>
+

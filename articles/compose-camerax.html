@@ -1,0 +1,122 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Compose + CameraX：相机集成与拍照 - Fidroid</title>
+    <meta name="description" content="深入学习 CameraX 在 Compose 中的集成，掌握相机预览、拍照、录像、图像分析等功能。">
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; line-height: 1.8; color: #e5e7eb; background: #020617; }
+        .navbar { background: rgba(15,23,42,0.98); backdrop-filter: blur(10px); position: fixed; top: 0; width: 100%; z-index: 1000; }
+        .nav-container { max-width: 900px; margin: 0 auto; padding: 1rem 20px; display: flex; justify-content: space-between; align-items: center; }
+        .logo { font-size: 1.5rem; font-weight: bold; color: #38bdf8; text-decoration: none; letter-spacing: 0.08em; text-transform: uppercase; }
+        .back-link { color: #9ca3af; text-decoration: none; font-size: 0.9rem; }
+        .back-link:hover { color: #38bdf8; }
+        .article-header { padding: 120px 20px 60px; background: radial-gradient(circle at top left, #0ea5e9 0, transparent 50%), radial-gradient(circle at bottom right, #f43f5e 0, transparent 55%), #020617; text-align: center; }
+        .article-header h1 { max-width: 800px; margin: 0 auto 1rem; font-size: 2.5rem; font-weight: 800; letter-spacing: -0.03em; color: #fff; }
+        .article-meta { color: #9ca3af; font-size: 0.9rem; margin-bottom: 1.5rem; }
+        .article-tags { display: flex; justify-content: center; flex-wrap: wrap; gap: 0.5rem; }
+        .article-tag { padding: 0.25rem 0.75rem; border-radius: 999px; font-size: 0.75rem; background: rgba(15,23,42,0.85); border: 1px solid rgba(14,165,233,0.4); color: #38bdf8; }
+        .article-content { max-width: 800px; margin: 0 auto; padding: 60px 20px 80px; }
+        .article-content h2 { font-size: 1.6rem; margin: 2.5rem 0 1rem; color: #f9fafb; border-left: 4px solid #0ea5e9; padding-left: 1rem; }
+        .article-content p { margin-bottom: 1.25rem; color: #d1d5db; }
+        .article-content ul { margin: 1rem 0 1.5rem 1.5rem; color: #d1d5db; }
+        .article-content li { margin-bottom: 0.5rem; }
+        pre { background: #0f172a; border: 1px solid rgba(14,165,233,0.3); border-radius: 12px; padding: 1.25rem; overflow-x: auto; margin: 1.5rem 0; font-size: 0.85rem; line-height: 1.6; }
+        code { font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace; color: #e5e7eb; }
+        .code-keyword { color: #c084fc; }
+        .code-func { color: #38bdf8; }
+        .code-type { color: #4ade80; }
+        .code-comment { color: #6b7280; font-style: italic; }
+        .footer { background: #020617; border-top: 1px solid #111827; padding: 2rem; text-align: center; color: #6b7280; }
+        .footer a { color: #38bdf8; text-decoration: none; }
+    </style>
+</head>
+<body>
+    <nav class="navbar">
+        <div class="nav-container">
+            <a href="../index.html" class="logo">Fidroid</a>
+            <a href="../index.html#articles" class="back-link">← 返回博客列表</a>
+        </div>
+    </nav>
+
+    <header class="article-header">
+        <h1>Compose + CameraX：相机集成与拍照</h1>
+        <p class="article-meta">2024-06-23 · 26 min · 相机</p>
+        <div class="article-tags">
+            <span class="article-tag">CameraX</span>
+            <span class="article-tag">相机</span>
+            <span class="article-tag">拍照</span>
+            <span class="article-tag">预览</span>
+        </div>
+    </header>
+
+    <article class="article-content">
+        <p>CameraX 是 Jetpack 提供的相机库，简化了相机开发的复杂性。本文将深入讲解如何在 Compose 中集成 CameraX。</p>
+
+        <h2>一、相机预览</h2>
+<pre><code><span class="code-keyword">val</span> previewView = <span class="code-func">remember</span> { <span class="code-func">PreviewView</span>(context) }
+
+<span class="code-keyword">val</span> preview = <span class="code-type">Preview</span>.<span class="code-func">Builder</span>().<span class="code-func">build</span>().<span class="code-func">also</span> {
+    it.<span class="code-func">setSurfaceProvider</span>(previewView.surfaceProvider)
+}
+
+cameraProvider.<span class="code-func">bindToLifecycle</span>(
+    lifecycleOwner,
+    <span class="code-type">CameraSelector</span>.DEFAULT_BACK_CAMERA,
+    preview
+)
+
+<span class="code-func">AndroidView</span>(factory = { previewView })</code></pre>
+
+        <h2>二、拍照功能</h2>
+<pre><code><span class="code-keyword">val</span> imageCapture = <span class="code-type">ImageCapture</span>.<span class="code-func">Builder</span>()
+    .<span class="code-func">setCaptureMode</span>(<span class="code-type">ImageCapture</span>.CAPTURE_MODE_MAXIMIZE_QUALITY)
+    .<span class="code-func">build</span>()
+
+imageCapture.<span class="code-func">takePicture</span>(
+    outputOptions,
+    executor,
+    <span class="code-keyword">object</span> : <span class="code-type">ImageCapture</span>.<span class="code-type">OnImageSavedCallback</span> {
+        <span class="code-keyword">override fun</span> <span class="code-func">onImageSaved</span>(output: <span class="code-type">OutputFileResults</span>) {
+            <span class="code-comment">// 保存成功</span>
+        }
+    }
+)</code></pre>
+
+        <h2>三、图像分析</h2>
+<pre><code><span class="code-keyword">val</span> imageAnalyzer = <span class="code-type">ImageAnalysis</span>.<span class="code-func">Builder</span>()
+    .<span class="code-func">setBackpressureStrategy</span>(<span class="code-type">ImageAnalysis</span>.STRATEGY_KEEP_ONLY_LATEST)
+    .<span class="code-func">build</span>()
+    .<span class="code-func">also</span> { analysis ->
+        analysis.<span class="code-func">setAnalyzer</span>(executor) { imageProxy ->
+            <span class="code-comment">// 处理图像（二维码识别等）</span>
+            imageProxy.<span class="code-func">close</span>()
+        }
+    }</code></pre>
+
+        <h2>四、最佳实践</h2>
+        <ul>
+            <li>✅ 使用 CameraX 而非 Camera2</li>
+            <li>✅ 正确绑定生命周期</li>
+            <li>✅ 请求权限后再初始化</li>
+            <li>✅ 使用 DisposableEffect 释放资源</li>
+            <li>✅ 支持前后摄像头切换</li>
+        </ul>
+
+        <h2>总结</h2>
+        <ul>
+            <li><strong>PreviewView</strong>：显示相机预览</li>
+            <li><strong>ImageCapture</strong>：拍照功能</li>
+            <li><strong>VideoCapture</strong>：录像功能</li>
+            <li><strong>ImageAnalysis</strong>：实时分析</li>
+        </ul>
+    </article>
+
+    <footer class="footer">
+        <p>&copy; 2024 Fidroid. <a href="../index.html">返回首页</a></p>
+    </footer>
+</body>
+</html>
+

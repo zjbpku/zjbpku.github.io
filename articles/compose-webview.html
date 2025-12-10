@@ -1,0 +1,105 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Compose WebView：网页集成与 JS 交互 - Fidroid</title>
+    <meta name="description" content="深入学习 WebView 在 Compose 中的集成，掌握 JavaScript 交互、Cookie 管理等混合开发技巧。">
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; line-height: 1.8; color: #e5e7eb; background: #020617; }
+        .navbar { background: rgba(15,23,42,0.98); backdrop-filter: blur(10px); position: fixed; top: 0; width: 100%; z-index: 1000; }
+        .nav-container { max-width: 900px; margin: 0 auto; padding: 1rem 20px; display: flex; justify-content: space-between; align-items: center; }
+        .logo { font-size: 1.5rem; font-weight: bold; color: #38bdf8; text-decoration: none; letter-spacing: 0.08em; text-transform: uppercase; }
+        .back-link { color: #9ca3af; text-decoration: none; font-size: 0.9rem; }
+        .back-link:hover { color: #38bdf8; }
+        .article-header { padding: 120px 20px 60px; background: radial-gradient(circle at top left, #06b6d4 0, transparent 50%), radial-gradient(circle at bottom right, #a855f7 0, transparent 55%), #020617; text-align: center; }
+        .article-header h1 { max-width: 800px; margin: 0 auto 1rem; font-size: 2.5rem; font-weight: 800; letter-spacing: -0.03em; color: #fff; }
+        .article-meta { color: #9ca3af; font-size: 0.9rem; margin-bottom: 1.5rem; }
+        .article-tags { display: flex; justify-content: center; flex-wrap: wrap; gap: 0.5rem; }
+        .article-tag { padding: 0.25rem 0.75rem; border-radius: 999px; font-size: 0.75rem; background: rgba(15,23,42,0.85); border: 1px solid rgba(6,182,212,0.4); color: #22d3ee; }
+        .article-content { max-width: 800px; margin: 0 auto; padding: 60px 20px 80px; }
+        .article-content h2 { font-size: 1.6rem; margin: 2.5rem 0 1rem; color: #f9fafb; border-left: 4px solid #06b6d4; padding-left: 1rem; }
+        .article-content p { margin-bottom: 1.25rem; color: #d1d5db; }
+        .article-content ul { margin: 1rem 0 1.5rem 1.5rem; color: #d1d5db; }
+        .article-content li { margin-bottom: 0.5rem; }
+        pre { background: #0f172a; border: 1px solid rgba(6,182,212,0.3); border-radius: 12px; padding: 1.25rem; overflow-x: auto; margin: 1.5rem 0; font-size: 0.85rem; line-height: 1.6; }
+        code { font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace; color: #e5e7eb; }
+        .code-keyword { color: #c084fc; }
+        .code-func { color: #38bdf8; }
+        .code-type { color: #4ade80; }
+        .code-comment { color: #6b7280; font-style: italic; }
+        .footer { background: #020617; border-top: 1px solid #111827; padding: 2rem; text-align: center; color: #6b7280; }
+        .footer a { color: #38bdf8; text-decoration: none; }
+    </style>
+</head>
+<body>
+    <nav class="navbar">
+        <div class="nav-container">
+            <a href="../index.html" class="logo">Fidroid</a>
+            <a href="../index.html#articles" class="back-link">← 返回博客列表</a>
+        </div>
+    </nav>
+
+    <header class="article-header">
+        <h1>Compose WebView：网页集成与 JS 交互</h1>
+        <p class="article-meta">2024-07-01 · 22 min · 混合开发</p>
+        <div class="article-tags">
+            <span class="article-tag">WebView</span>
+            <span class="article-tag">JavaScript</span>
+            <span class="article-tag">混合开发</span>
+        </div>
+    </header>
+
+    <article class="article-content">
+        <p>WebView 允许在应用中展示网页内容，实现原生与 Web 的混合开发。</p>
+
+        <h2>一、基础 WebView</h2>
+<pre><code><span class="code-func">AndroidView</span>(
+    factory = { context ->
+        <span class="code-type">WebView</span>(context).<span class="code-func">apply</span> {
+            settings.javaScriptEnabled = <span class="code-keyword">true</span>
+            webViewClient = <span class="code-func">WebViewClient</span>()
+            <span class="code-func">loadUrl</span>(url)
+        }
+    }
+)</code></pre>
+
+        <h2>二、JavaScript 交互</h2>
+<pre><code><span class="code-comment">// Compose 调用 JS</span>
+state.<span class="code-func">evaluateJavascript</span>(<span class="code-string">"showAlert('Hello!')"</span>)
+
+<span class="code-comment">// JS 调用 Compose</span>
+<span class="code-keyword">class</span> <span class="code-type">JsInterface</span> {
+    <span class="code-keyword">@JavascriptInterface</span>
+    <span class="code-keyword">fun</span> <span class="code-func">postMessage</span>(message: <span class="code-type">String</span>) {
+        <span class="code-comment">// 处理消息</span>
+    }
+}
+
+webView.<span class="code-func">addJavascriptInterface</span>(jsInterface, <span class="code-string">"Android"</span>)</code></pre>
+
+        <h2>三、最佳实践</h2>
+        <ul>
+            <li>✅ 启用 JavaScript 时注意安全性</li>
+            <li>✅ 使用 @JavascriptInterface 注解</li>
+            <li>✅ 处理返回键导航</li>
+            <li>✅ 显示加载进度</li>
+            <li>✅ 管理 Cookie 和缓存</li>
+        </ul>
+
+        <h2>总结</h2>
+        <ul>
+            <li><strong>AndroidView</strong>：嵌入 WebView</li>
+            <li><strong>JavaScript 交互</strong>：双向通信</li>
+            <li><strong>JsInterface</strong>：JS 调用原生</li>
+            <li><strong>Cookie</strong>：同步登录状态</li>
+        </ul>
+    </article>
+
+    <footer class="footer">
+        <p>&copy; 2024 Fidroid. <a href="../index.html">返回首页</a></p>
+    </footer>
+</body>
+</html>
+
