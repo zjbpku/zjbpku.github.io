@@ -730,6 +730,289 @@
             }
         }
 
+        /* Mind Map Styles */
+        .mindmap-section {
+            margin-bottom: 64px;
+        }
+
+        .mindmap-title {
+            font-size: 1.3rem;
+            font-weight: 600;
+            text-align: center;
+            margin-bottom: 32px;
+            color: var(--text-primary);
+        }
+
+        .mindmap-container {
+            display: flex;
+            justify-content: center;
+            padding: 40px 20px;
+            overflow-x: auto;
+        }
+
+        .mindmap {
+            position: relative;
+            width: 700px;
+            height: 500px;
+            min-width: 700px;
+        }
+
+        .mm-center {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            width: 100px;
+            height: 100px;
+            background: linear-gradient(135deg, var(--accent-green), var(--accent-cyan));
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 10;
+            box-shadow: 0 0 40px var(--glow-green);
+        }
+
+        .mm-center-content {
+            font-weight: 700;
+            font-size: 0.95rem;
+            color: var(--bg-primary);
+            text-align: center;
+            line-height: 1.3;
+        }
+
+        /* Branch positioning */
+        .mm-branch {
+            position: absolute;
+        }
+
+        .mm-top { top: 0; left: 50%; transform: translateX(-50%); }
+        .mm-right { right: 0; top: 50%; transform: translateY(-50%); }
+        .mm-bottom { bottom: 0; left: 50%; transform: translateX(-50%); }
+        .mm-left { left: 0; top: 50%; transform: translateY(-50%); }
+
+        /* Connectors */
+        .mm-connector {
+            position: absolute;
+            background: linear-gradient(to bottom, var(--accent-cyan), transparent);
+        }
+
+        .mm-connector-top {
+            width: 2px;
+            height: 60px;
+            left: 50%;
+            bottom: -60px;
+            transform: translateX(-50%);
+        }
+
+        .mm-connector-bottom {
+            width: 2px;
+            height: 60px;
+            left: 50%;
+            top: -60px;
+            transform: translateX(-50%);
+            background: linear-gradient(to top, var(--accent-cyan), transparent);
+        }
+
+        .mm-connector-right {
+            width: 60px;
+            height: 2px;
+            top: 50%;
+            left: -60px;
+            transform: translateY(-50%);
+            background: linear-gradient(to left, var(--accent-cyan), transparent);
+        }
+
+        .mm-connector-left {
+            width: 60px;
+            height: 2px;
+            top: 50%;
+            right: -60px;
+            transform: translateY(-50%);
+            background: linear-gradient(to right, var(--accent-cyan), transparent);
+        }
+
+        /* Branch nodes */
+        .mm-node {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            padding: 14px 20px;
+            background: var(--bg-card);
+            border: 2px solid var(--border-subtle);
+            border-radius: 12px;
+            position: relative;
+            transition: all 0.3s ease;
+            white-space: nowrap;
+        }
+
+        .mm-node:hover {
+            transform: scale(1.05);
+            border-color: var(--accent-cyan);
+            box-shadow: 0 0 20px var(--glow-cyan);
+        }
+
+        .mm-node-icon {
+            font-size: 1.2rem;
+        }
+
+        .mm-node-title {
+            font-weight: 600;
+            font-size: 0.95rem;
+        }
+
+        .mm-node-green { border-color: var(--accent-green); }
+        .mm-node-cyan { border-color: var(--accent-cyan); }
+        .mm-node-purple { border-color: var(--accent-purple); }
+        .mm-node-blue { border-color: var(--accent-blue); }
+        .mm-node-orange { border-color: var(--accent-orange); }
+        .mm-node-pink { border-color: var(--accent-pink); }
+
+        /* Leaves */
+        .mm-leaves {
+            display: flex;
+            gap: 8px;
+            position: absolute;
+        }
+
+        .mm-leaves-top {
+            bottom: 100%;
+            left: 50%;
+            transform: translateX(-50%);
+            margin-bottom: 12px;
+            flex-wrap: wrap;
+            justify-content: center;
+            max-width: 400px;
+        }
+
+        .mm-leaves-bottom {
+            top: 100%;
+            left: 50%;
+            transform: translateX(-50%);
+            margin-top: 12px;
+            flex-wrap: wrap;
+            justify-content: center;
+            max-width: 400px;
+        }
+
+        .mm-leaves-right {
+            left: 100%;
+            top: 50%;
+            transform: translateY(-50%);
+            margin-left: 12px;
+            flex-direction: column;
+        }
+
+        .mm-leaves-left {
+            right: 100%;
+            top: 50%;
+            transform: translateY(-50%);
+            margin-right: 12px;
+            flex-direction: column;
+            align-items: flex-end;
+        }
+
+        .mm-leaf {
+            padding: 8px 14px;
+            background: var(--bg-elevated);
+            border: 1px solid var(--border-subtle);
+            border-radius: 8px;
+            font-size: 0.85rem;
+            color: var(--text-secondary);
+            text-decoration: none;
+            transition: all 0.2s ease;
+            white-space: nowrap;
+        }
+
+        .mm-leaf:hover {
+            background: var(--accent-green);
+            color: var(--bg-primary);
+            border-color: var(--accent-green);
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px var(--glow-green);
+        }
+
+        /* Clickable Topic Cards */
+        .topic-card-link {
+            text-decoration: none;
+            cursor: pointer;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .topic-card-link:hover {
+            border-color: var(--accent-green);
+            box-shadow: 0 8px 32px var(--glow-green);
+        }
+
+        .topic-card-link:hover .topic-arrow {
+            opacity: 1;
+            transform: translateX(0);
+        }
+
+        .topic-arrow {
+            position: absolute;
+            bottom: 20px;
+            right: 20px;
+            font-size: 1.5rem;
+            color: var(--accent-green);
+            opacity: 0;
+            transform: translateX(-10px);
+            transition: all 0.3s ease;
+        }
+
+        /* Responsive Mind Map */
+        @media (max-width: 768px) {
+            .mindmap {
+                width: 100%;
+                min-width: 320px;
+                height: auto;
+                display: flex;
+                flex-direction: column;
+                align-items: center;
+                gap: 20px;
+                padding: 20px 0;
+            }
+
+            .mm-center {
+                position: relative;
+                top: auto;
+                left: auto;
+                transform: none;
+                margin-bottom: 20px;
+            }
+
+            .mm-branch {
+                position: relative;
+                top: auto !important;
+                left: auto !important;
+                right: auto !important;
+                bottom: auto !important;
+                transform: none !important;
+                width: 100%;
+                display: flex;
+                flex-direction: column;
+                align-items: center;
+            }
+
+            .mm-connector {
+                display: none;
+            }
+
+            .mm-leaves {
+                position: relative;
+                top: auto !important;
+                left: auto !important;
+                right: auto !important;
+                bottom: auto !important;
+                transform: none !important;
+                margin: 12px 0 0 0 !important;
+                flex-wrap: wrap;
+                justify-content: center;
+                max-width: 100%;
+            }
+        }
+
         /* Footer */
         .footer {
             padding: 64px 0 32px;
@@ -2136,222 +2419,346 @@
                 </div>
             </div>
 
-            <!-- Learning Roadmap -->
-            <div class="roadmap">
-                <div class="roadmap-track">
-                    <div class="roadmap-step step-green">
-                        <div class="step-number">1</div>
-                        <div class="step-content">
-                            <h4>基础入门</h4>
-                            <span>6 篇</span>
+            <!-- Mind Map 1: Core Compose -->
+            <div class="mindmap-section">
+                <h3 class="mindmap-title">🧠 Compose 核心知识图谱</h3>
+                <div class="mindmap-container">
+                    <div class="mindmap">
+                        <!-- Center Node -->
+                        <div class="mm-center">
+                            <div class="mm-center-content">Compose<br>核心</div>
                         </div>
-                    </div>
-                    <div class="roadmap-arrow">→</div>
-                    <div class="roadmap-step step-blue">
-                        <div class="step-number">2</div>
-                        <div class="step-content">
-                            <h4>Jetpack 集成</h4>
-                            <span>10 篇</span>
+                        
+                        <!-- Branch 1: 基础概念 (Top) -->
+                        <div class="mm-branch mm-top">
+                            <div class="mm-connector mm-connector-top"></div>
+                            <div class="mm-node mm-node-green">
+                                <span class="mm-node-icon">📦</span>
+                                <span class="mm-node-title">基础概念</span>
+                            </div>
+                            <div class="mm-leaves mm-leaves-top">
+                                <a href="articles/compose-from-view-to-declarative.html" class="mm-leaf">声明式 UI</a>
+                                <a href="articles/compose-state-management.html" class="mm-leaf">State 状态</a>
+                                <a href="articles/compose-side-effects.html" class="mm-leaf">Side Effects</a>
+                                <a href="articles/compose-compositionlocal.html" class="mm-leaf">CompositionLocal</a>
+                            </div>
                         </div>
-                    </div>
-                    <div class="roadmap-arrow">→</div>
-                    <div class="roadmap-step step-purple">
-                        <div class="step-number">3</div>
-                        <div class="step-content">
-                            <h4>UI 进阶</h4>
-                            <span>12 篇</span>
+                        
+                        <!-- Branch 2: UI构建 (Right) -->
+                        <div class="mm-branch mm-right">
+                            <div class="mm-connector mm-connector-right"></div>
+                            <div class="mm-node mm-node-cyan">
+                                <span class="mm-node-icon">🎨</span>
+                                <span class="mm-node-title">UI 构建</span>
+                            </div>
+                            <div class="mm-leaves mm-leaves-right">
+                                <a href="articles/compose-modifier-deep-dive.html" class="mm-leaf">Modifier</a>
+                                <a href="articles/compose-custom-layout.html" class="mm-leaf">Custom Layout</a>
+                                <a href="articles/compose-canvas.html" class="mm-leaf">Canvas 绘制</a>
+                                <a href="articles/compose-text.html" class="mm-leaf">Text 样式</a>
+                            </div>
                         </div>
-                    </div>
-                    <div class="roadmap-arrow">→</div>
-                    <div class="roadmap-step step-orange">
-                        <div class="step-number">4</div>
-                        <div class="step-content">
-                            <h4>系统集成</h4>
-                            <span>10 篇</span>
+                        
+                        <!-- Branch 3: 底层原理 (Bottom) -->
+                        <div class="mm-branch mm-bottom">
+                            <div class="mm-connector mm-connector-bottom"></div>
+                            <div class="mm-node mm-node-purple">
+                                <span class="mm-node-icon">🔬</span>
+                                <span class="mm-node-title">底层原理</span>
+                            </div>
+                            <div class="mm-leaves mm-leaves-bottom">
+                                <a href="articles/compose-compiler-internals.html" class="mm-leaf">Compiler 原理</a>
+                                <a href="articles/compose-snapshot-system.html" class="mm-leaf">Snapshot 系统</a>
+                                <a href="articles/compose-stability-system.html" class="mm-leaf">Stability 系统</a>
+                            </div>
                         </div>
-                    </div>
-                    <div class="roadmap-arrow">→</div>
-                    <div class="roadmap-step step-pink">
-                        <div class="step-number">5</div>
-                        <div class="step-content">
-                            <h4>高级主题</h4>
-                            <span>6 篇</span>
+                        
+                        <!-- Branch 4: 性能优化 (Left) -->
+                        <div class="mm-branch mm-left">
+                            <div class="mm-connector mm-connector-left"></div>
+                            <div class="mm-node mm-node-orange">
+                                <span class="mm-node-icon">⚡</span>
+                                <span class="mm-node-title">性能优化</span>
+                            </div>
+                            <div class="mm-leaves mm-leaves-left">
+                                <a href="articles/compose-performance-deep-dive.html" class="mm-leaf">性能深入</a>
+                                <a href="articles/compose-lazy-optimization.html" class="mm-leaf">列表优化</a>
+                                <a href="articles/compose-debugging.html" class="mm-leaf">调试技巧</a>
+                            </div>
                         </div>
                     </div>
                 </div>
             </div>
 
-            <!-- Topic Cards Grid -->
+            <!-- Mind Map 2: Architecture & Integration -->
+            <div class="mindmap-section">
+                <h3 class="mindmap-title">🏛️ 架构与集成图谱</h3>
+                <div class="mindmap-container">
+                    <div class="mindmap">
+                        <!-- Center Node -->
+                        <div class="mm-center">
+                            <div class="mm-center-content">Jetpack<br>集成</div>
+                        </div>
+                        
+                        <!-- Branch 1: 架构组件 -->
+                        <div class="mm-branch mm-top">
+                            <div class="mm-connector mm-connector-top"></div>
+                            <div class="mm-node mm-node-blue">
+                                <span class="mm-node-icon">🏗️</span>
+                                <span class="mm-node-title">架构组件</span>
+                            </div>
+                            <div class="mm-leaves mm-leaves-top">
+                                <a href="articles/compose-architecture-and-udf.html" class="mm-leaf">UDF 架构</a>
+                                <a href="articles/compose-viewmodel.html" class="mm-leaf">ViewModel</a>
+                                <a href="articles/compose-hilt.html" class="mm-leaf">Hilt DI</a>
+                                <a href="articles/compose-coroutines-integration.html" class="mm-leaf">Coroutines</a>
+                            </div>
+                        </div>
+                        
+                        <!-- Branch 2: 数据层 -->
+                        <div class="mm-branch mm-right">
+                            <div class="mm-connector mm-connector-right"></div>
+                            <div class="mm-node mm-node-purple">
+                                <span class="mm-node-icon">💾</span>
+                                <span class="mm-node-title">数据层</span>
+                            </div>
+                            <div class="mm-leaves mm-leaves-right">
+                                <a href="articles/compose-room.html" class="mm-leaf">Room DB</a>
+                                <a href="articles/compose-datastore.html" class="mm-leaf">DataStore</a>
+                                <a href="articles/compose-paging.html" class="mm-leaf">Paging 3</a>
+                                <a href="articles/compose-retrofit.html" class="mm-leaf">Retrofit</a>
+                            </div>
+                        </div>
+                        
+                        <!-- Branch 3: 导航 -->
+                        <div class="mm-branch mm-bottom">
+                            <div class="mm-connector mm-connector-bottom"></div>
+                            <div class="mm-node mm-node-green">
+                                <span class="mm-node-icon">🧭</span>
+                                <span class="mm-node-title">导航</span>
+                            </div>
+                            <div class="mm-leaves mm-leaves-bottom">
+                                <a href="articles/compose-navigation-best-practices.html" class="mm-leaf">Navigation 基础</a>
+                                <a href="articles/compose-navigation-advanced.html" class="mm-leaf">导航进阶</a>
+                            </div>
+                        </div>
+                        
+                        <!-- Branch 4: 测试 -->
+                        <div class="mm-branch mm-left">
+                            <div class="mm-connector mm-connector-left"></div>
+                            <div class="mm-node mm-node-pink">
+                                <span class="mm-node-icon">🧪</span>
+                                <span class="mm-node-title">测试</span>
+                            </div>
+                            <div class="mm-leaves mm-leaves-left">
+                                <a href="articles/compose-testing-guide.html" class="mm-leaf">测试指南</a>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Mind Map 3: UI & Interaction -->
+            <div class="mindmap-section">
+                <h3 class="mindmap-title">✨ UI 交互图谱</h3>
+                <div class="mindmap-container">
+                    <div class="mindmap">
+                        <!-- Center Node -->
+                        <div class="mm-center">
+                            <div class="mm-center-content">UI<br>交互</div>
+                        </div>
+                        
+                        <!-- Branch 1: 动画 -->
+                        <div class="mm-branch mm-top">
+                            <div class="mm-connector mm-connector-top"></div>
+                            <div class="mm-node mm-node-pink">
+                                <span class="mm-node-icon">🎬</span>
+                                <span class="mm-node-title">动画</span>
+                            </div>
+                            <div class="mm-leaves mm-leaves-top">
+                                <a href="articles/compose-animation-guide.html" class="mm-leaf">动画指南</a>
+                                <a href="articles/compose-animation-advanced.html" class="mm-leaf">动画进阶</a>
+                            </div>
+                        </div>
+                        
+                        <!-- Branch 2: 交互 -->
+                        <div class="mm-branch mm-right">
+                            <div class="mm-connector mm-connector-right"></div>
+                            <div class="mm-node mm-node-cyan">
+                                <span class="mm-node-icon">👆</span>
+                                <span class="mm-node-title">交互</span>
+                            </div>
+                            <div class="mm-leaves mm-leaves-right">
+                                <a href="articles/compose-gestures.html" class="mm-leaf">手势处理</a>
+                                <a href="articles/compose-keyboard.html" class="mm-leaf">键盘处理</a>
+                                <a href="articles/compose-form.html" class="mm-leaf">表单处理</a>
+                            </div>
+                        </div>
+                        
+                        <!-- Branch 3: 组件 -->
+                        <div class="mm-branch mm-bottom">
+                            <div class="mm-connector mm-connector-bottom"></div>
+                            <div class="mm-node mm-node-green">
+                                <span class="mm-node-icon">🧩</span>
+                                <span class="mm-node-title">组件</span>
+                            </div>
+                            <div class="mm-leaves mm-leaves-bottom">
+                                <a href="articles/compose-bottomsheet.html" class="mm-leaf">BottomSheet</a>
+                                <a href="articles/compose-list-advanced.html" class="mm-leaf">列表进阶</a>
+                            </div>
+                        </div>
+                        
+                        <!-- Branch 4: 主题 -->
+                        <div class="mm-branch mm-left">
+                            <div class="mm-connector mm-connector-left"></div>
+                            <div class="mm-node mm-node-purple">
+                                <span class="mm-node-icon">🎨</span>
+                                <span class="mm-node-title">主题</span>
+                            </div>
+                            <div class="mm-leaves mm-leaves-left">
+                                <a href="articles/compose-material3-theming.html" class="mm-leaf">Material3</a>
+                                <a href="articles/compose-dark-mode.html" class="mm-leaf">深色模式</a>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Mind Map 4: System Integration -->
+            <div class="mindmap-section">
+                <h3 class="mindmap-title">🔌 系统集成图谱</h3>
+                <div class="mindmap-container">
+                    <div class="mindmap">
+                        <!-- Center Node -->
+                        <div class="mm-center">
+                            <div class="mm-center-content">系统<br>集成</div>
+                        </div>
+                        
+                        <!-- Branch 1: 系统服务 -->
+                        <div class="mm-branch mm-top">
+                            <div class="mm-connector mm-connector-top"></div>
+                            <div class="mm-node mm-node-green">
+                                <span class="mm-node-icon">🔐</span>
+                                <span class="mm-node-title">系统服务</span>
+                            </div>
+                            <div class="mm-leaves mm-leaves-top">
+                                <a href="articles/compose-permissions.html" class="mm-leaf">权限处理</a>
+                                <a href="articles/compose-notification.html" class="mm-leaf">通知</a>
+                                <a href="articles/compose-workmanager.html" class="mm-leaf">WorkManager</a>
+                            </div>
+                        </div>
+                        
+                        <!-- Branch 2: 媒体 -->
+                        <div class="mm-branch mm-right">
+                            <div class="mm-connector mm-connector-right"></div>
+                            <div class="mm-node mm-node-cyan">
+                                <span class="mm-node-icon">📷</span>
+                                <span class="mm-node-title">媒体</span>
+                            </div>
+                            <div class="mm-leaves mm-leaves-right">
+                                <a href="articles/compose-camerax.html" class="mm-leaf">CameraX</a>
+                                <a href="articles/compose-media3.html" class="mm-leaf">Media3</a>
+                                <a href="articles/compose-image-loading.html" class="mm-leaf">图片加载</a>
+                            </div>
+                        </div>
+                        
+                        <!-- Branch 3: 互操作 -->
+                        <div class="mm-branch mm-bottom">
+                            <div class="mm-connector mm-connector-bottom"></div>
+                            <div class="mm-node mm-node-blue">
+                                <span class="mm-node-icon">🔀</span>
+                                <span class="mm-node-title">互操作</span>
+                            </div>
+                            <div class="mm-leaves mm-leaves-bottom">
+                                <a href="articles/compose-view-interop.html" class="mm-leaf">View 互操作</a>
+                                <a href="articles/compose-webview.html" class="mm-leaf">WebView</a>
+                            </div>
+                        </div>
+                        
+                        <!-- Branch 4: 跨平台 -->
+                        <div class="mm-branch mm-left">
+                            <div class="mm-connector mm-connector-left"></div>
+                            <div class="mm-node mm-node-orange">
+                                <span class="mm-node-icon">🌍</span>
+                                <span class="mm-node-title">跨平台</span>
+                            </div>
+                            <div class="mm-leaves mm-leaves-left">
+                                <a href="articles/compose-multiplatform.html" class="mm-leaf">Multiplatform</a>
+                                <a href="articles/compose-accessibility.html" class="mm-leaf">无障碍</a>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Quick Access Cards -->
+            <div class="section-header" style="margin-top: 64px;">
+                <div>
+                    <h3 class="section-title" style="font-size: 1.5rem;">🚀 快速入口</h3>
+                    <p class="section-subtitle">按分类快速跳转到相关文章</p>
+                </div>
+            </div>
+
             <div class="topics-grid-expanded">
-                <!-- Row 1: 基础入门 -->
-                <div class="topic-card topic-large">
-                    <div class="topic-header">
-                        <div class="topic-icon green">🎓</div>
-                        <div class="topic-badge">入门必学</div>
-                    </div>
-                    <h3 class="topic-title">Compose 基础</h3>
-                    <p class="topic-description">理解声明式 UI 核心概念，掌握状态管理、副作用处理和重组机制。</p>
-                    <div class="topic-modules">
-                        <div class="module-item">
-                            <span class="module-icon">📦</span>
-                            <span>状态管理 (remember, StateFlow)</span>
-                        </div>
-                        <div class="module-item">
-                            <span class="module-icon">⚡</span>
-                            <span>副作用 (LaunchedEffect, DisposableEffect)</span>
-                        </div>
-                        <div class="module-item">
-                            <span class="module-icon">🔄</span>
-                            <span>重组机制 (Slot Table, Gap Buffer)</span>
-                        </div>
-                    </div>
+                <a href="articles/compose-state-management.html" class="topic-card topic-card-link">
+                    <div class="topic-icon green">🎓</div>
+                    <h3 class="topic-title">从这里开始</h3>
+                    <p class="topic-description">State 状态管理是 Compose 的核心，从这里开始你的学习之旅。</p>
                     <div class="topic-tags">
-                        <span class="topic-tag">State</span>
-                        <span class="topic-tag">Side Effects</span>
+                        <span class="topic-tag">推荐起点</span>
+                    </div>
+                    <div class="topic-arrow">→</div>
+                </a>
+
+                <a href="articles/compose-architecture-and-udf.html" class="topic-card topic-card-link">
+                    <div class="topic-icon blue">🏛️</div>
+                    <h3 class="topic-title">架构最佳实践</h3>
+                    <p class="topic-description">学习 UDF 单向数据流，构建可维护的应用架构。</p>
+                    <div class="topic-tags">
+                        <span class="topic-tag">UDF / MVI</span>
+                    </div>
+                    <div class="topic-arrow">→</div>
+                </a>
+
+                <a href="articles/compose-performance-deep-dive.html" class="topic-card topic-card-link">
+                    <div class="topic-icon purple">⚡</div>
+                    <h3 class="topic-title">性能调优</h3>
+                    <p class="topic-description">深入 Recomposition 机制，打造 60fps 流畅体验。</p>
+                    <div class="topic-tags">
                         <span class="topic-tag">Recomposition</span>
                     </div>
-                </div>
+                    <div class="topic-arrow">→</div>
+                </a>
 
-                <div class="topic-card">
-                    <div class="topic-icon cyan">🎨</div>
-                    <h3 class="topic-title">布局与样式</h3>
-                    <p class="topic-description">掌握 Layout、Modifier 和自定义绘制，构建复杂 UI。</p>
-                    <div class="topic-tags">
-                        <span class="topic-tag">Layout</span>
-                        <span class="topic-tag">Modifier</span>
-                        <span class="topic-tag">Canvas</span>
-                    </div>
-                </div>
-
-                <div class="topic-card">
-                    <div class="topic-icon blue">🏛️</div>
-                    <h3 class="topic-title">架构组件</h3>
-                    <p class="topic-description">ViewModel、Navigation、Hilt 与 Compose 深度集成。</p>
-                    <div class="topic-tags">
-                        <span class="topic-tag">ViewModel</span>
-                        <span class="topic-tag">Navigation</span>
-                        <span class="topic-tag">Hilt</span>
-                    </div>
-                </div>
-
-                <!-- Row 2: 数据与网络 -->
-                <div class="topic-card">
-                    <div class="topic-icon purple">💾</div>
-                    <h3 class="topic-title">数据持久化</h3>
-                    <p class="topic-description">Room、DataStore、Paging 3 数据层最佳实践。</p>
-                    <div class="topic-tags">
-                        <span class="topic-tag">Room</span>
-                        <span class="topic-tag">DataStore</span>
-                        <span class="topic-tag">Paging</span>
-                    </div>
-                </div>
-
-                <div class="topic-card">
-                    <div class="topic-icon orange">🌐</div>
-                    <h3 class="topic-title">网络请求</h3>
-                    <p class="topic-description">Retrofit 集成、UiState 封装和错误处理。</p>
-                    <div class="topic-tags">
-                        <span class="topic-tag">Retrofit</span>
-                        <span class="topic-tag">UiState</span>
-                        <span class="topic-tag">Flow</span>
-                    </div>
-                </div>
-
-                <div class="topic-card topic-large">
-                    <div class="topic-header">
-                        <div class="topic-icon pink">✨</div>
-                        <div class="topic-badge">进阶必备</div>
-                    </div>
-                    <h3 class="topic-title">动画与交互</h3>
-                    <p class="topic-description">从基础动画到共享元素，打造流畅的用户体验。</p>
-                    <div class="topic-modules">
-                        <div class="module-item">
-                            <span class="module-icon">🎬</span>
-                            <span>Transition & AnimatedContent</span>
-                        </div>
-                        <div class="module-item">
-                            <span class="module-icon">🔗</span>
-                            <span>共享元素动画</span>
-                        </div>
-                        <div class="module-item">
-                            <span class="module-icon">👆</span>
-                            <span>手势处理 (拖拽、缩放)</span>
-                        </div>
-                    </div>
+                <a href="articles/compose-animation-guide.html" class="topic-card topic-card-link">
+                    <div class="topic-icon pink">✨</div>
+                    <h3 class="topic-title">动画系统</h3>
+                    <p class="topic-description">从入门到进阶，掌握 Compose 动画全貌。</p>
                     <div class="topic-tags">
                         <span class="topic-tag">Animation</span>
-                        <span class="topic-tag">Gestures</span>
-                        <span class="topic-tag">SharedElement</span>
                     </div>
-                </div>
+                    <div class="topic-arrow">→</div>
+                </a>
 
-                <!-- Row 3: 系统集成 -->
-                <div class="topic-card">
-                    <div class="topic-icon green">🔐</div>
-                    <h3 class="topic-title">权限与系统</h3>
-                    <p class="topic-description">权限请求、通知推送、后台任务处理。</p>
+                <a href="articles/compose-navigation-best-practices.html" class="topic-card topic-card-link">
+                    <div class="topic-icon cyan">🧭</div>
+                    <h3 class="topic-title">导航系统</h3>
+                    <p class="topic-description">Compose Navigation 最佳实践与进阶技巧。</p>
                     <div class="topic-tags">
-                        <span class="topic-tag">Permissions</span>
-                        <span class="topic-tag">Notification</span>
-                        <span class="topic-tag">WorkManager</span>
+                        <span class="topic-tag">Navigation</span>
                     </div>
-                </div>
+                    <div class="topic-arrow">→</div>
+                </a>
 
-                <div class="topic-card">
-                    <div class="topic-icon cyan">📷</div>
-                    <h3 class="topic-title">相机与媒体</h3>
-                    <p class="topic-description">CameraX 集成、Media3 视频播放。</p>
+                <a href="articles/compose-testing-guide.html" class="topic-card topic-card-link">
+                    <div class="topic-icon orange">🧪</div>
+                    <h3 class="topic-title">测试指南</h3>
+                    <p class="topic-description">UI 测试、截图测试、语义节点测试全覆盖。</p>
                     <div class="topic-tags">
-                        <span class="topic-tag">CameraX</span>
-                        <span class="topic-tag">Media3</span>
-                        <span class="topic-tag">ExoPlayer</span>
+                        <span class="topic-tag">Testing</span>
                     </div>
-                </div>
-
-                <div class="topic-card">
-                    <div class="topic-icon blue">🔀</div>
-                    <h3 class="topic-title">混合开发</h3>
-                    <p class="topic-description">View 互操作、WebView 集成、JS 交互。</p>
-                    <div class="topic-tags">
-                        <span class="topic-tag">AndroidView</span>
-                        <span class="topic-tag">WebView</span>
-                        <span class="topic-tag">ComposeView</span>
-                    </div>
-                </div>
-
-                <!-- Row 4: 高级主题 -->
-                <div class="topic-card">
-                    <div class="topic-icon purple">⚡</div>
-                    <h3 class="topic-title">性能优化</h3>
-                    <p class="topic-description">重组优化、列表性能、Layout Inspector 调试。</p>
-                    <div class="topic-tags">
-                        <span class="topic-tag">Stability</span>
-                        <span class="topic-tag">LazyColumn</span>
-                        <span class="topic-tag">Profiling</span>
-                    </div>
-                </div>
-
-                <div class="topic-card">
-                    <div class="topic-icon orange">🌍</div>
-                    <h3 class="topic-title">跨平台</h3>
-                    <p class="topic-description">Compose Multiplatform 跨平台 UI 开发。</p>
-                    <div class="topic-tags">
-                        <span class="topic-tag">KMP</span>
-                        <span class="topic-tag">iOS</span>
-                        <span class="topic-tag">Desktop</span>
-                    </div>
-                </div>
-
-                <div class="topic-card">
-                    <div class="topic-icon pink">♿</div>
-                    <h3 class="topic-title">无障碍开发</h3>
-                    <p class="topic-description">Semantics API、TalkBack 支持、焦点管理。</p>
-                    <div class="topic-tags">
-                        <span class="topic-tag">Semantics</span>
-                        <span class="topic-tag">TalkBack</span>
-                        <span class="topic-tag">Focus</span>
-                    </div>
-                </div>
+                    <div class="topic-arrow">→</div>
+                </a>
             </div>
         </div>
     </section>
