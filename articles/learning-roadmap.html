@@ -1,0 +1,570 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Compose 学习路径思维导图 - Fidroid</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500&family=Outfit:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --bg-primary: #0a0a0f;
+            --bg-secondary: #12121a;
+            --bg-card: #16161f;
+            --bg-elevated: #1a1a24;
+            --text-primary: #f4f4f5;
+            --text-secondary: #a1a1aa;
+            --text-muted: #71717a;
+            --accent-green: #22c55e;
+            --accent-cyan: #06b6d4;
+            --accent-purple: #a855f7;
+            --accent-pink: #ec4899;
+            --accent-orange: #f97316;
+            --accent-blue: #3b82f6;
+            --border-subtle: rgba(255,255,255,0.06);
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Outfit', -apple-system, BlinkMacSystemFont, sans-serif;
+            background: var(--bg-primary);
+            color: var(--text-primary);
+            line-height: 1.6;
+            min-height: 100vh;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 40px 24px;
+        }
+
+        .back-link {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            color: var(--text-secondary);
+            text-decoration: none;
+            font-size: 0.95rem;
+            margin-bottom: 32px;
+            transition: color 0.2s;
+        }
+
+        .back-link:hover {
+            color: var(--accent-green);
+        }
+
+        .page-title {
+            font-size: 2.5rem;
+            font-weight: 700;
+            margin-bottom: 16px;
+            background: linear-gradient(135deg, var(--accent-green), var(--accent-cyan));
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+
+        .page-subtitle {
+            color: var(--text-secondary);
+            font-size: 1.1rem;
+            margin-bottom: 48px;
+        }
+
+        .mindmap-card {
+            background: var(--bg-card);
+            border: 1px solid var(--border-subtle);
+            border-radius: 20px;
+            padding: 32px;
+            margin-bottom: 40px;
+        }
+
+        .mindmap-header {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            margin-bottom: 24px;
+        }
+
+        .mindmap-icon {
+            font-size: 2rem;
+        }
+
+        .mindmap-title {
+            font-size: 1.5rem;
+            font-weight: 600;
+        }
+
+        .mindmap-desc {
+            color: var(--text-secondary);
+            margin-bottom: 24px;
+            font-size: 0.95rem;
+        }
+
+        .mindmap-tree {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 0.9rem;
+            line-height: 1.8;
+            background: var(--bg-elevated);
+            border-radius: 12px;
+            padding: 24px;
+            overflow-x: auto;
+            white-space: pre;
+        }
+
+        .tree-root {
+            color: var(--accent-green);
+            font-weight: 600;
+        }
+
+        .tree-branch {
+            color: var(--accent-cyan);
+        }
+
+        .tree-leaf {
+            color: var(--text-secondary);
+        }
+
+        .tree-connector {
+            color: var(--text-muted);
+        }
+
+        .article-links {
+            margin-top: 24px;
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+        }
+
+        .article-link {
+            display: inline-block;
+            padding: 8px 16px;
+            background: var(--bg-elevated);
+            border: 1px solid var(--border-subtle);
+            border-radius: 8px;
+            color: var(--text-secondary);
+            text-decoration: none;
+            font-size: 0.85rem;
+            transition: all 0.2s;
+        }
+
+        .article-link:hover {
+            background: var(--accent-green);
+            color: var(--bg-primary);
+            border-color: var(--accent-green);
+        }
+
+        .summary-section {
+            background: linear-gradient(135deg, rgba(34,197,94,0.1), rgba(6,182,212,0.1));
+            border: 1px solid var(--accent-green);
+            border-radius: 16px;
+            padding: 32px;
+            margin-top: 48px;
+        }
+
+        .summary-title {
+            font-size: 1.3rem;
+            font-weight: 600;
+            margin-bottom: 16px;
+            color: var(--accent-green);
+        }
+
+        .summary-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 16px;
+        }
+
+        .summary-item {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            padding: 12px;
+            background: var(--bg-card);
+            border-radius: 10px;
+        }
+
+        .summary-number {
+            font-size: 1.5rem;
+            font-weight: 700;
+            color: var(--accent-cyan);
+        }
+
+        .summary-label {
+            font-size: 0.9rem;
+            color: var(--text-secondary);
+        }
+
+        @media (max-width: 768px) {
+            .page-title {
+                font-size: 1.8rem;
+            }
+            .mindmap-tree {
+                font-size: 0.75rem;
+                padding: 16px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <a href="../index.html#topics" class="back-link">
+            ← 返回学习路径
+        </a>
+
+        <h1 class="page-title">🧠 Compose 学习路径思维导图</h1>
+        <p class="page-subtitle">系统化学习 Jetpack Compose，从入门到精通的完整路线图</p>
+
+        <!-- Mind Map 1: 总览 -->
+        <div class="mindmap-card">
+            <div class="mindmap-header">
+                <span class="mindmap-icon">🗺️</span>
+                <h2 class="mindmap-title">学习路径总览</h2>
+            </div>
+            <p class="mindmap-desc">Compose 学习的五个阶段，建议按顺序循序渐进</p>
+            <div class="mindmap-tree"><span class="tree-root">Jetpack Compose 学习路径</span>
+<span class="tree-connector">│</span>
+<span class="tree-connector">├──</span> <span class="tree-branch">📚 阶段一：基础入门</span> (6篇)
+<span class="tree-connector">│   ├──</span> <span class="tree-leaf">声明式 UI 思想</span>
+<span class="tree-connector">│   ├──</span> <span class="tree-leaf">State 状态管理</span>
+<span class="tree-connector">│   ├──</span> <span class="tree-leaf">Side Effects 副作用</span>
+<span class="tree-connector">│   ├──</span> <span class="tree-leaf">CompositionLocal</span>
+<span class="tree-connector">│   ├──</span> <span class="tree-leaf">Modifier 修饰符</span>
+<span class="tree-connector">│   └──</span> <span class="tree-leaf">Material3 主题</span>
+<span class="tree-connector">│</span>
+<span class="tree-connector">├──</span> <span class="tree-branch">🏛️ 阶段二：架构集成</span> (10篇)
+<span class="tree-connector">│   ├──</span> <span class="tree-leaf">UDF 单向数据流</span>
+<span class="tree-connector">│   ├──</span> <span class="tree-leaf">ViewModel 集成</span>
+<span class="tree-connector">│   ├──</span> <span class="tree-leaf">Navigation 导航</span>
+<span class="tree-connector">│   ├──</span> <span class="tree-leaf">Hilt 依赖注入</span>
+<span class="tree-connector">│   ├──</span> <span class="tree-leaf">Room 数据库</span>
+<span class="tree-connector">│   ├──</span> <span class="tree-leaf">DataStore 存储</span>
+<span class="tree-connector">│   ├──</span> <span class="tree-leaf">Paging 3 分页</span>
+<span class="tree-connector">│   ├──</span> <span class="tree-leaf">Retrofit 网络</span>
+<span class="tree-connector">│   ├──</span> <span class="tree-leaf">Coroutines 协程</span>
+<span class="tree-connector">│   └──</span> <span class="tree-leaf">测试指南</span>
+<span class="tree-connector">│</span>
+<span class="tree-connector">├──</span> <span class="tree-branch">🎨 阶段三：UI 进阶</span> (12篇)
+<span class="tree-connector">│   ├──</span> <span class="tree-leaf">Custom Layout</span>
+<span class="tree-connector">│   ├──</span> <span class="tree-leaf">Canvas 绘制</span>
+<span class="tree-connector">│   ├──</span> <span class="tree-leaf">动画系统</span>
+<span class="tree-connector">│   ├──</span> <span class="tree-leaf">动画进阶</span>
+<span class="tree-connector">│   ├──</span> <span class="tree-leaf">手势处理</span>
+<span class="tree-connector">│   ├──</span> <span class="tree-leaf">键盘处理</span>
+<span class="tree-connector">│   ├──</span> <span class="tree-leaf">表单处理</span>
+<span class="tree-connector">│   ├──</span> <span class="tree-leaf">Text 样式</span>
+<span class="tree-connector">│   ├──</span> <span class="tree-leaf">BottomSheet</span>
+<span class="tree-connector">│   ├──</span> <span class="tree-leaf">列表进阶</span>
+<span class="tree-connector">│   ├──</span> <span class="tree-leaf">深色模式</span>
+<span class="tree-connector">│   └──</span> <span class="tree-leaf">图片加载</span>
+<span class="tree-connector">│</span>
+<span class="tree-connector">├──</span> <span class="tree-branch">🔌 阶段四：系统集成</span> (10篇)
+<span class="tree-connector">│   ├──</span> <span class="tree-leaf">权限处理</span>
+<span class="tree-connector">│   ├──</span> <span class="tree-leaf">通知系统</span>
+<span class="tree-connector">│   ├──</span> <span class="tree-leaf">WorkManager</span>
+<span class="tree-connector">│   ├──</span> <span class="tree-leaf">CameraX 相机</span>
+<span class="tree-connector">│   ├──</span> <span class="tree-leaf">Media3 视频</span>
+<span class="tree-connector">│   ├──</span> <span class="tree-leaf">View 互操作</span>
+<span class="tree-connector">│   ├──</span> <span class="tree-leaf">WebView 集成</span>
+<span class="tree-connector">│   ├──</span> <span class="tree-leaf">无障碍开发</span>
+<span class="tree-connector">│   ├──</span> <span class="tree-leaf">导航进阶</span>
+<span class="tree-connector">│   └──</span> <span class="tree-leaf">Multiplatform</span>
+<span class="tree-connector">│</span>
+<span class="tree-connector">└──</span> <span class="tree-branch">🔬 阶段五：底层原理</span> (6篇)
+<span class="tree-connector">    ├──</span> <span class="tree-leaf">Compiler 原理</span>
+<span class="tree-connector">    ├──</span> <span class="tree-leaf">Snapshot 系统</span>
+<span class="tree-connector">    ├──</span> <span class="tree-leaf">Stability 系统</span>
+<span class="tree-connector">    ├──</span> <span class="tree-leaf">性能深入分析</span>
+<span class="tree-connector">    ├──</span> <span class="tree-leaf">列表性能优化</span>
+<span class="tree-connector">    └──</span> <span class="tree-leaf">调试技巧</span></div>
+        </div>
+
+        <!-- Mind Map 2: 核心概念 -->
+        <div class="mindmap-card">
+            <div class="mindmap-header">
+                <span class="mindmap-icon">📦</span>
+                <h2 class="mindmap-title">核心概念详解</h2>
+            </div>
+            <p class="mindmap-desc">Compose 的核心概念和原理，理解这些是掌握 Compose 的关键</p>
+            <div class="mindmap-tree"><span class="tree-root">Compose 核心概念</span>
+<span class="tree-connector">│</span>
+<span class="tree-connector">├──</span> <span class="tree-branch">🔄 状态管理 State</span>
+<span class="tree-connector">│   ├──</span> <span class="tree-leaf">remember { mutableStateOf() }</span>
+<span class="tree-connector">│   ├──</span> <span class="tree-leaf">rememberSaveable</span>
+<span class="tree-connector">│   ├──</span> <span class="tree-leaf">derivedStateOf</span>
+<span class="tree-connector">│   ├──</span> <span class="tree-leaf">collectAsState()</span>
+<span class="tree-connector">│   └──</span> <span class="tree-leaf">State Hoisting 状态提升</span>
+<span class="tree-connector">│</span>
+<span class="tree-connector">├──</span> <span class="tree-branch">⚡ 副作用 Side Effects</span>
+<span class="tree-connector">│   ├──</span> <span class="tree-leaf">LaunchedEffect</span>
+<span class="tree-connector">│   ├──</span> <span class="tree-leaf">DisposableEffect</span>
+<span class="tree-connector">│   ├──</span> <span class="tree-leaf">SideEffect</span>
+<span class="tree-connector">│   ├──</span> <span class="tree-leaf">rememberCoroutineScope</span>
+<span class="tree-connector">│   └──</span> <span class="tree-leaf">rememberUpdatedState</span>
+<span class="tree-connector">│</span>
+<span class="tree-connector">├──</span> <span class="tree-branch">🔁 重组 Recomposition</span>
+<span class="tree-connector">│   ├──</span> <span class="tree-leaf">Slot Table 槽表</span>
+<span class="tree-connector">│   ├──</span> <span class="tree-leaf">Gap Buffer 间隙缓冲</span>
+<span class="tree-connector">│   ├──</span> <span class="tree-leaf">Positional Memoization</span>
+<span class="tree-connector">│   ├──</span> <span class="tree-leaf">$changed 参数</span>
+<span class="tree-connector">│   └──</span> <span class="tree-leaf">Skipping 跳过机制</span>
+<span class="tree-connector">│</span>
+<span class="tree-connector">├──</span> <span class="tree-branch">📸 Snapshot 系统</span>
+<span class="tree-connector">│   ├──</span> <span class="tree-leaf">MutableSnapshot</span>
+<span class="tree-connector">│   ├──</span> <span class="tree-leaf">读写追踪</span>
+<span class="tree-connector">│   ├──</span> <span class="tree-leaf">隔离与合并</span>
+<span class="tree-connector">│   └──</span> <span class="tree-leaf">事务管理</span>
+<span class="tree-connector">│</span>
+<span class="tree-connector">└──</span> <span class="tree-branch">🎯 Stability 稳定性</span>
+<span class="tree-connector">    ├──</span> <span class="tree-leaf">@Stable 注解</span>
+<span class="tree-connector">    ├──</span> <span class="tree-leaf">@Immutable 注解</span>
+<span class="tree-connector">    ├──</span> <span class="tree-leaf">Stability 推断规则</span>
+<span class="tree-connector">    └──</span> <span class="tree-leaf">稳定性报告</span></div>
+            <div class="article-links">
+                <a href="compose-state-management.html" class="article-link">State 状态管理</a>
+                <a href="compose-side-effects.html" class="article-link">Side Effects</a>
+                <a href="compose-compiler-internals.html" class="article-link">Compiler 原理</a>
+                <a href="compose-snapshot-system.html" class="article-link">Snapshot 系统</a>
+                <a href="compose-stability-system.html" class="article-link">Stability 系统</a>
+            </div>
+        </div>
+
+        <!-- Mind Map 3: UI 构建 -->
+        <div class="mindmap-card">
+            <div class="mindmap-header">
+                <span class="mindmap-icon">🎨</span>
+                <h2 class="mindmap-title">UI 构建体系</h2>
+            </div>
+            <p class="mindmap-desc">从 Modifier 到 Custom Layout，构建复杂 UI 的完整知识体系</p>
+            <div class="mindmap-tree"><span class="tree-root">Compose UI 构建</span>
+<span class="tree-connector">│</span>
+<span class="tree-connector">├──</span> <span class="tree-branch">🔧 Modifier 修饰符</span>
+<span class="tree-connector">│   ├──</span> <span class="tree-leaf">链式调用顺序</span>
+<span class="tree-connector">│   ├──</span> <span class="tree-leaf">size / padding / offset</span>
+<span class="tree-connector">│   ├──</span> <span class="tree-leaf">clickable / pointerInput</span>
+<span class="tree-connector">│   ├──</span> <span class="tree-leaf">graphicsLayer</span>
+<span class="tree-connector">│   └──</span> <span class="tree-leaf">自定义 Modifier</span>
+<span class="tree-connector">│</span>
+<span class="tree-connector">├──</span> <span class="tree-branch">📐 Custom Layout</span>
+<span class="tree-connector">│   ├──</span> <span class="tree-leaf">Layout Composable</span>
+<span class="tree-connector">│   ├──</span> <span class="tree-leaf">MeasurePolicy</span>
+<span class="tree-connector">│   ├──</span> <span class="tree-leaf">Constraints 约束</span>
+<span class="tree-connector">│   ├──</span> <span class="tree-leaf">Intrinsic Measurements</span>
+<span class="tree-connector">│   ├──</span> <span class="tree-leaf">SubcomposeLayout</span>
+<span class="tree-connector">│   └──</span> <span class="tree-leaf">ParentDataModifier</span>
+<span class="tree-connector">│</span>
+<span class="tree-connector">├──</span> <span class="tree-branch">🖌️ Canvas 绘制</span>
+<span class="tree-connector">│   ├──</span> <span class="tree-leaf">DrawScope</span>
+<span class="tree-connector">│   ├──</span> <span class="tree-leaf">Path 路径</span>
+<span class="tree-connector">│   ├──</span> <span class="tree-leaf">drawLine / drawCircle</span>
+<span class="tree-connector">│   ├──</span> <span class="tree-leaf">drawPath / drawArc</span>
+<span class="tree-connector">│   └──</span> <span class="tree-leaf">自定义图表</span>
+<span class="tree-connector">│</span>
+<span class="tree-connector">├──</span> <span class="tree-branch">✍️ Text 文本</span>
+<span class="tree-connector">│   ├──</span> <span class="tree-leaf">AnnotatedString</span>
+<span class="tree-connector">│   ├──</span> <span class="tree-leaf">ClickableText</span>
+<span class="tree-connector">│   ├──</span> <span class="tree-leaf">文本选择</span>
+<span class="tree-connector">│   └──</span> <span class="tree-leaf">自定义字体</span>
+<span class="tree-connector">│</span>
+<span class="tree-connector">└──</span> <span class="tree-branch">🎭 主题系统</span>
+<span class="tree-connector">    ├──</span> <span class="tree-leaf">MaterialTheme</span>
+<span class="tree-connector">    ├──</span> <span class="tree-leaf">ColorScheme</span>
+<span class="tree-connector">    ├──</span> <span class="tree-leaf">Typography</span>
+<span class="tree-connector">    ├──</span> <span class="tree-leaf">Shapes</span>
+<span class="tree-connector">    └──</span> <span class="tree-leaf">Dynamic Colors</span></div>
+            <div class="article-links">
+                <a href="compose-modifier-deep-dive.html" class="article-link">Modifier 深入</a>
+                <a href="compose-custom-layout.html" class="article-link">Custom Layout</a>
+                <a href="compose-canvas.html" class="article-link">Canvas 绘制</a>
+                <a href="compose-text.html" class="article-link">Text 样式</a>
+                <a href="compose-material3-theming.html" class="article-link">Material3</a>
+            </div>
+        </div>
+
+        <!-- Mind Map 4: 动画与交互 -->
+        <div class="mindmap-card">
+            <div class="mindmap-header">
+                <span class="mindmap-icon">✨</span>
+                <h2 class="mindmap-title">动画与交互</h2>
+            </div>
+            <p class="mindmap-desc">从简单动画到复杂手势，打造流畅的用户体验</p>
+            <div class="mindmap-tree"><span class="tree-root">动画与交互</span>
+<span class="tree-connector">│</span>
+<span class="tree-connector">├──</span> <span class="tree-branch">🎬 基础动画</span>
+<span class="tree-connector">│   ├──</span> <span class="tree-leaf">animate*AsState</span>
+<span class="tree-connector">│   ├──</span> <span class="tree-leaf">AnimatedVisibility</span>
+<span class="tree-connector">│   ├──</span> <span class="tree-leaf">AnimatedContent</span>
+<span class="tree-connector">│   ├──</span> <span class="tree-leaf">Crossfade</span>
+<span class="tree-connector">│   └──</span> <span class="tree-leaf">animateContentSize</span>
+<span class="tree-connector">│</span>
+<span class="tree-connector">├──</span> <span class="tree-branch">🚀 进阶动画</span>
+<span class="tree-connector">│   ├──</span> <span class="tree-leaf">Transition API</span>
+<span class="tree-connector">│   ├──</span> <span class="tree-leaf">updateTransition</span>
+<span class="tree-connector">│   ├──</span> <span class="tree-leaf">共享元素动画</span>
+<span class="tree-connector">│   ├──</span> <span class="tree-leaf">无限动画</span>
+<span class="tree-connector">│   └──</span> <span class="tree-leaf">物理动画 Spring</span>
+<span class="tree-connector">│</span>
+<span class="tree-connector">├──</span> <span class="tree-branch">👆 手势处理</span>
+<span class="tree-connector">│   ├──</span> <span class="tree-leaf">clickable / combinedClickable</span>
+<span class="tree-connector">│   ├──</span> <span class="tree-leaf">draggable / swipeable</span>
+<span class="tree-connector">│   ├──</span> <span class="tree-leaf">transformable (缩放旋转)</span>
+<span class="tree-connector">│   ├──</span> <span class="tree-leaf">pointerInput</span>
+<span class="tree-connector">│   └──</span> <span class="tree-leaf">嵌套滚动</span>
+<span class="tree-connector">│</span>
+<span class="tree-connector">├──</span> <span class="tree-branch">⌨️ 键盘处理</span>
+<span class="tree-connector">│   ├──</span> <span class="tree-leaf">WindowInsets.ime</span>
+<span class="tree-connector">│   ├──</span> <span class="tree-leaf">键盘可见性监听</span>
+<span class="tree-connector">│   ├──</span> <span class="tree-leaf">焦点管理</span>
+<span class="tree-connector">│   └──</span> <span class="tree-leaf">软键盘适配</span>
+<span class="tree-connector">│</span>
+<span class="tree-connector">└──</span> <span class="tree-branch">📝 表单处理</span>
+<span class="tree-connector">    ├──</span> <span class="tree-leaf">TextField 状态</span>
+<span class="tree-connector">    ├──</span> <span class="tree-leaf">实时验证</span>
+<span class="tree-connector">    ├──</span> <span class="tree-leaf">错误提示</span>
+<span class="tree-connector">    └──</span> <span class="tree-leaf">复杂表单架构</span></div>
+            <div class="article-links">
+                <a href="compose-animation-guide.html" class="article-link">动画指南</a>
+                <a href="compose-animation-advanced.html" class="article-link">动画进阶</a>
+                <a href="compose-gestures.html" class="article-link">手势处理</a>
+                <a href="compose-keyboard.html" class="article-link">键盘处理</a>
+                <a href="compose-form.html" class="article-link">表单处理</a>
+            </div>
+        </div>
+
+        <!-- Mind Map 5: 架构与数据 -->
+        <div class="mindmap-card">
+            <div class="mindmap-header">
+                <span class="mindmap-icon">🏛️</span>
+                <h2 class="mindmap-title">架构与数据层</h2>
+            </div>
+            <p class="mindmap-desc">构建可维护、可测试的应用架构</p>
+            <div class="mindmap-tree"><span class="tree-root">架构与数据层</span>
+<span class="tree-connector">│</span>
+<span class="tree-connector">├──</span> <span class="tree-branch">🔀 UDF 单向数据流</span>
+<span class="tree-connector">│   ├──</span> <span class="tree-leaf">State → UI</span>
+<span class="tree-connector">│   ├──</span> <span class="tree-leaf">Event → ViewModel</span>
+<span class="tree-connector">│   ├──</span> <span class="tree-leaf">UiState 封装</span>
+<span class="tree-connector">│   └──</span> <span class="tree-leaf">One-time Events</span>
+<span class="tree-connector">│</span>
+<span class="tree-connector">├──</span> <span class="tree-branch">📦 ViewModel</span>
+<span class="tree-connector">│   ├──</span> <span class="tree-leaf">viewModel() 获取</span>
+<span class="tree-connector">│   ├──</span> <span class="tree-leaf">StateFlow 暴露状态</span>
+<span class="tree-connector">│   ├──</span> <span class="tree-leaf">SavedStateHandle</span>
+<span class="tree-connector">│   └──</span> <span class="tree-leaf">hiltViewModel()</span>
+<span class="tree-connector">│</span>
+<span class="tree-connector">├──</span> <span class="tree-branch">💉 Hilt 依赖注入</span>
+<span class="tree-connector">│   ├──</span> <span class="tree-leaf">@HiltAndroidApp</span>
+<span class="tree-connector">│   ├──</span> <span class="tree-leaf">@Inject constructor</span>
+<span class="tree-connector">│   ├──</span> <span class="tree-leaf">@Module / @Provides</span>
+<span class="tree-connector">│   └──</span> <span class="tree-leaf">作用域 Scope</span>
+<span class="tree-connector">│</span>
+<span class="tree-connector">├──</span> <span class="tree-branch">💾 数据持久化</span>
+<span class="tree-connector">│   ├──</span> <span class="tree-leaf">Room + Flow</span>
+<span class="tree-connector">│   ├──</span> <span class="tree-leaf">DataStore Preferences</span>
+<span class="tree-connector">│   ├──</span> <span class="tree-leaf">Proto DataStore</span>
+<span class="tree-connector">│   └──</span> <span class="tree-leaf">数据库迁移</span>
+<span class="tree-connector">│</span>
+<span class="tree-connector">├──</span> <span class="tree-branch">🌐 网络层</span>
+<span class="tree-connector">│   ├──</span> <span class="tree-leaf">Retrofit + Coroutines</span>
+<span class="tree-connector">│   ├──</span> <span class="tree-leaf">错误处理</span>
+<span class="tree-connector">│   ├──</span> <span class="tree-leaf">Loading 状态</span>
+<span class="tree-connector">│   └──</span> <span class="tree-leaf">Result 封装</span>
+<span class="tree-connector">│</span>
+<span class="tree-connector">└──</span> <span class="tree-branch">📄 分页加载</span>
+<span class="tree-connector">    ├──</span> <span class="tree-leaf">PagingSource</span>
+<span class="tree-connector">    ├──</span> <span class="tree-leaf">collectAsLazyPagingItems</span>
+<span class="tree-connector">    ├──</span> <span class="tree-leaf">LoadState 处理</span>
+<span class="tree-connector">    └──</span> <span class="tree-leaf">RemoteMediator</span></div>
+            <div class="article-links">
+                <a href="compose-architecture-and-udf.html" class="article-link">UDF 架构</a>
+                <a href="compose-viewmodel.html" class="article-link">ViewModel</a>
+                <a href="compose-hilt.html" class="article-link">Hilt DI</a>
+                <a href="compose-room.html" class="article-link">Room</a>
+                <a href="compose-datastore.html" class="article-link">DataStore</a>
+                <a href="compose-retrofit.html" class="article-link">Retrofit</a>
+                <a href="compose-paging.html" class="article-link">Paging 3</a>
+            </div>
+        </div>
+
+        <!-- Mind Map 6: 系统集成 -->
+        <div class="mindmap-card">
+            <div class="mindmap-header">
+                <span class="mindmap-icon">🔌</span>
+                <h2 class="mindmap-title">系统集成</h2>
+            </div>
+            <p class="mindmap-desc">与 Android 系统能力和原生组件的集成</p>
+            <div class="mindmap-tree"><span class="tree-root">系统集成</span>
+<span class="tree-connector">│</span>
+<span class="tree-connector">├──</span> <span class="tree-branch">🔐 权限与系统服务</span>
+<span class="tree-connector">│   ├──</span> <span class="tree-leaf">rememberLauncherForActivityResult</span>
+<span class="tree-connector">│   ├──</span> <span class="tree-leaf">权限请求流程</span>
+<span class="tree-connector">│   ├──</span> <span class="tree-leaf">通知 NotificationChannel</span>
+<span class="tree-connector">│   └──</span> <span class="tree-leaf">WorkManager 后台任务</span>
+<span class="tree-connector">│</span>
+<span class="tree-connector">├──</span> <span class="tree-branch">📷 媒体能力</span>
+<span class="tree-connector">│   ├──</span> <span class="tree-leaf">CameraX 相机预览</span>
+<span class="tree-connector">│   ├──</span> <span class="tree-leaf">拍照 / 录像</span>
+<span class="tree-connector">│   ├──</span> <span class="tree-leaf">Media3 ExoPlayer</span>
+<span class="tree-connector">│   ├──</span> <span class="tree-leaf">画中画 PiP</span>
+<span class="tree-connector">│   └──</span> <span class="tree-leaf">Coil 图片加载</span>
+<span class="tree-connector">│</span>
+<span class="tree-connector">├──</span> <span class="tree-branch">🔀 View 互操作</span>
+<span class="tree-connector">│   ├──</span> <span class="tree-leaf">AndroidView 嵌入 View</span>
+<span class="tree-connector">│   ├──</span> <span class="tree-leaf">ComposeView 嵌入 Compose</span>
+<span class="tree-connector">│   ├──</span> <span class="tree-leaf">ViewCompositionStrategy</span>
+<span class="tree-connector">│   └──</span> <span class="tree-leaf">状态同步</span>
+<span class="tree-connector">│</span>
+<span class="tree-connector">├──</span> <span class="tree-branch">🌐 WebView</span>
+<span class="tree-connector">│   ├──</span> <span class="tree-leaf">AndroidView 包装</span>
+<span class="tree-connector">│   ├──</span> <span class="tree-leaf">JavaScript 交互</span>
+<span class="tree-connector">│   ├──</span> <span class="tree-leaf">Cookie 管理</span>
+<span class="tree-connector">│   └──</span> <span class="tree-leaf">文件选择</span>
+<span class="tree-connector">│</span>
+<span class="tree-connector">└──</span> <span class="tree-branch">♿ 无障碍</span>
+<span class="tree-connector">    ├──</span> <span class="tree-leaf">Semantics API</span>
+<span class="tree-connector">    ├──</span> <span class="tree-leaf">contentDescription</span>
+<span class="tree-connector">    ├──</span> <span class="tree-leaf">TalkBack 支持</span>
+<span class="tree-connector">    └──</span> <span class="tree-leaf">焦点管理</span></div>
+            <div class="article-links">
+                <a href="compose-permissions.html" class="article-link">权限处理</a>
+                <a href="compose-notification.html" class="article-link">通知</a>
+                <a href="compose-workmanager.html" class="article-link">WorkManager</a>
+                <a href="compose-camerax.html" class="article-link">CameraX</a>
+                <a href="compose-media3.html" class="article-link">Media3</a>
+                <a href="compose-view-interop.html" class="article-link">View 互操作</a>
+                <a href="compose-webview.html" class="article-link">WebView</a>
+                <a href="compose-accessibility.html" class="article-link">无障碍</a>
+            </div>
+        </div>
+
+        <!-- Summary -->
+        <div class="summary-section">
+            <h3 class="summary-title">📊 学习路径统计</h3>
+            <div class="summary-grid">
+                <div class="summary-item">
+                    <span class="summary-number">44</span>
+                    <span class="summary-label">篇深度教程</span>
+                </div>
+                <div class="summary-item">
+                    <span class="summary-number">5</span>
+                    <span class="summary-label">个学习阶段</span>
+                </div>
+                <div class="summary-item">
+                    <span class="summary-number">6</span>
+                    <span class="summary-label">幅思维导图</span>
+                </div>
+                <div class="summary-item">
+                    <span class="summary-number">100+</span>
+                    <span class="summary-label">个知识点</span>
+                </div>
+            </div>
+        </div>
+    </div>
+</body>
+</html>
+
