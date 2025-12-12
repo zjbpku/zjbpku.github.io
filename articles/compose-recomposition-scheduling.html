@@ -1,0 +1,718 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Recomposition 调度与执行机制：从状态变更到 UI 更新 - Fidroid</title>
+    <meta name="description" content="深入理解 Compose 重组的调度机制，探索 Recomposer、InvalidationScope、帧同步等核心概念，揭秘状态变更如何触发 UI 更新。">
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            line-height: 1.8;
+            color: #e5e7eb;
+            background: #020617;
+        }
+        .navbar {
+            background: rgba(15,23,42,0.98);
+            backdrop-filter: blur(10px);
+            position: fixed;
+            top: 0;
+            width: 100%;
+            z-index: 1000;
+        }
+        .nav-container {
+            max-width: 900px;
+            margin: 0 auto;
+            padding: 1rem 20px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .logo {
+            font-size: 1.5rem;
+            font-weight: bold;
+            color: #38bdf8;
+            text-decoration: none;
+            letter-spacing: 0.08em;
+            text-transform: uppercase;
+        }
+        .back-link { color: #9ca3af; text-decoration: none; font-size: 0.9rem; }
+        .back-link:hover { color: #38bdf8; }
+
+        .article-header {
+            padding: 120px 20px 60px;
+            background: radial-gradient(circle at top left, #dc2626 0, transparent 50%),
+                        radial-gradient(circle at bottom right, #7c3aed 0, transparent 55%),
+                        #020617;
+            text-align: center;
+        }
+        .article-header h1 {
+            max-width: 800px;
+            margin: 0 auto 1rem;
+            font-size: 2.5rem;
+            font-weight: 800;
+            letter-spacing: -0.03em;
+            color: #fff;
+        }
+        .article-meta { color: #9ca3af; font-size: 0.9rem; margin-bottom: 1.5rem; }
+        .article-tags { display: flex; justify-content: center; flex-wrap: wrap; gap: 0.5rem; }
+        .article-tag {
+            padding: 0.25rem 0.75rem;
+            border-radius: 999px;
+            font-size: 0.75rem;
+            background: rgba(15,23,42,0.85);
+            border: 1px solid rgba(220,38,38,0.4);
+            color: #fca5a5;
+        }
+
+        .article-content {
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 60px 20px 80px;
+        }
+        .article-content h2 {
+            font-size: 1.6rem;
+            margin: 2.5rem 0 1rem;
+            color: #f9fafb;
+            border-left: 4px solid #dc2626;
+            padding-left: 1rem;
+        }
+        .article-content h3 { font-size: 1.25rem; margin: 2rem 0 0.75rem; color: #e5e7eb; }
+        .article-content p { margin-bottom: 1.25rem; color: #d1d5db; }
+        .article-content ul, .article-content ol { margin: 1rem 0 1.5rem 1.5rem; color: #d1d5db; }
+        .article-content li { margin-bottom: 0.5rem; }
+        .article-content strong { color: #f9fafb; }
+        .article-content a { color: #38bdf8; text-decoration: underline; }
+
+        pre {
+            background: #0f172a;
+            border: 1px solid rgba(220,38,38,0.3);
+            border-radius: 12px;
+            padding: 1.25rem;
+            overflow-x: auto;
+            margin: 1.5rem 0;
+            font-size: 0.85rem;
+            line-height: 1.6;
+        }
+        code { font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace; color: #e5e7eb; }
+        .code-keyword { color: #c084fc; }
+        .code-func { color: #38bdf8; }
+        .code-type { color: #4ade80; }
+        .code-string { color: #fbbf24; }
+        .code-comment { color: #6b7280; }
+        .code-annotation { color: #f472b6; }
+
+        .tip-box {
+            background: rgba(220,38,38,0.1);
+            border: 1px solid rgba(220,38,38,0.3);
+            border-radius: 12px;
+            padding: 1.25rem;
+            margin: 1.5rem 0;
+        }
+        .tip-box.info {
+            background: rgba(59,130,246,0.1);
+            border-color: rgba(59,130,246,0.3);
+        }
+        .tip-box.success {
+            background: rgba(34,197,94,0.1);
+            border-color: rgba(34,197,94,0.3);
+        }
+        .tip-box.warning {
+            background: rgba(245,158,11,0.1);
+            border-color: rgba(245,158,11,0.3);
+        }
+        .tip-title { font-weight: 600; color: #fca5a5; margin-bottom: 0.5rem; }
+        .info .tip-title { color: #93c5fd; }
+        .success .tip-title { color: #4ade80; }
+        .warning .tip-title { color: #fcd34d; }
+
+        .diagram-box {
+            background: #0f172a;
+            border: 1px solid rgba(220,38,38,0.3);
+            border-radius: 12px;
+            padding: 1.5rem;
+            margin: 1.5rem 0;
+            font-family: ui-monospace, monospace;
+            font-size: 0.8rem;
+            line-height: 1.5;
+            overflow-x: auto;
+            white-space: pre;
+            color: #9ca3af;
+        }
+        .diagram-highlight { color: #4ade80; }
+        .diagram-accent { color: #38bdf8; }
+        .diagram-warning { color: #fbbf24; }
+        .diagram-red { color: #f87171; }
+
+        .footer {
+            background: #0f172a;
+            padding: 3rem 20px;
+            text-align: center;
+            border-top: 1px solid rgba(220,38,38,0.2);
+        }
+        .footer p { color: #6b7280; font-size: 0.9rem; }
+    </style>
+</head>
+<body>
+    <nav class="navbar">
+        <div class="nav-container">
+            <a href="../index.html" class="logo">Fidroid</a>
+            <a href="../index.html#articles" class="back-link">← 返回文章列表</a>
+        </div>
+    </nav>
+
+    <header class="article-header">
+        <h1>Recomposition 调度与执行机制：从状态变更到 UI 更新</h1>
+        <div class="article-meta">📅 2024-07-07 · ⏱ 32 min · 🔬 底层原理</div>
+        <div class="article-tags">
+            <span class="article-tag">Recomposition</span>
+            <span class="article-tag">Recomposer</span>
+            <span class="article-tag">Snapshot</span>
+            <span class="article-tag">Scheduling</span>
+        </div>
+    </header>
+
+    <article class="article-content">
+        <p>当你修改一个 State 的值时，Compose 如何知道哪些 UI 需要更新？更新是立即执行还是延迟处理？本文将深入探索 Recomposition 的完整调度与执行机制，从 Snapshot 系统到帧同步，揭秘状态变更如何触发 UI 更新。</p>
+
+        <h2>I. 重组调度的整体流程</h2>
+
+        <div class="diagram-box">
+<span class="diagram-red">State 变更</span>
+     │
+     ▼
+<span class="diagram-warning">Snapshot 系统检测</span> ─────────────────────────────────────┐
+     │                                                      │
+     ▼                                                      │
+<span class="diagram-accent">标记 InvalidationScope</span>                                    │
+     │                                                      │
+     ▼                                                      │
+<span class="diagram-highlight">Recomposer 调度</span>                                           │
+     │                                                      │
+     ├── 同一帧内多次变更 ──→ <span class="diagram-warning">合并 (Coalescing)</span> ────────────┘
+     │
+     ▼
+<span class="diagram-accent">等待下一帧 (Frame Synchronization)</span>
+     │
+     ▼
+<span class="diagram-highlight">执行 Recomposition</span>
+     │
+     ├── 遍历失效的 Scope
+     ├── 重新执行 @Composable 函数
+     ├── 更新 Slot Table
+     └── 应用变更到 Node Tree
+     │
+     ▼
+<span class="diagram-red">UI 渲染</span>
+        </div>
+
+        <h2>II. Snapshot 系统：变更检测</h2>
+
+        <h3>2.1 什么是 Snapshot</h3>
+
+        <p>Snapshot 系统是 Compose 的变更检测机制。它追踪所有 State 的读取和写入操作：</p>
+
+        <pre><code><span class="code-comment">// MutableState 的简化实现</span>
+<span class="code-keyword">class</span> <span class="code-type">SnapshotMutableStateImpl</span>&lt;<span class="code-type">T</span>&gt;(
+    value: <span class="code-type">T</span>
+) : <span class="code-type">MutableState</span>&lt;<span class="code-type">T</span>&gt; {
+    
+    <span class="code-keyword">private var</span> next: <span class="code-type">StateRecord</span>  <span class="code-comment">// 状态记录链表</span>
+    
+    <span class="code-keyword">override var</span> value: <span class="code-type">T</span>
+        <span class="code-keyword">get</span>() {
+            <span class="code-comment">// 读取时通知 Snapshot 系统</span>
+            <span class="code-keyword">val</span> snapshot = <span class="code-type">Snapshot</span>.current
+            snapshot.<span class="code-func">recordReadOf</span>(<span class="code-keyword">this</span>)  <span class="code-comment">// ← 记录读取！</span>
+            <span class="code-keyword">return</span> <span class="code-func">readable</span>(next, snapshot).value
+        }
+        <span class="code-keyword">set</span>(newValue) {
+            <span class="code-comment">// 写入时通知 Snapshot 系统</span>
+            <span class="code-keyword">val</span> snapshot = <span class="code-type">Snapshot</span>.current
+            <span class="code-keyword">val</span> record = <span class="code-func">writable</span>(next, snapshot)
+            record.value = newValue
+            snapshot.<span class="code-func">recordWriteOf</span>(<span class="code-keyword">this</span>)  <span class="code-comment">// ← 记录写入！</span>
+        }
+}</code></pre>
+
+        <h3>2.2 读取追踪</h3>
+
+        <p>当 @Composable 函数读取 State 时，Snapshot 系统会记录这个依赖关系：</p>
+
+        <pre><code><span class="code-annotation">@Composable</span>
+<span class="code-keyword">fun</span> <span class="code-func">Counter</span>() {
+    <span class="code-comment">// 1. 当前 RecomposeScope 被记录</span>
+    <span class="code-keyword">val</span> scope = currentRecomposeScope
+    
+    <span class="code-comment">// 2. 读取 count.value 时：</span>
+    <span class="code-comment">//    Snapshot.recordReadOf(countState)</span>
+    <span class="code-comment">//    → 建立 countState 与 scope 的关联</span>
+    <span class="code-keyword">val</span> count = countState.value
+    
+    <span class="code-func">Text</span>(<span class="code-string">"Count: $count"</span>)
+}
+
+<span class="code-comment">// 内部维护的依赖图:</span>
+<span class="code-comment">// countState → [RecomposeScope@Counter]</span>
+<span class="code-comment">// 当 countState 写入时，通知 Counter 需要重组</span></code></pre>
+
+        <h3>2.3 写入通知</h3>
+
+        <pre><code><span class="code-comment">// 当写入 State 时</span>
+count.value = count.value + <span class="code-string">1</span>
+
+<span class="code-comment">// Snapshot 系统执行:</span>
+<span class="code-keyword">fun</span> <span class="code-func">recordWriteOf</span>(state: <span class="code-type">StateObject</span>) {
+    <span class="code-comment">// 1. 找到所有读取过这个 State 的 Scope</span>
+    <span class="code-keyword">val</span> scopes = derivedStateObservers[state]
+    
+    <span class="code-comment">// 2. 通知每个 Scope 失效</span>
+    scopes.<span class="code-func">forEach</span> { scope -&gt;
+        scope.<span class="code-func">invalidate</span>()
+    }
+}
+
+<span class="code-comment">// RecomposeScope.invalidate()</span>
+<span class="code-keyword">fun</span> <span class="code-func">invalidate</span>() {
+    <span class="code-comment">// 将自己添加到 Composition 的失效列表</span>
+    composition.<span class="code-func">recordInvalidation</span>(<span class="code-keyword">this</span>)
+}</code></pre>
+
+        <h2>III. Recomposer：调度中枢</h2>
+
+        <h3>3.1 Recomposer 的角色</h3>
+
+        <p>Recomposer 是重组的调度器，负责协调多个 Composition 的重组时机：</p>
+
+        <pre><code><span class="code-keyword">class</span> <span class="code-type">Recomposer</span>(
+    effectCoroutineContext: <span class="code-type">CoroutineContext</span>
+) : <span class="code-type">CompositionContext</span>() {
+    
+    <span class="code-comment">// 管理的所有 Composition</span>
+    <span class="code-keyword">private val</span> knownCompositions = <span class="code-func">mutableListOf</span>&lt;<span class="code-type">Composition</span>&gt;()
+    
+    <span class="code-comment">// 需要重组的 Composition</span>
+    <span class="code-keyword">private val</span> compositionsNeedingRecompose = 
+        <span class="code-func">mutableSetOf</span>&lt;<span class="code-type">Composition</span>&gt;()
+    
+    <span class="code-comment">// 帧调度器</span>
+    <span class="code-keyword">private val</span> broadcastFrameClock: <span class="code-type">BroadcastFrameClock</span>
+    
+    <span class="code-comment">// 运行重组循环</span>
+    <span class="code-keyword">suspend fun</span> <span class="code-func">runRecomposeAndApplyChanges</span>() {
+        <span class="code-comment">// 无限循环，等待帧信号</span>
+        <span class="code-keyword">while</span> (<span class="code-string">true</span>) {
+            <span class="code-comment">// 等待下一帧</span>
+            broadcastFrameClock.<span class="code-func">awaitFrame</span>()
+            
+            <span class="code-comment">// 执行所有待处理的重组</span>
+            <span class="code-func">performRecompose</span>()
+        }
+    }
+}</code></pre>
+
+        <h3>3.2 帧同步机制</h3>
+
+        <div class="diagram-box">
+Android 帧调度 (16.6ms @ 60fps):
+
+Frame N                          Frame N+1                        Frame N+2
+    │                                │                                │
+    ▼                                ▼                                ▼
+┌───────────────────────┐    ┌───────────────────────┐    ┌───────────────────────┐
+│ Input                 │    │ Input                 │    │ Input                 │
+│ Animation             │    │ Animation             │    │ Animation             │
+│ <span class="diagram-highlight">Recomposition</span>         │    │ <span class="diagram-highlight">Recomposition</span>         │    │ <span class="diagram-highlight">Recomposition</span>         │
+│ Layout                │    │ Layout                │    │ Layout                │
+│ Draw                  │    │ Draw                  │    │ Draw                  │
+└───────────────────────┘    └───────────────────────┘    └───────────────────────┘
+    │                            │
+    │  <span class="diagram-warning">State 变更发生在这里</span>      │
+    │  <span class="diagram-warning">↓</span>                         │
+    │  count = 1                 │
+    │  count = 2  <span class="diagram-accent">← 同帧多次变更</span>   │
+    │  count = 3  <span class="diagram-accent">← 会被合并!</span>     │
+    │                            │
+    └────────────────────────────┘
+              <span class="diagram-highlight">下一帧才执行重组</span>
+              <span class="diagram-highlight">只重组一次，使用最新值 count=3</span>
+        </div>
+
+        <h3>3.3 变更合并 (Coalescing)</h3>
+
+        <pre><code><span class="code-annotation">@Composable</span>
+<span class="code-keyword">fun</span> <span class="code-func">BatchUpdates</span>() {
+    <span class="code-keyword">var</span> a <span class="code-keyword">by</span> <span class="code-func">remember</span> { <span class="code-func">mutableStateOf</span>(<span class="code-string">0</span>) }
+    <span class="code-keyword">var</span> b <span class="code-keyword">by</span> <span class="code-func">remember</span> { <span class="code-func">mutableStateOf</span>(<span class="code-string">0</span>) }
+    
+    <span class="code-func">Button</span>(onClick = {
+        <span class="code-comment">// 这三个变更都在同一帧内</span>
+        a = <span class="code-string">1</span>  <span class="code-comment">// 标记失效</span>
+        b = <span class="code-string">1</span>  <span class="code-comment">// 标记失效</span>
+        a = <span class="code-string">2</span>  <span class="code-comment">// 已失效，不重复标记</span>
+        <span class="code-comment">// 只会触发一次重组！</span>
+    }) {
+        <span class="code-func">Text</span>(<span class="code-string">"a=$a, b=$b"</span>)
+    }
+}</code></pre>
+
+        <div class="tip-box info">
+            <div class="tip-title">🔄 合并的意义</div>
+            <p>变更合并是重要的性能优化。无论一帧内发生多少次状态变更，Compose 都只在帧结束时执行一次重组。这避免了中间状态导致的无效渲染。</p>
+        </div>
+
+        <h2>IV. InvalidationScope：失效追踪</h2>
+
+        <h3>4.1 RecomposeScope 的创建</h3>
+
+        <pre><code><span class="code-comment">// 每个 @Composable 函数编译后会包含 RecomposeScope</span>
+<span class="code-keyword">fun</span> <span class="code-func">Counter</span>($composer: <span class="code-type">Composer</span>, $changed: <span class="code-type">Int</span>) {
+    <span class="code-comment">// 开始一个可重组的作用域</span>
+    $composer.<span class="code-func">startRestartGroup</span>(<span class="code-string">123</span>)  <span class="code-comment">// key = 123</span>
+    
+    <span class="code-comment">// ... 函数体 ...</span>
+    
+    <span class="code-comment">// 结束作用域，返回 ScopeUpdateScope</span>
+    <span class="code-keyword">val</span> scope = $composer.<span class="code-func">endRestartGroup</span>()
+    
+    <span class="code-comment">// 注册重组回调</span>
+    scope?.<span class="code-func">updateScope</span> { nextComposer, force -&gt;
+        <span class="code-comment">// 当需要重组时，重新调用此函数</span>
+        <span class="code-func">Counter</span>(nextComposer, $changed or <span class="code-string">1</span>)
+    }
+}</code></pre>
+
+        <h3>4.2 失效传播</h3>
+
+        <div class="diagram-box">
+组件树结构:
+┌─────────────────────────────────────────────────────────────┐
+│                         <span class="diagram-highlight">App</span>                                │
+│                          │                                  │
+│            ┌─────────────┴─────────────┐                    │
+│            │                           │                    │
+│         <span class="diagram-accent">Screen</span>                      <span class="diagram-accent">Header</span>                  │
+│            │                           │                    │
+│     ┌──────┴──────┐                    │                    │
+│     │             │                    │                    │
+│  <span class="diagram-warning">Counter</span>       <span class="diagram-accent">List</span>               <span class="diagram-accent">Title</span>                  │
+│     │                                                       │
+│ <span class="diagram-red">count State</span>                                                 │
+└─────────────────────────────────────────────────────────────┘
+
+当 count 变更时:
+1. count State 通知 Snapshot 系统
+2. Snapshot 找到读取 count 的 <span class="diagram-warning">Counter</span> Scope
+3. 标记 <span class="diagram-warning">Counter</span> 为失效
+4. <span class="diagram-highlight">只有 Counter 需要重组!</span>
+   (Screen, Header, List, Title 都不受影响)
+        </div>
+
+        <h3>4.3 最小重组范围</h3>
+
+        <pre><code><span class="code-annotation">@Composable</span>
+<span class="code-keyword">fun</span> <span class="code-func">Parent</span>() {
+    <span class="code-keyword">var</span> count <span class="code-keyword">by</span> <span class="code-func">remember</span> { <span class="code-func">mutableStateOf</span>(<span class="code-string">0</span>) }
+    
+    <span class="code-func">println</span>(<span class="code-string">"Parent recomposing"</span>)  <span class="code-comment">// 会打印</span>
+    
+    <span class="code-func">Column</span> {
+        <span class="code-func">Text</span>(<span class="code-string">"Count: $count"</span>)  <span class="code-comment">// 读取 count</span>
+        
+        <span class="code-func">ExpensiveChild</span>()  <span class="code-comment">// 不读取 count</span>
+    }
+    
+    <span class="code-func">Button</span>(onClick = { count++ }) {
+        <span class="code-func">Text</span>(<span class="code-string">"+"</span>)
+    }
+}
+
+<span class="code-annotation">@Composable</span>
+<span class="code-keyword">fun</span> <span class="code-func">ExpensiveChild</span>() {
+    <span class="code-func">println</span>(<span class="code-string">"ExpensiveChild recomposing"</span>)  <span class="code-comment">// 也会打印！</span>
+    <span class="code-comment">// ...</span>
+}
+
+<span class="code-comment">// 问题：ExpensiveChild 也重组了，因为它在 Parent 的作用域内</span></code></pre>
+
+        <div class="tip-box warning">
+            <div class="tip-title">⚠️ Lambda 陷阱</div>
+            <p>在上面的例子中，<code>ExpensiveChild()</code> 虽然不读取 count，但它在 Parent 的作用域内。Parent 重组时，会重新执行整个函数体，包括 ExpensiveChild 的调用。</p>
+        </div>
+
+        <h3>4.4 优化：使用 Lambda 隔离</h3>
+
+        <pre><code><span class="code-annotation">@Composable</span>
+<span class="code-keyword">fun</span> <span class="code-func">OptimizedParent</span>() {
+    <span class="code-keyword">var</span> count <span class="code-keyword">by</span> <span class="code-func">remember</span> { <span class="code-func">mutableStateOf</span>(<span class="code-string">0</span>) }
+    
+    <span class="code-func">Column</span> {
+        <span class="code-comment">// 将 count 读取限制在最小范围</span>
+        <span class="code-func">CountDisplay</span>(count)  <span class="code-comment">// 只有这里读取 count</span>
+        
+        <span class="code-func">ExpensiveChild</span>()  <span class="code-comment">// 不会重组！</span>
+    }
+    
+    <span class="code-func">Button</span>(onClick = { count++ }) {
+        <span class="code-func">Text</span>(<span class="code-string">"+"</span>)
+    }
+}
+
+<span class="code-annotation">@Composable</span>
+<span class="code-keyword">fun</span> <span class="code-func">CountDisplay</span>(count: <span class="code-type">Int</span>) {  <span class="code-comment">// 参数传递，非直接读取</span>
+    <span class="code-func">Text</span>(<span class="code-string">"Count: $count"</span>)
+}
+
+<span class="code-comment">// 现在只有 CountDisplay 会重组</span>
+<span class="code-comment">// ExpensiveChild 的参数未变，会被跳过</span></code></pre>
+
+        <h2>V. 执行阶段详解</h2>
+
+        <h3>5.1 重组执行流程</h3>
+
+        <pre><code><span class="code-keyword">internal fun</span> <span class="code-func">performRecompose</span>() {
+    <span class="code-comment">// 1. 获取需要重组的 Composition 列表</span>
+    <span class="code-keyword">val</span> toRecompose = compositionsNeedingRecompose.<span class="code-func">toList</span>()
+    compositionsNeedingRecompose.<span class="code-func">clear</span>()
+    
+    <span class="code-comment">// 2. 对每个 Composition 执行重组</span>
+    <span class="code-keyword">for</span> (composition <span class="code-keyword">in</span> toRecompose) {
+        <span class="code-comment">// 2.1 获取失效的 Scope 列表</span>
+        <span class="code-keyword">val</span> invalidScopes = composition.<span class="code-func">takeInvalidations</span>()
+        
+        <span class="code-comment">// 2.2 按位置排序（深度优先顺序）</span>
+        invalidScopes.<span class="code-func">sortBy</span> { it.position }
+        
+        <span class="code-comment">// 2.3 执行每个失效 Scope 的重组</span>
+        <span class="code-keyword">for</span> (scope <span class="code-keyword">in</span> invalidScopes) {
+            <span class="code-keyword">if</span> (!scope.isValid) <span class="code-keyword">continue</span>  <span class="code-comment">// 可能已被父级覆盖</span>
+            
+            <span class="code-comment">// 调用 scope 注册的 updateScope lambda</span>
+            scope.<span class="code-func">recompose</span>()
+        }
+        
+        <span class="code-comment">// 2.4 应用变更到 Node Tree</span>
+        composition.<span class="code-func">applyChanges</span>()
+    }
+    
+    <span class="code-comment">// 3. 执行 Side Effects</span>
+    <span class="code-func">runSideEffects</span>()
+}</code></pre>
+
+        <h3>5.2 跳过机制 (Skipping)</h3>
+
+        <pre><code><span class="code-comment">// Composer 的跳过逻辑</span>
+<span class="code-keyword">fun</span> <span class="code-func">startRestartGroup</span>(key: <span class="code-type">Int</span>): <span class="code-type">Composer</span> {
+    <span class="code-comment">// 检查是否可以跳过</span>
+    skipping = !inserting && 
+               !currentScope.isInvalidated && 
+               <span class="code-func">allParametersUnchanged</span>()
+    
+    <span class="code-keyword">return this</span>
+}
+
+<span class="code-comment">// 编译后的代码会检查 skipping</span>
+<span class="code-keyword">fun</span> <span class="code-func">MyComponent</span>(param: <span class="code-type">String</span>, $composer: <span class="code-type">Composer</span>, $changed: <span class="code-type">Int</span>) {
+    $composer.<span class="code-func">startRestartGroup</span>(<span class="code-string">123</span>)
+    
+    <span class="code-keyword">if</span> ($composer.skipping) {
+        <span class="code-comment">// 跳过整个函数体！</span>
+        $composer.<span class="code-func">skipToGroupEnd</span>()
+    } <span class="code-keyword">else</span> {
+        <span class="code-comment">// 执行函数体</span>
+        <span class="code-func">Text</span>(param, $composer, <span class="code-string">0</span>)
+    }
+    
+    $composer.<span class="code-func">endRestartGroup</span>()
+}</code></pre>
+
+        <h3>5.3 $changed 参数</h3>
+
+        <p>编译器生成的 <code>$changed</code> 参数用于快速判断参数是否变化：</p>
+
+        <pre><code><span class="code-comment">// $changed 是一个位掩码</span>
+<span class="code-comment">// 每个参数占用 3 位：</span>
+<span class="code-comment">//   - bit 0: 值是否变化</span>
+<span class="code-comment">//   - bit 1: 是否是稳定类型</span>
+<span class="code-comment">//   - bit 2: 是否已检查过</span>
+
+<span class="code-keyword">fun</span> <span class="code-func">Profile</span>(
+    name: <span class="code-type">String</span>,      <span class="code-comment">// 参数 1: bits 0-2</span>
+    age: <span class="code-type">Int</span>,          <span class="code-comment">// 参数 2: bits 3-5</span>
+    avatar: <span class="code-type">ImageUrl</span>,  <span class="code-comment">// 参数 3: bits 6-8</span>
+    $composer: <span class="code-type">Composer</span>,
+    $changed: <span class="code-type">Int</span>
+) {
+    <span class="code-comment">// 检查 name 是否变化</span>
+    <span class="code-keyword">val</span> nameChanged = ($changed and <span class="code-string">0b001</span>) != <span class="code-string">0</span>
+    
+    <span class="code-comment">// 检查 age 是否变化</span>
+    <span class="code-keyword">val</span> ageChanged = ($changed and <span class="code-string">0b001000</span>) != <span class="code-string">0</span>
+    
+    <span class="code-comment">// 只有全部参数未变化时才能跳过</span>
+    <span class="code-keyword">if</span> (!nameChanged && !ageChanged && !avatarChanged) {
+        $composer.<span class="code-func">skipToGroupEnd</span>()
+        <span class="code-keyword">return</span>
+    }
+    
+    <span class="code-comment">// 执行重组...</span>
+}</code></pre>
+
+        <h2>VI. Side Effects 的执行时机</h2>
+
+        <h3>6.1 Effect 调度</h3>
+
+        <pre><code><span class="code-comment">// Side Effects 在重组完成后执行</span>
+<span class="code-keyword">private fun</span> <span class="code-func">runSideEffects</span>() {
+    <span class="code-comment">// 1. 执行 SideEffect (同步)</span>
+    pendingSideEffects.<span class="code-func">forEach</span> { it() }
+    pendingSideEffects.<span class="code-func">clear</span>()
+    
+    <span class="code-comment">// 2. 启动 LaunchedEffect 协程</span>
+    pendingLaunchedEffects.<span class="code-func">forEach</span> { effect -&gt;
+        effectScope.<span class="code-func">launch</span> { effect() }
+    }
+    pendingLaunchedEffects.<span class="code-func">clear</span>()
+}</code></pre>
+
+        <h3>6.2 Effect 执行顺序</h3>
+
+        <div class="diagram-box">
+帧内执行顺序:
+
+┌─────────────────────────────────────────────────────────────────┐
+│                           Frame N                               │
+├─────────────────────────────────────────────────────────────────┤
+│ 1. <span class="diagram-highlight">Recomposition</span>                                               │
+│    └── 执行 @Composable 函数                                    │
+│    └── 更新 Slot Table                                          │
+│    └── 记录待执行的 Effects                                      │
+│                                                                 │
+│ 2. <span class="diagram-accent">Apply Changes</span>                                               │
+│    └── 更新 Node Tree                                           │
+│                                                                 │
+│ 3. <span class="diagram-warning">Side Effects</span>                                                │
+│    └── SideEffect { } 同步执行                                  │
+│    └── LaunchedEffect 启动协程                                   │
+│    └── DisposableEffect onDispose 清理                          │
+│                                                                 │
+│ 4. <span class="diagram-red">Layout & Draw</span>                                               │
+│    └── 测量、布局、绘制                                          │
+└─────────────────────────────────────────────────────────────────┘
+        </div>
+
+        <h2>VII. 高级调度场景</h2>
+
+        <h3>7.1 嵌套重组</h3>
+
+        <pre><code><span class="code-annotation">@Composable</span>
+<span class="code-keyword">fun</span> <span class="code-func">NestedRecomposition</span>() {
+    <span class="code-keyword">var</span> a <span class="code-keyword">by</span> <span class="code-func">remember</span> { <span class="code-func">mutableStateOf</span>(<span class="code-string">0</span>) }
+    
+    <span class="code-func">Column</span> {
+        <span class="code-func">Text</span>(<span class="code-string">"a = $a"</span>)
+        
+        <span class="code-comment">// 子组件在重组期间修改状态</span>
+        <span class="code-func">ChildThatModifiesState</span> {
+            <span class="code-comment">// 这会触发新的失效</span>
+            <span class="code-comment">// 但会被延迟到下一帧</span>
+            a = <span class="code-string">1</span>
+        }
+    }
+}
+
+<span class="code-comment">// Compose 不允许在重组期间直接修改导致新重组</span>
+<span class="code-comment">// 变更会被收集，在当前重组完成后处理</span></code></pre>
+
+        <h3>7.2 derivedStateOf 优化</h3>
+
+        <pre><code><span class="code-annotation">@Composable</span>
+<span class="code-keyword">fun</span> <span class="code-func">FilteredList</span>(items: <span class="code-type">List</span>&lt;<span class="code-type">Item</span>&gt;, filter: <span class="code-type">String</span>) {
+    <span class="code-comment">// 不使用 derivedStateOf：每次 items 或 filter 变化都重组</span>
+    <span class="code-keyword">val</span> filtered = items.<span class="code-func">filter</span> { it.name.<span class="code-func">contains</span>(filter) }
+    
+    <span class="code-comment">// 使用 derivedStateOf：只有结果变化时才重组</span>
+    <span class="code-keyword">val</span> filtered <span class="code-keyword">by</span> <span class="code-func">remember</span>(items, filter) {
+        <span class="code-func">derivedStateOf</span> {
+            items.<span class="code-func">filter</span> { it.name.<span class="code-func">contains</span>(filter) }
+        }
+    }
+    
+    <span class="code-comment">// 假设 items = [A, B, C], filter = "A"</span>
+    <span class="code-comment">// 结果 = [A]</span>
+    <span class="code-comment">// 如果 items 变为 [A, B, C, D]，filter 不变</span>
+    <span class="code-comment">// 结果仍然 = [A]，不触发重组！</span>
+    
+    <span class="code-func">LazyColumn</span> {
+        <span class="code-func">items</span>(filtered) { <span class="code-func">ItemRow</span>(it) }
+    }
+}</code></pre>
+
+        <h3>7.3 快照隔离</h3>
+
+        <pre><code><span class="code-comment">// 使用 Snapshot.withMutableSnapshot 批量更新</span>
+<span class="code-keyword">fun</span> <span class="code-func">batchUpdate</span>() {
+    <span class="code-type">Snapshot</span>.<span class="code-func">withMutableSnapshot</span> {
+        <span class="code-comment">// 这些变更在快照内是隔离的</span>
+        state1.value = <span class="code-string">1</span>
+        state2.value = <span class="code-string">2</span>
+        state3.value = <span class="code-string">3</span>
+        
+        <span class="code-comment">// 快照结束时，所有变更一起应用</span>
+        <span class="code-comment">// 只触发一次失效通知</span>
+    }
+}</code></pre>
+
+        <h2>VIII. 调试重组</h2>
+
+        <h3>8.1 重组计数</h3>
+
+        <pre><code><span class="code-annotation">@Composable</span>
+<span class="code-keyword">fun</span> <span class="code-func">RecompositionCounter</span>(label: <span class="code-type">String</span>) {
+    <span class="code-keyword">val</span> count = <span class="code-func">remember</span> { <span class="code-func">mutableIntStateOf</span>(<span class="code-string">0</span>) }
+    
+    <span class="code-func">SideEffect</span> {
+        count.intValue++
+        <span class="code-func">println</span>(<span class="code-string">"$label recomposed ${count.intValue} times"</span>)
+    }
+}</code></pre>
+
+        <h3>8.2 Layout Inspector</h3>
+
+        <p>Android Studio 的 Layout Inspector 可以显示：</p>
+        <ul>
+            <li>重组次数高亮</li>
+            <li>Composition 树结构</li>
+            <li>各组件的重组计数</li>
+        </ul>
+
+        <h2>IX. 总结</h2>
+
+        <div class="tip-box success">
+            <div class="tip-title">🎯 核心要点</div>
+            <ul>
+                <li><strong>Snapshot 系统</strong> 追踪 State 的读取和写入</li>
+                <li><strong>InvalidationScope</strong> 精确标记需要重组的范围</li>
+                <li><strong>Recomposer</strong> 调度重组，与帧同步</li>
+                <li><strong>变更合并</strong>：同帧内多次变更只触发一次重组</li>
+                <li><strong>Skipping</strong>：参数未变化的组件自动跳过</li>
+                <li><strong>Side Effects</strong> 在重组完成后执行</li>
+            </ul>
+        </div>
+
+        <p>理解重组调度机制，能够帮助你：</p>
+        <ul>
+            <li>写出更高效的 Composable 函数</li>
+            <li>避免不必要的重组</li>
+            <li>正确使用 derivedStateOf 等优化 API</li>
+            <li>调试性能问题</li>
+        </ul>
+    </article>
+
+    <footer class="footer">
+        <p>© 2024 Fidroid - 专注 Android 与 Jetpack Compose</p>
+    </footer>
+</body>
+</html>
+

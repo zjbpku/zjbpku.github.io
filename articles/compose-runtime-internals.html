@@ -1,0 +1,729 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Compose Runtime 原理深入解析：从 Composition 到 Node Tree - Fidroid</title>
+    <meta name="description" content="深入理解 Compose Runtime 的工作原理，探索 Composition、Applier、Node Tree 的协作机制，揭秘声明式 UI 如何转化为实际渲染。">
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            line-height: 1.8;
+            color: #e5e7eb;
+            background: #020617;
+        }
+        .navbar {
+            background: rgba(15,23,42,0.98);
+            backdrop-filter: blur(10px);
+            position: fixed;
+            top: 0;
+            width: 100%;
+            z-index: 1000;
+        }
+        .nav-container {
+            max-width: 900px;
+            margin: 0 auto;
+            padding: 1rem 20px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .logo {
+            font-size: 1.5rem;
+            font-weight: bold;
+            color: #38bdf8;
+            text-decoration: none;
+            letter-spacing: 0.08em;
+            text-transform: uppercase;
+        }
+        .back-link { color: #9ca3af; text-decoration: none; font-size: 0.9rem; }
+        .back-link:hover { color: #38bdf8; }
+
+        .article-header {
+            padding: 120px 20px 60px;
+            background: radial-gradient(circle at top left, #059669 0, transparent 50%),
+                        radial-gradient(circle at bottom right, #7c3aed 0, transparent 55%),
+                        #020617;
+            text-align: center;
+        }
+        .article-header h1 {
+            max-width: 800px;
+            margin: 0 auto 1rem;
+            font-size: 2.5rem;
+            font-weight: 800;
+            letter-spacing: -0.03em;
+            color: #fff;
+        }
+        .article-meta { color: #9ca3af; font-size: 0.9rem; margin-bottom: 1.5rem; }
+        .article-tags { display: flex; justify-content: center; flex-wrap: wrap; gap: 0.5rem; }
+        .article-tag {
+            padding: 0.25rem 0.75rem;
+            border-radius: 999px;
+            font-size: 0.75rem;
+            background: rgba(15,23,42,0.85);
+            border: 1px solid rgba(5,150,105,0.4);
+            color: #6ee7b7;
+        }
+
+        .article-content {
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 60px 20px 80px;
+        }
+        .article-content h2 {
+            font-size: 1.6rem;
+            margin: 2.5rem 0 1rem;
+            color: #f9fafb;
+            border-left: 4px solid #059669;
+            padding-left: 1rem;
+        }
+        .article-content h3 { font-size: 1.25rem; margin: 2rem 0 0.75rem; color: #e5e7eb; }
+        .article-content p { margin-bottom: 1.25rem; color: #d1d5db; }
+        .article-content ul, .article-content ol { margin: 1rem 0 1.5rem 1.5rem; color: #d1d5db; }
+        .article-content li { margin-bottom: 0.5rem; }
+        .article-content strong { color: #f9fafb; }
+        .article-content a { color: #38bdf8; text-decoration: underline; }
+
+        pre {
+            background: #0f172a;
+            border: 1px solid rgba(5,150,105,0.3);
+            border-radius: 12px;
+            padding: 1.25rem;
+            overflow-x: auto;
+            margin: 1.5rem 0;
+            font-size: 0.85rem;
+            line-height: 1.6;
+        }
+        code { font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace; color: #e5e7eb; }
+        .code-keyword { color: #c084fc; }
+        .code-func { color: #38bdf8; }
+        .code-type { color: #4ade80; }
+        .code-string { color: #fbbf24; }
+        .code-comment { color: #6b7280; }
+        .code-annotation { color: #f472b6; }
+
+        .tip-box {
+            background: rgba(5,150,105,0.1);
+            border: 1px solid rgba(5,150,105,0.3);
+            border-radius: 12px;
+            padding: 1.25rem;
+            margin: 1.5rem 0;
+        }
+        .tip-box.warning {
+            background: rgba(245,158,11,0.1);
+            border-color: rgba(245,158,11,0.3);
+        }
+        .tip-title { font-weight: 600; color: #6ee7b7; margin-bottom: 0.5rem; }
+        .warning .tip-title { color: #fcd34d; }
+
+        .diagram-box {
+            background: #0f172a;
+            border: 1px solid rgba(5,150,105,0.3);
+            border-radius: 12px;
+            padding: 1.5rem;
+            margin: 1.5rem 0;
+            font-family: ui-monospace, monospace;
+            font-size: 0.85rem;
+            line-height: 1.4;
+            overflow-x: auto;
+            white-space: pre;
+            color: #9ca3af;
+        }
+        .diagram-highlight { color: #4ade80; }
+        .diagram-accent { color: #38bdf8; }
+        .diagram-warning { color: #fbbf24; }
+
+        .footer {
+            background: #0f172a;
+            padding: 3rem 20px;
+            text-align: center;
+            border-top: 1px solid rgba(124,58,237,0.2);
+        }
+        .footer p { color: #6b7280; font-size: 0.9rem; }
+    </style>
+</head>
+<body>
+    <nav class="navbar">
+        <div class="nav-container">
+            <a href="../index.html" class="logo">Fidroid</a>
+            <a href="../index.html#articles" class="back-link">← 返回文章列表</a>
+        </div>
+    </nav>
+
+    <header class="article-header">
+        <h1>Compose Runtime 原理深入解析：从 Composition 到 Node Tree</h1>
+        <div class="article-meta">📅 2024-07-03 · ⏱ 30 min · 🔬 底层原理</div>
+        <div class="article-tags">
+            <span class="article-tag">Runtime</span>
+            <span class="article-tag">Composition</span>
+            <span class="article-tag">Applier</span>
+            <span class="article-tag">Node Tree</span>
+        </div>
+    </header>
+
+    <article class="article-content">
+        <p>Compose Runtime 是 Jetpack Compose 的核心引擎，它负责将你编写的 @Composable 函数转化为实际的 UI。本文将深入探索 Runtime 的内部工作原理，包括 Composition、Composer、Applier 和 Node Tree 的协作机制。</p>
+
+        <h2>I. Runtime 架构总览</h2>
+        
+        <p>Compose Runtime 可以分为三个核心层次：</p>
+
+        <div class="diagram-box">
+┌─────────────────────────────────────────────────────────────┐
+│                    <span class="diagram-highlight">@Composable 函数</span>                         │
+│                   （声明式 UI 描述）                          │
+└─────────────────────────────────────────────────────────────┘
+                              ↓
+┌─────────────────────────────────────────────────────────────┐
+│                    <span class="diagram-accent">Composition</span>                              │
+│  ┌─────────────┐  ┌─────────────┐  ┌─────────────────────┐  │
+│  │  Composer   │  │  Slot Table │  │  Invalidations     │  │
+│  │  (执行协调) │  │  (状态存储) │  │  (重组追踪)        │  │
+│  └─────────────┘  └─────────────┘  └─────────────────────┘  │
+└─────────────────────────────────────────────────────────────┘
+                              ↓
+┌─────────────────────────────────────────────────────────────┐
+│                      <span class="diagram-warning">Applier</span>                               │
+│              （将变更应用到 Node Tree）                      │
+└─────────────────────────────────────────────────────────────┘
+                              ↓
+┌─────────────────────────────────────────────────────────────┐
+│                    <span class="diagram-highlight">Node Tree</span>                              │
+│          （最终的 UI 树，如 LayoutNode 树）                  │
+└─────────────────────────────────────────────────────────────┘
+        </div>
+
+        <h3>1.1 核心组件职责</h3>
+
+        <ul>
+            <li><strong>Composition</strong>：管理整个组合过程，持有 Slot Table 和 Applier</li>
+            <li><strong>Composer</strong>：执行 @Composable 函数，协调读写 Slot Table</li>
+            <li><strong>Slot Table</strong>：存储组合状态、Groups 和 Slots 数据</li>
+            <li><strong>Applier</strong>：将组合变更转换为 Node Tree 操作</li>
+            <li><strong>Node Tree</strong>：最终的 UI 树结构（Android 上是 LayoutNode）</li>
+        </ul>
+
+        <h2>II. Composition 详解</h2>
+
+        <h3>2.1 什么是 Composition</h3>
+
+        <p>Composition 是 Compose Runtime 的核心类，它代表一次「组合」。每个 ComposeView 或 setContent 都会创建一个 Composition 实例：</p>
+
+        <pre><code><span class="code-comment">// Composition 的简化结构</span>
+<span class="code-keyword">class</span> <span class="code-type">CompositionImpl</span>(
+    <span class="code-keyword">private val</span> parent: <span class="code-type">CompositionContext</span>,
+    <span class="code-keyword">private val</span> applier: <span class="code-type">Applier</span>&lt;*&gt;,
+) : <span class="code-type">Composition</span> {
+    
+    <span class="code-comment">// Slot Table 存储组合状态</span>
+    <span class="code-keyword">private val</span> slotTable = <span class="code-type">SlotTable</span>()
+    
+    <span class="code-comment">// 待处理的失效（需要重组的作用域）</span>
+    <span class="code-keyword">private val</span> invalidations = <span class="code-func">mutableListOf</span>&lt;<span class="code-type">RecomposeScope</span>&gt;()
+    
+    <span class="code-comment">// Composer 实例</span>
+    <span class="code-keyword">private val</span> composer: <span class="code-type">ComposerImpl</span>
+    
+    <span class="code-comment">// 执行组合或重组</span>
+    <span class="code-keyword">override fun</span> <span class="code-func">setContent</span>(content: <span class="code-annotation">@Composable</span> () -&gt; <span class="code-type">Unit</span>) {
+        <span class="code-comment">// 初始组合</span>
+        <span class="code-func">doCompose</span>(content)
+    }
+    
+    <span class="code-keyword">internal fun</span> <span class="code-func">recompose</span>(): <span class="code-type">Boolean</span> {
+        <span class="code-comment">// 处理失效，执行重组</span>
+        <span class="code-keyword">return</span> <span class="code-func">doRecompose</span>()
+    }
+}</code></pre>
+
+        <h3>2.2 Composition 的生命周期</h3>
+
+        <div class="diagram-box">
+<span class="diagram-highlight">初始组合 (Initial Composition)</span>
+     │
+     ├── 1. 创建 Composition 实例
+     ├── 2. 调用 setContent(content)
+     ├── 3. Composer 开始执行 @Composable 函数
+     ├── 4. 数据写入 Slot Table
+     ├── 5. Applier 构建 Node Tree
+     └── 6. Node Tree 渲染到屏幕
+
+<span class="diagram-accent">重组 (Recomposition)</span>
+     │
+     ├── 1. State 变更触发 InvalidationScope
+     ├── 2. 调度 recompose()
+     ├── 3. Composer 重新执行受影响的 @Composable
+     ├── 4. 比较并更新 Slot Table
+     ├── 5. Applier 应用差异到 Node Tree
+     └── 6. 只更新变化的部分
+
+<span class="diagram-warning">销毁 (Disposal)</span>
+     │
+     ├── 1. 调用 dispose()
+     ├── 2. 执行所有 onDispose 回调
+     ├── 3. 清理 Slot Table
+     └── 4. 释放 Node Tree
+        </div>
+
+        <h2>III. Composer 执行机制</h2>
+
+        <h3>3.1 Composer 的角色</h3>
+
+        <p>Composer 是执行 @Composable 函数的「指挥官」。每个 @Composable 函数编译后都会接收一个隐式的 Composer 参数：</p>
+
+        <pre><code><span class="code-comment">// 原始代码</span>
+<span class="code-annotation">@Composable</span>
+<span class="code-keyword">fun</span> <span class="code-func">Greeting</span>(name: <span class="code-type">String</span>) {
+    <span class="code-func">Text</span>(<span class="code-string">"Hello, $name"</span>)
+}
+
+<span class="code-comment">// 编译后（简化）</span>
+<span class="code-keyword">fun</span> <span class="code-func">Greeting</span>(
+    name: <span class="code-type">String</span>,
+    $composer: <span class="code-type">Composer</span>,
+    $changed: <span class="code-type">Int</span>
+) {
+    $composer.<span class="code-func">startRestartGroup</span>(key = <span class="code-string">123</span>)
+    
+    <span class="code-keyword">if</span> ($changed != <span class="code-string">0</span> || !$composer.skipping) {
+        <span class="code-func">Text</span>(<span class="code-string">"Hello, $name"</span>, $composer, <span class="code-string">0</span>)
+    }
+    
+    $composer.<span class="code-func">endRestartGroup</span>()?.<span class="code-func">updateScope</span> {
+        <span class="code-func">Greeting</span>(name, $composer, $changed or <span class="code-string">1</span>)
+    }
+}</code></pre>
+
+        <h3>3.2 Composer 核心 API</h3>
+
+        <pre><code><span class="code-keyword">interface</span> <span class="code-type">Composer</span> {
+    <span class="code-comment">// 是否正在初始组合</span>
+    <span class="code-keyword">val</span> inserting: <span class="code-type">Boolean</span>
+    
+    <span class="code-comment">// 是否可以跳过当前作用域</span>
+    <span class="code-keyword">val</span> skipping: <span class="code-type">Boolean</span>
+    
+    <span class="code-comment">// 开始一个 Group</span>
+    <span class="code-keyword">fun</span> <span class="code-func">startRestartGroup</span>(key: <span class="code-type">Int</span>): <span class="code-type">Composer</span>
+    <span class="code-keyword">fun</span> <span class="code-func">endRestartGroup</span>(): <span class="code-type">ScopeUpdateScope</span>?
+    
+    <span class="code-comment">// 记住值</span>
+    <span class="code-keyword">fun</span> &lt;<span class="code-type">T</span>&gt; <span class="code-func">cache</span>(invalid: <span class="code-type">Boolean</span>, block: () -&gt; <span class="code-type">T</span>): <span class="code-type">T</span>
+    
+    <span class="code-comment">// 检查参数是否变更</span>
+    <span class="code-keyword">fun</span> <span class="code-func">changed</span>(value: <span class="code-type">Any</span>?): <span class="code-type">Boolean</span>
+    
+    <span class="code-comment">// 发射节点</span>
+    <span class="code-keyword">fun</span> &lt;<span class="code-type">T</span>&gt; <span class="code-func">createNode</span>(factory: () -&gt; <span class="code-type">T</span>)
+    <span class="code-keyword">fun</span> <span class="code-func">useNode</span>()
+    
+    <span class="code-comment">// 记录 Side Effect</span>
+    <span class="code-keyword">fun</span> <span class="code-func">recordSideEffect</span>(effect: () -&gt; <span class="code-type">Unit</span>)
+}</code></pre>
+
+        <h3>3.3 Groups 与位置记忆</h3>
+
+        <p>Composer 使用 Groups 来组织 Slot Table 中的数据。每个 @Composable 调用都会创建一个 Group：</p>
+
+        <pre><code><span class="code-annotation">@Composable</span>
+<span class="code-keyword">fun</span> <span class="code-func">Counter</span>() {
+    <span class="code-comment">// Group 1: Counter 函数本身</span>
+    <span class="code-keyword">var</span> count <span class="code-keyword">by</span> <span class="code-func">remember</span> { <span class="code-func">mutableStateOf</span>(<span class="code-string">0</span>) }  <span class="code-comment">// Slot: count 状态</span>
+    
+    <span class="code-func">Column</span> {  <span class="code-comment">// Group 2: Column</span>
+        <span class="code-func">Text</span>(<span class="code-string">"Count: $count"</span>)  <span class="code-comment">// Group 3: Text</span>
+        <span class="code-func">Button</span>(onClick = { count++ }) {  <span class="code-comment">// Group 4: Button</span>
+            <span class="code-func">Text</span>(<span class="code-string">"+"</span>)  <span class="code-comment">// Group 5: 嵌套 Text</span>
+        }
+    }
+}</code></pre>
+
+        <div class="diagram-box">
+Slot Table 结构示意:
+┌──────────────────────────────────────────────────────────┐
+│ <span class="diagram-highlight">Group 1 (Counter)</span>                                        │
+│   ├── Slot: remember { mutableStateOf(0) } → count = 0  │
+│   │                                                      │
+│   └── <span class="diagram-accent">Group 2 (Column)</span>                                   │
+│         ├── <span class="diagram-accent">Group 3 (Text)</span>                               │
+│         │     └── Slot: "Count: 0"                      │
+│         │                                                │
+│         └── <span class="diagram-accent">Group 4 (Button)</span>                             │
+│               ├── Slot: onClick lambda                  │
+│               └── <span class="diagram-accent">Group 5 (Text)</span>                         │
+│                     └── Slot: "+"                       │
+└──────────────────────────────────────────────────────────┘
+        </div>
+
+        <h2>IV. Applier 与 Node Tree</h2>
+
+        <h3>4.1 Applier 接口</h3>
+
+        <p>Applier 是连接 Composition 和 Node Tree 的桥梁。它定义了如何操作节点树：</p>
+
+        <pre><code><span class="code-keyword">interface</span> <span class="code-type">Applier</span>&lt;<span class="code-type">N</span>&gt; {
+    <span class="code-comment">// 当前节点</span>
+    <span class="code-keyword">val</span> current: <span class="code-type">N</span>
+    
+    <span class="code-comment">// 向下移动到子节点</span>
+    <span class="code-keyword">fun</span> <span class="code-func">down</span>(node: <span class="code-type">N</span>)
+    
+    <span class="code-comment">// 向上返回父节点</span>
+    <span class="code-keyword">fun</span> <span class="code-func">up</span>()
+    
+    <span class="code-comment">// 插入节点</span>
+    <span class="code-keyword">fun</span> <span class="code-func">insertTopDown</span>(index: <span class="code-type">Int</span>, instance: <span class="code-type">N</span>)
+    <span class="code-keyword">fun</span> <span class="code-func">insertBottomUp</span>(index: <span class="code-type">Int</span>, instance: <span class="code-type">N</span>)
+    
+    <span class="code-comment">// 移除节点</span>
+    <span class="code-keyword">fun</span> <span class="code-func">remove</span>(index: <span class="code-type">Int</span>, count: <span class="code-type">Int</span>)
+    
+    <span class="code-comment">// 移动节点</span>
+    <span class="code-keyword">fun</span> <span class="code-func">move</span>(from: <span class="code-type">Int</span>, to: <span class="code-type">Int</span>, count: <span class="code-type">Int</span>)
+    
+    <span class="code-comment">// 清空所有子节点</span>
+    <span class="code-keyword">fun</span> <span class="code-func">clear</span>()
+}</code></pre>
+
+        <h3>4.2 UiApplier - Android 实现</h3>
+
+        <p>在 Android Compose UI 中，UiApplier 负责操作 LayoutNode 树：</p>
+
+        <pre><code><span class="code-keyword">internal class</span> <span class="code-type">UiApplier</span>(
+    root: <span class="code-type">LayoutNode</span>
+) : <span class="code-type">AbstractApplier</span>&lt;<span class="code-type">LayoutNode</span>&gt;(root) {
+    
+    <span class="code-keyword">override fun</span> <span class="code-func">insertTopDown</span>(index: <span class="code-type">Int</span>, instance: <span class="code-type">LayoutNode</span>) {
+        <span class="code-comment">// 自顶向下插入，不做任何操作</span>
+    }
+    
+    <span class="code-keyword">override fun</span> <span class="code-func">insertBottomUp</span>(index: <span class="code-type">Int</span>, instance: <span class="code-type">LayoutNode</span>) {
+        <span class="code-comment">// 自底向上插入，将节点添加到当前节点的子节点</span>
+        current.<span class="code-func">insertAt</span>(index, instance)
+    }
+    
+    <span class="code-keyword">override fun</span> <span class="code-func">remove</span>(index: <span class="code-type">Int</span>, count: <span class="code-type">Int</span>) {
+        current.<span class="code-func">removeAt</span>(index, count)
+    }
+    
+    <span class="code-keyword">override fun</span> <span class="code-func">move</span>(from: <span class="code-type">Int</span>, to: <span class="code-type">Int</span>, count: <span class="code-type">Int</span>) {
+        current.<span class="code-func">move</span>(from, to, count)
+    }
+    
+    <span class="code-keyword">override fun</span> <span class="code-func">onClear</span>() {
+        root.<span class="code-func">removeAll</span>()
+    }
+}</code></pre>
+
+        <div class="tip-box">
+            <div class="tip-title">💡 为什么使用 Bottom-Up 插入？</div>
+            <p>Compose UI 使用 <code>insertBottomUp</code> 策略，因为 LayoutNode 的测量/布局依赖于子节点。自底向上插入可以确保在父节点附加时，子节点已经准备就绪，减少不必要的重新测量。</p>
+        </div>
+
+        <h3>4.3 Node 发射过程</h3>
+
+        <p>当遇到 Layout 类型的 Composable（如 Box, Column, Text）时，Composer 会发射节点：</p>
+
+        <pre><code><span class="code-comment">// Layout Composable 的简化实现</span>
+<span class="code-annotation">@Composable</span>
+<span class="code-keyword">inline fun</span> <span class="code-func">Layout</span>(
+    content: <span class="code-annotation">@Composable</span> () -&gt; <span class="code-type">Unit</span>,
+    measurePolicy: <span class="code-type">MeasurePolicy</span>
+) {
+    <span class="code-keyword">val</span> materialized = currentComposer.<span class="code-func">materialize</span>(content)
+    
+    <span class="code-func">ReusableComposeNode</span>&lt;<span class="code-type">LayoutNode</span>, <span class="code-type">Applier</span>&lt;<span class="code-type">Any</span>&gt;&gt;(
+        factory = { <span class="code-type">LayoutNode</span>() },
+        update = {
+            <span class="code-func">set</span>(measurePolicy) { this.measurePolicy = it }
+        },
+        content = materialized
+    )
+}
+
+<span class="code-comment">// ReusableComposeNode 内部</span>
+<span class="code-annotation">@Composable</span>
+<span class="code-keyword">inline fun</span> &lt;<span class="code-type">T</span>, <span class="code-type">E</span>&gt; <span class="code-func">ReusableComposeNode</span>(
+    <span class="code-keyword">noinline</span> factory: () -&gt; <span class="code-type">T</span>,
+    update: <span class="code-annotation">@DisallowComposableCalls</span> <span class="code-type">Updater</span>&lt;<span class="code-type">T</span>&gt;.() -&gt; <span class="code-type">Unit</span>,
+    content: <span class="code-annotation">@Composable</span> () -&gt; <span class="code-type">Unit</span>
+) {
+    <span class="code-keyword">if</span> (currentComposer.inserting) {
+        <span class="code-comment">// 初始组合：创建新节点</span>
+        currentComposer.<span class="code-func">createNode</span>(factory)
+    } <span class="code-keyword">else</span> {
+        <span class="code-comment">// 重组：复用现有节点</span>
+        currentComposer.<span class="code-func">useNode</span>()
+    }
+    
+    <span class="code-comment">// 更新节点属性</span>
+    <span class="code-type">Updater</span>&lt;<span class="code-type">T</span>&gt;(currentComposer).<span class="code-func">update</span>()
+    
+    <span class="code-comment">// 递归处理子内容</span>
+    <span class="code-func">content</span>()
+}</code></pre>
+
+        <h2>V. 组合执行流程</h2>
+
+        <h3>5.1 初始组合流程</h3>
+
+        <pre><code><span class="code-comment">// 1. 创建 Composition</span>
+<span class="code-keyword">val</span> composition = <span class="code-type">Composition</span>(
+    applier = <span class="code-type">UiApplier</span>(rootLayoutNode),
+    parent = recomposer
+)
+
+<span class="code-comment">// 2. 设置内容</span>
+composition.<span class="code-func">setContent</span> {
+    <span class="code-func">MyApp</span>()
+}
+
+<span class="code-comment">// 内部执行过程：</span>
+<span class="code-keyword">private fun</span> <span class="code-func">doCompose</span>(content: <span class="code-annotation">@Composable</span> () -&gt; <span class="code-type">Unit</span>) {
+    <span class="code-comment">// 1. 开始写入 Slot Table</span>
+    slotTable.<span class="code-func">write</span> { writer -&gt;
+        composer.<span class="code-func">composeContent</span>(content)
+    }
+    
+    <span class="code-comment">// 2. 应用变更到 Node Tree</span>
+    applier.<span class="code-func">applyChanges</span>()
+    
+    <span class="code-comment">// 3. 执行 Side Effects</span>
+    <span class="code-func">runSideEffects</span>()
+}</code></pre>
+
+        <h3>5.2 重组流程</h3>
+
+        <div class="diagram-box">
+State 变更触发重组:
+
+<span class="diagram-highlight">1. 状态变更</span>
+   count.value = 1  ──→  Snapshot 系统检测到写入
+                              ↓
+<span class="diagram-accent">2. 标记失效</span>
+   找到读取该状态的 RecomposeScope
+   将其添加到 Composition.invalidations
+                              ↓
+<span class="diagram-warning">3. 调度重组</span>
+   Recomposer 在下一帧调度 recompose()
+                              ↓
+<span class="diagram-highlight">4. 执行重组</span>
+   Composer 重新执行失效的 @Composable
+   ├── 跳过未变更的部分 (skipping = true)
+   ├── 更新变更的部分
+   └── 写入 Slot Table 差异
+                              ↓
+<span class="diagram-accent">5. 应用差异</span>
+   Applier 将变更应用到 Node Tree
+   ├── 更新节点属性
+   ├── 插入/移除节点
+   └── 触发重新测量/布局
+        </div>
+
+        <pre><code><span class="code-keyword">internal fun</span> <span class="code-func">recompose</span>(): <span class="code-type">Boolean</span> {
+    <span class="code-keyword">if</span> (invalidations.<span class="code-func">isEmpty</span>()) <span class="code-keyword">return</span> <span class="code-string">false</span>
+    
+    <span class="code-comment">// 收集需要重组的作用域</span>
+    <span class="code-keyword">val</span> toRecompose = invalidations.<span class="code-func">toList</span>()
+    invalidations.<span class="code-func">clear</span>()
+    
+    <span class="code-comment">// 对每个作用域执行重组</span>
+    slotTable.<span class="code-func">write</span> { writer -&gt;
+        <span class="code-keyword">for</span> (scope <span class="code-keyword">in</span> toRecompose) {
+            <span class="code-comment">// 定位到该作用域在 Slot Table 中的位置</span>
+            composer.<span class="code-func">recompose</span>(scope)
+        }
+    }
+    
+    <span class="code-comment">// 应用变更</span>
+    <span class="code-keyword">val</span> changes = composer.<span class="code-func">collectChanges</span>()
+    applier.<span class="code-func">applyChanges</span>(changes)
+    
+    <span class="code-keyword">return</span> <span class="code-string">true</span>
+}</code></pre>
+
+        <h2>VI. Remember 与 State 的存储</h2>
+
+        <h3>6.1 remember 的实现</h3>
+
+        <pre><code><span class="code-annotation">@Composable</span>
+<span class="code-keyword">inline fun</span> &lt;<span class="code-type">T</span>&gt; <span class="code-func">remember</span>(calculation: <span class="code-annotation">@DisallowComposableCalls</span> () -&gt; <span class="code-type">T</span>): <span class="code-type">T</span> {
+    <span class="code-keyword">return</span> currentComposer.<span class="code-func">cache</span>(
+        invalid = <span class="code-string">false</span>,  <span class="code-comment">// 永远有效，不重新计算</span>
+        calculation
+    )
+}
+
+<span class="code-annotation">@Composable</span>
+<span class="code-keyword">inline fun</span> &lt;<span class="code-type">T</span>&gt; <span class="code-func">remember</span>(
+    key1: <span class="code-type">Any</span>?,
+    calculation: <span class="code-annotation">@DisallowComposableCalls</span> () -&gt; <span class="code-type">T</span>
+): <span class="code-type">T</span> {
+    <span class="code-keyword">return</span> currentComposer.<span class="code-func">cache</span>(
+        invalid = currentComposer.<span class="code-func">changed</span>(key1),  <span class="code-comment">// key 变化时重新计算</span>
+        calculation
+    )
+}
+
+<span class="code-comment">// Composer.cache 实现</span>
+<span class="code-keyword">fun</span> &lt;<span class="code-type">T</span>&gt; <span class="code-func">cache</span>(invalid: <span class="code-type">Boolean</span>, block: () -&gt; <span class="code-type">T</span>): <span class="code-type">T</span> {
+    <span class="code-keyword">return if</span> (inserting || invalid) {
+        <span class="code-comment">// 初始组合或失效时，计算并存储</span>
+        <span class="code-keyword">val</span> value = <span class="code-func">block</span>()
+        <span class="code-func">updateCachedValue</span>(value)
+        value
+    } <span class="code-keyword">else</span> {
+        <span class="code-comment">// 重组时，从 Slot Table 读取</span>
+        <span class="code-func">readCachedValue</span>()
+    }
+}</code></pre>
+
+        <h3>6.2 State 与重组的关联</h3>
+
+        <pre><code><span class="code-annotation">@Composable</span>
+<span class="code-keyword">fun</span> <span class="code-func">Counter</span>() {
+    <span class="code-comment">// 1. remember 将 MutableState 存入 Slot Table</span>
+    <span class="code-keyword">var</span> count <span class="code-keyword">by</span> <span class="code-func">remember</span> { <span class="code-func">mutableStateOf</span>(<span class="code-string">0</span>) }
+    
+    <span class="code-comment">// 2. 读取 count.value 时，Snapshot 系统记录：</span>
+    <span class="code-comment">//    "当前 RecomposeScope 依赖于这个 State"</span>
+    <span class="code-func">Text</span>(<span class="code-string">"Count: $count"</span>)  <span class="code-comment">// 触发 count.value 读取</span>
+    
+    <span class="code-comment">// 3. 点击时，count.value 被写入</span>
+    <span class="code-comment">//    Snapshot 系统通知所有依赖的 RecomposeScope</span>
+    <span class="code-func">Button</span>(onClick = { count++ }) {
+        <span class="code-func">Text</span>(<span class="code-string">"+"</span>)
+    }
+}</code></pre>
+
+        <div class="tip-box">
+            <div class="tip-title">🔍 RecomposeScope 追踪机制</div>
+            <p>每个 @Composable 函数执行时会创建 RecomposeScope。当函数内部读取 State 时，Snapshot 系统会将这个 State 与 RecomposeScope 关联。State 变化时，所有关联的 Scope 都会被标记为失效。</p>
+        </div>
+
+        <h2>VII. 自定义 Applier：超越 UI</h2>
+
+        <h3>7.1 Compose 的通用性</h3>
+
+        <p>Compose Runtime 并不局限于 UI。通过自定义 Applier，你可以将 Compose 用于任何树形结构：</p>
+
+        <pre><code><span class="code-comment">// 自定义节点类型</span>
+<span class="code-keyword">class</span> <span class="code-type">StringNode</span>(<span class="code-keyword">var</span> value: <span class="code-type">String</span> = <span class="code-string">""</span>) {
+    <span class="code-keyword">val</span> children = <span class="code-func">mutableListOf</span>&lt;<span class="code-type">StringNode</span>&gt;()
+}
+
+<span class="code-comment">// 自定义 Applier</span>
+<span class="code-keyword">class</span> <span class="code-type">StringApplier</span>(root: <span class="code-type">StringNode</span>) : <span class="code-type">AbstractApplier</span>&lt;<span class="code-type">StringNode</span>&gt;(root) {
+    <span class="code-keyword">override fun</span> <span class="code-func">insertBottomUp</span>(index: <span class="code-type">Int</span>, instance: <span class="code-type">StringNode</span>) {
+        current.children.<span class="code-func">add</span>(index, instance)
+    }
+    
+    <span class="code-keyword">override fun</span> <span class="code-func">remove</span>(index: <span class="code-type">Int</span>, count: <span class="code-type">Int</span>) {
+        current.children.<span class="code-func">subList</span>(index, index + count).<span class="code-func">clear</span>()
+    }
+    
+    <span class="code-keyword">override fun</span> <span class="code-func">move</span>(from: <span class="code-type">Int</span>, to: <span class="code-type">Int</span>, count: <span class="code-type">Int</span>) {
+        <span class="code-keyword">val</span> dest = <span class="code-keyword">if</span> (from &gt; to) to <span class="code-keyword">else</span> to - count
+        <span class="code-keyword">val</span> moved = current.children.<span class="code-func">subList</span>(from, from + count).<span class="code-func">toList</span>()
+        current.children.<span class="code-func">subList</span>(from, from + count).<span class="code-func">clear</span>()
+        current.children.<span class="code-func">addAll</span>(dest, moved)
+    }
+    
+    <span class="code-keyword">override fun</span> <span class="code-func">onClear</span>() {
+        root.children.<span class="code-func">clear</span>()
+    }
+}
+
+<span class="code-comment">// 使用自定义 Composition</span>
+<span class="code-keyword">fun</span> <span class="code-func">renderToString</span>(content: <span class="code-annotation">@Composable</span> () -&gt; <span class="code-type">Unit</span>): <span class="code-type">String</span> {
+    <span class="code-keyword">val</span> root = <span class="code-type">StringNode</span>()
+    <span class="code-keyword">val</span> composition = <span class="code-type">Composition</span>(
+        applier = <span class="code-type">StringApplier</span>(root),
+        parent = <span class="code-type">Recomposer</span>(<span class="code-type">Dispatchers</span>.Main)
+    )
+    composition.<span class="code-func">setContent</span>(content)
+    <span class="code-keyword">return</span> root.<span class="code-func">buildString</span>()
+}</code></pre>
+
+        <h3>7.2 真实案例</h3>
+
+        <ul>
+            <li><strong>Compose for Web</strong>：Applier 操作 DOM 节点</li>
+            <li><strong>Compose for Desktop</strong>：Applier 操作 Skia 渲染节点</li>
+            <li><strong>Molecule</strong>：将 Compose 用于业务逻辑状态管理</li>
+            <li><strong>Mosaic</strong>：将 Compose 用于终端 UI</li>
+        </ul>
+
+        <h2>VIII. 性能优化视角</h2>
+
+        <h3>8.1 跳过 (Skipping) 机制</h3>
+
+        <pre><code><span class="code-annotation">@Composable</span>
+<span class="code-keyword">fun</span> <span class="code-func">Parent</span>() {
+    <span class="code-keyword">var</span> count <span class="code-keyword">by</span> <span class="code-func">remember</span> { <span class="code-func">mutableStateOf</span>(<span class="code-string">0</span>) }
+    
+    <span class="code-func">Column</span> {
+        <span class="code-func">Text</span>(<span class="code-string">"Count: $count"</span>)  <span class="code-comment">// 会重组</span>
+        <span class="code-func">ExpensiveChild</span>()        <span class="code-comment">// 可以跳过！</span>
+        <span class="code-func">Button</span>(onClick = { count++ }) {
+            <span class="code-func">Text</span>(<span class="code-string">"+"</span>)
+        }
+    }
+}
+
+<span class="code-annotation">@Composable</span>
+<span class="code-keyword">fun</span> <span class="code-func">ExpensiveChild</span>() {
+    <span class="code-comment">// 没有读取任何变化的状态</span>
+    <span class="code-comment">// Composer.skipping = true，整个函数被跳过</span>
+    <span class="code-func">Text</span>(<span class="code-string">"I'm expensive but stable"</span>)
+}</code></pre>
+
+        <h3>8.2 智能重组范围</h3>
+
+        <div class="diagram-box">
+Parent 重组时的执行情况:
+
+<span class="diagram-highlight">@Composable fun Parent()</span>
+  │
+  ├── count 状态变化 → <span class="diagram-warning">需要重组</span>
+  │
+  └── Column
+        ├── Text("Count: $count") → <span class="diagram-warning">需要重组</span> (读取 count)
+        │
+        ├── ExpensiveChild() → <span class="diagram-highlight">跳过！</span> (参数未变化)
+        │
+        └── Button
+              └── Text("+") → <span class="diagram-highlight">跳过！</span> (参数未变化)
+        </div>
+
+        <h2>IX. 总结</h2>
+
+        <div class="tip-box">
+            <div class="tip-title">🎯 核心要点</div>
+            <ul>
+                <li><strong>Composition</strong> 是 Compose Runtime 的核心，管理整个组合过程</li>
+                <li><strong>Composer</strong> 执行 @Composable 函数，协调 Slot Table 读写</li>
+                <li><strong>Slot Table</strong> 以 Groups 和 Slots 存储组合状态</li>
+                <li><strong>Applier</strong> 将组合变更转换为具体的 Node Tree 操作</li>
+                <li><strong>Node Tree</strong> 是最终的渲染目标（如 LayoutNode）</li>
+                <li>Compose Runtime 是通用的，可用于非 UI 场景</li>
+                <li>跳过机制 (Skipping) 是性能优化的关键</li>
+            </ul>
+        </div>
+
+        <p>理解 Compose Runtime 的工作原理，能够帮助你：</p>
+        <ul>
+            <li>写出更高效的 Composable 函数</li>
+            <li>理解为什么某些代码会触发重组</li>
+            <li>debug 复杂的重组问题</li>
+            <li>扩展 Compose 到新的应用场景</li>
+        </ul>
+    </article>
+
+    <footer class="footer">
+        <p>© 2024 Fidroid - 专注 Android 与 Jetpack Compose</p>
+    </footer>
+</body>
+</html>
+

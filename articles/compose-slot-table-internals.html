@@ -1,0 +1,727 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Slot Table 与 Gap Buffer：Compose 数据结构深度解析 - Fidroid</title>
+    <meta name="description" content="深入理解 Compose Slot Table 的内部实现，探索 Gap Buffer 算法如何实现高效的增量更新，揭秘 Groups 和 Slots 的存储机制。">
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            line-height: 1.8;
+            color: #e5e7eb;
+            background: #020617;
+        }
+        .navbar {
+            background: rgba(15,23,42,0.98);
+            backdrop-filter: blur(10px);
+            position: fixed;
+            top: 0;
+            width: 100%;
+            z-index: 1000;
+        }
+        .nav-container {
+            max-width: 900px;
+            margin: 0 auto;
+            padding: 1rem 20px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .logo {
+            font-size: 1.5rem;
+            font-weight: bold;
+            color: #38bdf8;
+            text-decoration: none;
+            letter-spacing: 0.08em;
+            text-transform: uppercase;
+        }
+        .back-link { color: #9ca3af; text-decoration: none; font-size: 0.9rem; }
+        .back-link:hover { color: #38bdf8; }
+
+        .article-header {
+            padding: 120px 20px 60px;
+            background: radial-gradient(circle at top left, #7c3aed 0, transparent 50%),
+                        radial-gradient(circle at bottom right, #f59e0b 0, transparent 55%),
+                        #020617;
+            text-align: center;
+        }
+        .article-header h1 {
+            max-width: 800px;
+            margin: 0 auto 1rem;
+            font-size: 2.5rem;
+            font-weight: 800;
+            letter-spacing: -0.03em;
+            color: #fff;
+        }
+        .article-meta { color: #9ca3af; font-size: 0.9rem; margin-bottom: 1.5rem; }
+        .article-tags { display: flex; justify-content: center; flex-wrap: wrap; gap: 0.5rem; }
+        .article-tag {
+            padding: 0.25rem 0.75rem;
+            border-radius: 999px;
+            font-size: 0.75rem;
+            background: rgba(15,23,42,0.85);
+            border: 1px solid rgba(124,58,237,0.4);
+            color: #c4b5fd;
+        }
+
+        .article-content {
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 60px 20px 80px;
+        }
+        .article-content h2 {
+            font-size: 1.6rem;
+            margin: 2.5rem 0 1rem;
+            color: #f9fafb;
+            border-left: 4px solid #7c3aed;
+            padding-left: 1rem;
+        }
+        .article-content h3 { font-size: 1.25rem; margin: 2rem 0 0.75rem; color: #e5e7eb; }
+        .article-content p { margin-bottom: 1.25rem; color: #d1d5db; }
+        .article-content ul, .article-content ol { margin: 1rem 0 1.5rem 1.5rem; color: #d1d5db; }
+        .article-content li { margin-bottom: 0.5rem; }
+        .article-content strong { color: #f9fafb; }
+        .article-content a { color: #38bdf8; text-decoration: underline; }
+
+        pre {
+            background: #0f172a;
+            border: 1px solid rgba(124,58,237,0.3);
+            border-radius: 12px;
+            padding: 1.25rem;
+            overflow-x: auto;
+            margin: 1.5rem 0;
+            font-size: 0.85rem;
+            line-height: 1.6;
+        }
+        code { font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace; color: #e5e7eb; }
+        .code-keyword { color: #c084fc; }
+        .code-func { color: #38bdf8; }
+        .code-type { color: #4ade80; }
+        .code-string { color: #fbbf24; }
+        .code-comment { color: #6b7280; }
+        .code-annotation { color: #f472b6; }
+
+        .tip-box {
+            background: rgba(124,58,237,0.1);
+            border: 1px solid rgba(124,58,237,0.3);
+            border-radius: 12px;
+            padding: 1.25rem;
+            margin: 1.5rem 0;
+        }
+        .tip-box.warning {
+            background: rgba(245,158,11,0.1);
+            border-color: rgba(245,158,11,0.3);
+        }
+        .tip-box.success {
+            background: rgba(34,197,94,0.1);
+            border-color: rgba(34,197,94,0.3);
+        }
+        .tip-title { font-weight: 600; color: #c4b5fd; margin-bottom: 0.5rem; }
+        .warning .tip-title { color: #fcd34d; }
+        .success .tip-title { color: #4ade80; }
+
+        .diagram-box {
+            background: #0f172a;
+            border: 1px solid rgba(124,58,237,0.3);
+            border-radius: 12px;
+            padding: 1.5rem;
+            margin: 1.5rem 0;
+            font-family: ui-monospace, monospace;
+            font-size: 0.8rem;
+            line-height: 1.5;
+            overflow-x: auto;
+            white-space: pre;
+            color: #9ca3af;
+        }
+        .diagram-highlight { color: #4ade80; }
+        .diagram-accent { color: #38bdf8; }
+        .diagram-warning { color: #fbbf24; }
+        .diagram-pink { color: #f472b6; }
+
+        .footer {
+            background: #0f172a;
+            padding: 3rem 20px;
+            text-align: center;
+            border-top: 1px solid rgba(124,58,237,0.2);
+        }
+        .footer p { color: #6b7280; font-size: 0.9rem; }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 1.5rem 0;
+        }
+        th, td {
+            border: 1px solid rgba(124,58,237,0.3);
+            padding: 0.75rem;
+            text-align: left;
+        }
+        th {
+            background: #0f172a;
+            color: #c4b5fd;
+        }
+        td {
+            color: #d1d5db;
+        }
+    </style>
+</head>
+<body>
+    <nav class="navbar">
+        <div class="nav-container">
+            <a href="../index.html" class="logo">Fidroid</a>
+            <a href="../index.html#articles" class="back-link">← 返回文章列表</a>
+        </div>
+    </nav>
+
+    <header class="article-header">
+        <h1>Slot Table 与 Gap Buffer：Compose 数据结构深度解析</h1>
+        <div class="article-meta">📅 2024-07-05 · ⏱ 28 min · 🔬 底层原理</div>
+        <div class="article-tags">
+            <span class="article-tag">Slot Table</span>
+            <span class="article-tag">Gap Buffer</span>
+            <span class="article-tag">Groups</span>
+            <span class="article-tag">Slots</span>
+        </div>
+    </header>
+
+    <article class="article-content">
+        <p>Slot Table 是 Compose Runtime 的核心数据结构，它存储了整个 UI 树的状态信息。本文将深入探索 Slot Table 的内部实现，理解 Gap Buffer 算法如何实现高效的增量更新，以及 Groups 和 Slots 的存储机制。</p>
+
+        <h2>I. 为什么需要 Slot Table？</h2>
+
+        <h3>1.1 传统方式的问题</h3>
+
+        <p>如果使用常规的树形数据结构存储 UI 状态，会面临以下问题：</p>
+
+        <ul>
+            <li><strong>内存分散</strong>：每个节点是独立对象，内存不连续，缓存效率低</li>
+            <li><strong>更新成本高</strong>：插入/删除节点需要调整大量指针</li>
+            <li><strong>遍历慢</strong>：需要通过指针跳转，无法利用 CPU 预取</li>
+        </ul>
+
+        <h3>1.2 Slot Table 的设计目标</h3>
+
+        <ul>
+            <li><strong>内存紧凑</strong>：使用连续数组存储，提高缓存命中率</li>
+            <li><strong>高效更新</strong>：使用 Gap Buffer 实现 O(1) 局部插入</li>
+            <li><strong>快速遍历</strong>：线性扫描，CPU 预取友好</li>
+            <li><strong>增量更新</strong>：只修改变化的部分</li>
+        </ul>
+
+        <h2>II. Gap Buffer 算法详解</h2>
+
+        <h3>2.1 什么是 Gap Buffer</h3>
+
+        <p>Gap Buffer 是一种专为高效局部编辑设计的数据结构，广泛用于文本编辑器（如 Emacs）。其核心思想是：在数据中维护一个「间隙」(Gap)，插入操作在间隙位置进行，复杂度为 O(1)。</p>
+
+        <div class="diagram-box">
+传统数组插入 (O(n)):
+┌───┬───┬───┬───┬───┬───┬───┬───┐
+│ A │ B │ C │ D │ E │ F │ G │ H │
+└───┴───┴───┴───┴───┴───┴───┴───┘
+          ↑ 在位置 2 插入 X
+          
+需要移动 C, D, E, F, G, H 共 6 个元素！
+
+Gap Buffer 插入 (O(1)):
+┌───┬───┬───┬───┬───┬───┬───┬───┬───┬───┐
+│ A │ B │<span class="diagram-warning">   │   │   </span>│ C │ D │ E │ F │...│
+└───┴───┴───┴───┴───┴───┴───┴───┴───┴───┘
+          <span class="diagram-warning">↑ Gap ↑</span>    ← 光标位置
+          
+在 Gap 位置插入 X:
+┌───┬───┬───┬───┬───┬───┬───┬───┬───┬───┐
+│ A │ B │<span class="diagram-highlight"> X </span>│<span class="diagram-warning">   │   </span>│ C │ D │ E │ F │...│
+└───┴───┴───┴───┴───┴───┴───┴───┴───┴───┘
+              <span class="diagram-warning">↑ Gap</span>
+
+只需写入 1 个元素，无需移动！
+        </div>
+
+        <h3>2.2 Gap 的移动</h3>
+
+        <p>当需要在非 Gap 位置编辑时，需要先移动 Gap：</p>
+
+        <div class="diagram-box">
+初始状态 (Gap 在位置 2-4):
+┌───┬───┬───┬───┬───┬───┬───┬───┬───┬───┐
+│ A │ B │<span class="diagram-warning">   │   │   </span>│ C │ D │ E │ F │ G │
+└───┴───┴───┴───┴───┴───┴───┴───┴───┴───┘
+        0   1   2   3   4   5   6   7   8   9
+
+需要在位置 7 (E 后面) 插入，移动 Gap:
+┌───┬───┬───┬───┬───┬───┬───┬───┬───┬───┐
+│ A │ B │ C │ D │ E │<span class="diagram-warning">   │   │   </span>│ F │ G │
+└───┴───┴───┴───┴───┴───┴───┴───┴───┴───┘
+                      <span class="diagram-warning">↑ Gap 移动到这里</span>
+
+移动 Gap 只需要复制 C, D, E 三个元素
+然后就可以 O(1) 插入了！
+        </div>
+
+        <div class="tip-box">
+            <div class="tip-title">💡 Gap Buffer 的优势</div>
+            <p>在典型的 UI 编辑场景中，连续的操作往往发生在相邻位置。Gap Buffer 利用这种「局部性原理」，让连续操作几乎都是 O(1)。只有在不同位置之间切换时才需要移动 Gap。</p>
+        </div>
+
+        <h2>III. Slot Table 的结构</h2>
+
+        <h3>3.1 双数组设计</h3>
+
+        <p>Slot Table 使用两个并行的数组：</p>
+
+        <pre><code><span class="code-keyword">class</span> <span class="code-type">SlotTable</span> {
+    <span class="code-comment">// Group 信息数组 (每个 Group 占用多个 Int)</span>
+    <span class="code-keyword">internal var</span> groups: <span class="code-type">IntArray</span>
+    
+    <span class="code-comment">// Slot 数据数组 (存储实际的状态值)</span>
+    <span class="code-keyword">internal var</span> slots: <span class="code-type">Array</span>&lt;<span class="code-type">Any</span>?&gt;
+    
+    <span class="code-comment">// Group Gap 信息</span>
+    <span class="code-keyword">internal var</span> groupsSize: <span class="code-type">Int</span>        <span class="code-comment">// 有效 Group 数量</span>
+    <span class="code-keyword">internal var</span> groupGapStart: <span class="code-type">Int</span>    <span class="code-comment">// Gap 起始位置</span>
+    <span class="code-keyword">internal var</span> groupGapLen: <span class="code-type">Int</span>      <span class="code-comment">// Gap 长度</span>
+    
+    <span class="code-comment">// Slot Gap 信息</span>
+    <span class="code-keyword">internal var</span> slotsSize: <span class="code-type">Int</span>
+    <span class="code-keyword">internal var</span> slotGapStart: <span class="code-type">Int</span>
+    <span class="code-keyword">internal var</span> slotGapLen: <span class="code-type">Int</span>
+}</code></pre>
+
+        <h3>3.2 Group 的存储格式</h3>
+
+        <p>每个 Group 在 <code>groups</code> 数组中占用 5 个 Int：</p>
+
+        <table>
+            <tr>
+                <th>偏移</th>
+                <th>名称</th>
+                <th>说明</th>
+            </tr>
+            <tr>
+                <td>0</td>
+                <td>key</td>
+                <td>Group 的唯一标识符（编译器生成）</td>
+            </tr>
+            <tr>
+                <td>1</td>
+                <td>groupInfo</td>
+                <td>标志位：isNode, hasDataKey, hasData...</td>
+            </tr>
+            <tr>
+                <td>2</td>
+                <td>parentAnchor</td>
+                <td>父 Group 的索引</td>
+            </tr>
+            <tr>
+                <td>3</td>
+                <td>size</td>
+                <td>该 Group 包含的 Group 数量（含自身）</td>
+            </tr>
+            <tr>
+                <td>4</td>
+                <td>dataAnchor</td>
+                <td>该 Group 在 slots 数组中的起始位置</td>
+            </tr>
+        </table>
+
+        <pre><code><span class="code-comment">// Group 索引计算</span>
+<span class="code-keyword">private const val</span> <span class="code-type">GROUP_FIELDS_SIZE</span> = <span class="code-string">5</span>
+
+<span class="code-keyword">fun</span> <span class="code-func">groupIndexToAddress</span>(index: <span class="code-type">Int</span>): <span class="code-type">Int</span> = 
+    index * <span class="code-type">GROUP_FIELDS_SIZE</span>
+
+<span class="code-comment">// 读取 Group 信息</span>
+<span class="code-keyword">fun</span> <span class="code-func">key</span>(groupIndex: <span class="code-type">Int</span>): <span class="code-type">Int</span> = 
+    groups[<span class="code-func">groupIndexToAddress</span>(groupIndex)]
+
+<span class="code-keyword">fun</span> <span class="code-func">groupSize</span>(groupIndex: <span class="code-type">Int</span>): <span class="code-type">Int</span> = 
+    groups[<span class="code-func">groupIndexToAddress</span>(groupIndex) + <span class="code-string">3</span>]</code></pre>
+
+        <h3>3.3 Slots 的存储</h3>
+
+        <p>Slots 数组存储每个 Group 的实际数据：</p>
+
+        <div class="diagram-box">
+Groups 数组 (每 5 个 Int 一组):
+┌─────────────────────────────────────────────────────────────┐
+│ Group 0        │ Group 1        │ <span class="diagram-warning">Gap</span>  │ Group 2        │
+│ key,info,p,s,d │ key,info,p,s,d │<span class="diagram-warning">     </span>│ key,info,p,s,d │
+└─────────────────────────────────────────────────────────────┘
+          ↓ dataAnchor              ↓ dataAnchor
+
+Slots 数组:
+┌───────────────────────────────────────────────────────────┐
+│ Group0 数据      │ Group1 数据  │ <span class="diagram-warning">Gap</span>  │ Group2 数据    │
+│ [State, lambda] │ [text]       │<span class="diagram-warning">     </span>│ [node]         │
+└───────────────────────────────────────────────────────────┘
+        </div>
+
+        <h2>IV. SlotWriter：写入模式</h2>
+
+        <h3>4.1 写入器的工作原理</h3>
+
+        <p>组合和重组时，通过 SlotWriter 修改 Slot Table：</p>
+
+        <pre><code><span class="code-keyword">class</span> <span class="code-type">SlotWriter</span>(
+    <span class="code-keyword">private val</span> table: <span class="code-type">SlotTable</span>
+) {
+    <span class="code-comment">// 当前位置（光标）</span>
+    <span class="code-keyword">private var</span> currentGroup = <span class="code-string">0</span>
+    <span class="code-keyword">private var</span> currentSlot = <span class="code-string">0</span>
+    
+    <span class="code-comment">// 开始一个 Group</span>
+    <span class="code-keyword">fun</span> <span class="code-func">startGroup</span>(key: <span class="code-type">Int</span>) {
+        <span class="code-keyword">if</span> (inserting) {
+            <span class="code-comment">// 初始组合：插入新 Group</span>
+            <span class="code-func">insertGroup</span>(key)
+        } <span class="code-keyword">else</span> {
+            <span class="code-comment">// 重组：验证 key 匹配</span>
+            <span class="code-func">require</span>(<span class="code-func">key</span>(currentGroup) == key)
+        }
+        currentGroup++
+    }
+    
+    <span class="code-comment">// 结束 Group</span>
+    <span class="code-keyword">fun</span> <span class="code-func">endGroup</span>(): <span class="code-type">Int</span> {
+        <span class="code-comment">// 返回该 Group 的索引</span>
+        <span class="code-keyword">return</span> currentGroup
+    }
+    
+    <span class="code-comment">// 写入 Slot 数据</span>
+    <span class="code-keyword">fun</span> <span class="code-func">update</span>(value: <span class="code-type">Any</span>?) {
+        slots[currentSlot++] = value
+    }
+    
+    <span class="code-comment">// 跳过不变的 Group</span>
+    <span class="code-keyword">fun</span> <span class="code-func">skipGroup</span>(): <span class="code-type">Int</span> {
+        <span class="code-keyword">val</span> count = <span class="code-func">groupSize</span>(currentGroup)
+        currentGroup += count
+        <span class="code-keyword">return</span> count
+    }
+}</code></pre>
+
+        <h3>4.2 插入操作</h3>
+
+        <pre><code><span class="code-keyword">private fun</span> <span class="code-func">insertGroup</span>(key: <span class="code-type">Int</span>) {
+    <span class="code-comment">// 1. 如果 Gap 不在当前位置，移动 Gap</span>
+    <span class="code-keyword">if</span> (groupGapStart != currentGroup) {
+        <span class="code-func">moveGroupGapTo</span>(currentGroup)
+    }
+    
+    <span class="code-comment">// 2. 检查是否需要扩容</span>
+    <span class="code-keyword">if</span> (groupGapLen == <span class="code-string">0</span>) {
+        <span class="code-func">growGroups</span>()
+    }
+    
+    <span class="code-comment">// 3. 在 Gap 位置写入 Group 信息</span>
+    <span class="code-keyword">val</span> address = <span class="code-func">groupIndexToAddress</span>(currentGroup)
+    groups[address] = key
+    groups[address + <span class="code-string">1</span>] = <span class="code-string">0</span>  <span class="code-comment">// groupInfo</span>
+    groups[address + <span class="code-string">2</span>] = parent
+    groups[address + <span class="code-string">3</span>] = <span class="code-string">0</span>  <span class="code-comment">// size (稍后更新)</span>
+    groups[address + <span class="code-string">4</span>] = currentSlot  <span class="code-comment">// dataAnchor</span>
+    
+    <span class="code-comment">// 4. 收缩 Gap</span>
+    groupGapStart++
+    groupGapLen--
+}</code></pre>
+
+        <h3>4.3 Gap 移动的实现</h3>
+
+        <pre><code><span class="code-keyword">private fun</span> <span class="code-func">moveGroupGapTo</span>(index: <span class="code-type">Int</span>) {
+    <span class="code-keyword">val</span> gapStart = groupGapStart
+    <span class="code-keyword">val</span> gapLen = groupGapLen
+    
+    <span class="code-keyword">if</span> (index &lt; gapStart) {
+        <span class="code-comment">// Gap 向左移动：将 [index, gapStart) 复制到 Gap 后面</span>
+        <span class="code-keyword">val</span> count = gapStart - index
+        <span class="code-func">arraycopy</span>(
+            src = groups,
+            srcPos = <span class="code-func">groupIndexToAddress</span>(index),
+            dst = groups,
+            dstPos = <span class="code-func">groupIndexToAddress</span>(index + gapLen),
+            len = count * <span class="code-type">GROUP_FIELDS_SIZE</span>
+        )
+    } <span class="code-keyword">else</span> {
+        <span class="code-comment">// Gap 向右移动：将 [gapStart + gapLen, index) 复制到 Gap 前面</span>
+        <span class="code-keyword">val</span> count = index - gapStart - gapLen
+        <span class="code-func">arraycopy</span>(
+            src = groups,
+            srcPos = <span class="code-func">groupIndexToAddress</span>(gapStart + gapLen),
+            dst = groups,
+            dstPos = <span class="code-func">groupIndexToAddress</span>(gapStart),
+            len = count * <span class="code-type">GROUP_FIELDS_SIZE</span>
+        )
+    }
+    groupGapStart = index
+}</code></pre>
+
+        <h2>V. SlotReader：读取模式</h2>
+
+        <h3>5.1 读取器的设计</h3>
+
+        <pre><code><span class="code-keyword">class</span> <span class="code-type">SlotReader</span>(
+    <span class="code-keyword">private val</span> table: <span class="code-type">SlotTable</span>
+) {
+    <span class="code-comment">// 当前读取位置</span>
+    <span class="code-keyword">var</span> currentGroup: <span class="code-type">Int</span> = <span class="code-string">0</span>
+        <span class="code-keyword">private set</span>
+    
+    <span class="code-comment">// 读取下一个 Slot 值</span>
+    <span class="code-keyword">fun</span> <span class="code-func">next</span>(): <span class="code-type">Any</span>? = slots[currentSlot++]
+    
+    <span class="code-comment">// 获取当前 Group 的 key</span>
+    <span class="code-keyword">fun</span> <span class="code-func">groupKey</span>(): <span class="code-type">Int</span> = <span class="code-func">key</span>(currentGroup)
+    
+    <span class="code-comment">// 跳过当前 Group 及其所有子 Group</span>
+    <span class="code-keyword">fun</span> <span class="code-func">skipGroup</span>(): <span class="code-type">Int</span> {
+        <span class="code-keyword">val</span> count = <span class="code-func">groupSize</span>(currentGroup)
+        currentGroup += count
+        <span class="code-keyword">return</span> count
+    }
+    
+    <span class="code-comment">// 检查是否还有更多 Group</span>
+    <span class="code-keyword">fun</span> <span class="code-func">isGroupEnd</span>(): <span class="code-type">Boolean</span> = 
+        currentGroup >= groupsSize
+}</code></pre>
+
+        <h3>5.2 遍历示例</h3>
+
+        <pre><code><span class="code-comment">// 遍历所有顶层 Group</span>
+<span class="code-keyword">fun</span> <span class="code-func">traverse</span>(table: <span class="code-type">SlotTable</span>) {
+    table.<span class="code-func">read</span> { reader -&gt;
+        <span class="code-keyword">while</span> (!reader.<span class="code-func">isGroupEnd</span>()) {
+            <span class="code-keyword">val</span> key = reader.<span class="code-func">groupKey</span>()
+            <span class="code-keyword">val</span> size = reader.<span class="code-func">groupSize</span>()
+            
+            <span class="code-func">println</span>(<span class="code-string">"Group: key=$key, size=$size"</span>)
+            
+            <span class="code-comment">// 读取该 Group 的所有 Slot 数据</span>
+            <span class="code-keyword">val</span> slotCount = reader.<span class="code-func">groupSlotCount</span>()
+            <span class="code-keyword">for</span> (i <span class="code-keyword">in</span> <span class="code-string">0</span> until slotCount) {
+                <span class="code-keyword">val</span> slot = reader.<span class="code-func">next</span>()
+                <span class="code-func">println</span>(<span class="code-string">"  Slot: $slot"</span>)
+            }
+            
+            <span class="code-comment">// 移动到下一个 Group</span>
+            reader.<span class="code-func">skipToGroupEnd</span>()
+        }
+    }
+}</code></pre>
+
+        <h2>VI. 实际场景分析</h2>
+
+        <h3>6.1 初始组合</h3>
+
+        <pre><code><span class="code-annotation">@Composable</span>
+<span class="code-keyword">fun</span> <span class="code-func">Counter</span>() {
+    <span class="code-keyword">var</span> count <span class="code-keyword">by</span> <span class="code-func">remember</span> { <span class="code-func">mutableStateOf</span>(<span class="code-string">0</span>) }
+    <span class="code-func">Text</span>(<span class="code-string">"Count: $count"</span>)
+}</code></pre>
+
+        <div class="diagram-box">
+初始组合后的 Slot Table:
+
+Groups 数组:
+┌────────────────────────────────────────────────────────────────────┐
+│ <span class="diagram-highlight">G0: Counter</span>     │ <span class="diagram-accent">G1: remember</span>   │ <span class="diagram-pink">G2: Text</span>       │ <span class="diagram-warning">Gap...</span>  │
+│ key=123         │ key=456        │ key=789        │              │
+│ parent=-1       │ parent=0       │ parent=0       │              │
+│ size=3          │ size=1         │ size=1         │              │
+│ dataAnchor=0    │ dataAnchor=0   │ dataAnchor=1   │              │
+└────────────────────────────────────────────────────────────────────┘
+
+Slots 数组:
+┌──────────────────────────────────────────────────────────────────┐
+│ <span class="diagram-accent">MutableState(0)</span>  │ <span class="diagram-pink">"Count: 0"</span>     │ <span class="diagram-warning">Gap...</span>                      │
+│ (G1 的 Slot)     │ (G2 的 Slot)   │                              │
+└──────────────────────────────────────────────────────────────────┘
+        </div>
+
+        <h3>6.2 重组：状态变化</h3>
+
+        <pre><code><span class="code-comment">// 点击按钮后 count 变为 1</span>
+count = <span class="code-string">1</span></code></pre>
+
+        <div class="diagram-box">
+重组过程:
+
+1. Snapshot 系统检测到 MutableState 写入
+2. 标记读取该 State 的 RecomposeScope 为失效
+3. 下一帧执行重组
+
+重组时 Slot Table 变化:
+
+Groups 数组: <span class="diagram-highlight">不变！</span> (结构未改变)
+
+Slots 数组:
+┌──────────────────────────────────────────────────────────────────┐
+│ MutableState(1)  │ <span class="diagram-warning">"Count: 1"</span>     │ Gap...                      │
+│ (值变了)         │ <span class="diagram-warning">(Text 内容更新)</span>│                              │
+└──────────────────────────────────────────────────────────────────┘
+
+只有 Slot 值变化，Group 结构完全复用！
+        </div>
+
+        <h3>6.3 条件渲染导致结构变化</h3>
+
+        <pre><code><span class="code-annotation">@Composable</span>
+<span class="code-keyword">fun</span> <span class="code-func">ConditionalContent</span>(showExtra: <span class="code-type">Boolean</span>) {
+    <span class="code-func">Text</span>(<span class="code-string">"Always"</span>)
+    <span class="code-keyword">if</span> (showExtra) {
+        <span class="code-func">Text</span>(<span class="code-string">"Extra"</span>)  <span class="code-comment">// 条件显示</span>
+    }
+    <span class="code-func">Text</span>(<span class="code-string">"Footer"</span>)
+}</code></pre>
+
+        <div class="diagram-box">
+showExtra = false 时:
+┌───────────────────────────────────────────────────────┐
+│ G0: Root │ G1: Text("Always") │ G2: Text("Footer") │
+└───────────────────────────────────────────────────────┘
+
+showExtra = true 时 (需要插入 G2):
+┌───────────────────────────────────────────────────────────────────────┐
+│ G0: Root │ G1: Text("Always") │ <span class="diagram-highlight">G2: Text("Extra")</span> │ G3: Text("Footer") │
+└───────────────────────────────────────────────────────────────────────┘
+                                  <span class="diagram-highlight">↑ 新插入</span>
+
+Gap Buffer 优势:
+1. 移动 Gap 到位置 2
+2. 在 Gap 处插入新 Group
+3. 无需移动后面的元素！
+        </div>
+
+        <h2>VII. 性能分析</h2>
+
+        <h3>7.1 时间复杂度</h3>
+
+        <table>
+            <tr>
+                <th>操作</th>
+                <th>Gap Buffer</th>
+                <th>普通数组</th>
+                <th>链表</th>
+            </tr>
+            <tr>
+                <td>局部插入</td>
+                <td>O(1)*</td>
+                <td>O(n)</td>
+                <td>O(1)</td>
+            </tr>
+            <tr>
+                <td>局部删除</td>
+                <td>O(1)*</td>
+                <td>O(n)</td>
+                <td>O(1)</td>
+            </tr>
+            <tr>
+                <td>随机访问</td>
+                <td>O(1)</td>
+                <td>O(1)</td>
+                <td>O(n)</td>
+            </tr>
+            <tr>
+                <td>顺序遍历</td>
+                <td>O(n)</td>
+                <td>O(n)</td>
+                <td>O(n)</td>
+            </tr>
+            <tr>
+                <td>移动 Gap</td>
+                <td>O(k)</td>
+                <td>-</td>
+                <td>-</td>
+            </tr>
+        </table>
+
+        <p>* 假设 Gap 已在正确位置，否则需要 O(k) 移动 Gap（k 是移动距离）</p>
+
+        <h3>7.2 空间效率</h3>
+
+        <div class="tip-box success">
+            <div class="tip-title">✅ 内存优势</div>
+            <ul>
+                <li><strong>连续存储</strong>：Groups 和 Slots 都是连续数组，缓存友好</li>
+                <li><strong>紧凑编码</strong>：Group 信息压缩在 5 个 Int 中</li>
+                <li><strong>无指针开销</strong>：不需要存储子节点指针</li>
+                <li><strong>预分配 Gap</strong>：减少扩容次数</li>
+            </ul>
+        </div>
+
+        <h3>7.3 为什么适合 Compose？</h3>
+
+        <ol>
+            <li><strong>局部性</strong>：重组通常只影响局部区域，Gap Buffer 正好优化这种场景</li>
+            <li><strong>增量更新</strong>：大部分重组不改变结构，只更新 Slot 值</li>
+            <li><strong>有序遍历</strong>：组合/重组都是深度优先遍历，线性扫描效率高</li>
+            <li><strong>批量操作</strong>：一次重组中的多个插入/删除可以合并</li>
+        </ol>
+
+        <h2>VIII. 调试与观察</h2>
+
+        <h3>8.1 使用 Layout Inspector</h3>
+
+        <p>Android Studio 的 Layout Inspector 可以查看 Composition 结构，实际上就是可视化 Slot Table 中的 Groups。</p>
+
+        <h3>8.2 打印 Slot Table</h3>
+
+        <pre><code><span class="code-comment">// 调试：遍历并打印 Slot Table 结构</span>
+<span class="code-keyword">fun</span> <span class="code-func">dumpSlotTable</span>(composition: <span class="code-type">Composition</span>) {
+    <span class="code-keyword">val</span> table = (composition <span class="code-keyword">as</span> <span class="code-type">CompositionImpl</span>).slotTable
+    
+    table.<span class="code-func">read</span> { reader -&gt;
+        <span class="code-keyword">var</span> indent = <span class="code-string">0</span>
+        <span class="code-keyword">val</span> stack = <span class="code-func">mutableListOf</span>&lt;<span class="code-type">Int</span>&gt;()
+        
+        <span class="code-keyword">while</span> (!reader.<span class="code-func">isGroupEnd</span>()) {
+            <span class="code-keyword">val</span> key = reader.<span class="code-func">groupKey</span>()
+            <span class="code-keyword">val</span> size = reader.<span class="code-func">groupSize</span>()
+            <span class="code-keyword">val</span> slots = reader.<span class="code-func">groupSlotCount</span>()
+            
+            <span class="code-func">println</span>(<span class="code-string">"${"  ".repeat(indent)}Group(key=$key, size=$size, slots=$slots)"</span>)
+            
+            reader.<span class="code-func">startGroup</span>()
+            indent++
+            stack.<span class="code-func">add</span>(reader.currentGroup + size)
+            
+            <span class="code-keyword">while</span> (stack.<span class="code-func">isNotEmpty</span>() && reader.currentGroup >= stack.<span class="code-func">last</span>()) {
+                stack.<span class="code-func">removeLast</span>()
+                indent--
+            }
+        }
+    }
+}</code></pre>
+
+        <h2>IX. 总结</h2>
+
+        <div class="tip-box">
+            <div class="tip-title">🎯 核心要点</div>
+            <ul>
+                <li><strong>Slot Table</strong> 使用双数组（Groups + Slots）存储 UI 树状态</li>
+                <li><strong>Gap Buffer</strong> 算法实现 O(1) 局部插入/删除</li>
+                <li><strong>Group</strong> 是组织单位，每个 @Composable 调用对应一个 Group</li>
+                <li><strong>Slot</strong> 存储实际数据：remember 的值、节点引用等</li>
+                <li>连续内存布局带来优秀的缓存性能</li>
+                <li>增量更新：大部分重组只修改 Slot 值，不改变结构</li>
+            </ul>
+        </div>
+
+        <p>理解 Slot Table 的工作原理，能够帮助你：</p>
+        <ul>
+            <li>理解 Compose 的性能特征</li>
+            <li>优化重组范围，减少结构变更</li>
+            <li>debug 复杂的状态问题</li>
+            <li>为 Compose 贡献代码</li>
+        </ul>
+    </article>
+
+    <footer class="footer">
+        <p>© 2024 Fidroid - 专注 Android 与 Jetpack Compose</p>
+    </footer>
+</body>
+</html>
+
