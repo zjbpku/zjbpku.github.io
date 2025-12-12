@@ -1,0 +1,813 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>RemoteCompose：服务器驱动 UI 的全新范式 - Fidroid</title>
+    <meta name="description" content="深入探索 RemoteCompose 的架构设计，理解文档式架构、Canvas 级操作模型、交互处理等核心概念，掌握 Jetpack Compose 中实现 Server-Driven UI 的全新方式。">
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            line-height: 1.8;
+            color: #e5e7eb;
+            background: #020617;
+        }
+        .navbar {
+            background: rgba(15,23,42,0.98);
+            backdrop-filter: blur(10px);
+            position: fixed;
+            top: 0;
+            width: 100%;
+            z-index: 1000;
+        }
+        .nav-container {
+            max-width: 900px;
+            margin: 0 auto;
+            padding: 1rem 20px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .logo {
+            font-size: 1.5rem;
+            font-weight: bold;
+            color: #38bdf8;
+            text-decoration: none;
+            letter-spacing: 0.08em;
+            text-transform: uppercase;
+        }
+        .back-link { color: #9ca3af; text-decoration: none; font-size: 0.9rem; }
+        .back-link:hover { color: #38bdf8; }
+
+        .article-header {
+            padding: 120px 20px 60px;
+            background: radial-gradient(circle at top left, #f59e0b 0, transparent 50%),
+                        radial-gradient(circle at bottom right, #06b6d4 0, transparent 55%),
+                        #020617;
+            text-align: center;
+        }
+        .article-header h1 {
+            max-width: 800px;
+            margin: 0 auto 1rem;
+            font-size: 2.5rem;
+            font-weight: 800;
+            letter-spacing: -0.03em;
+            color: #fff;
+        }
+        .article-meta { color: #9ca3af; font-size: 0.9rem; margin-bottom: 1.5rem; }
+        .article-tags { display: flex; justify-content: center; flex-wrap: wrap; gap: 0.5rem; }
+        .article-tag {
+            padding: 0.25rem 0.75rem;
+            border-radius: 999px;
+            font-size: 0.75rem;
+            background: rgba(15,23,42,0.85);
+            border: 1px solid rgba(245,158,11,0.4);
+            color: #fcd34d;
+        }
+
+        .article-content {
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 60px 20px 80px;
+        }
+        .article-content h2 {
+            font-size: 1.6rem;
+            margin: 2.5rem 0 1rem;
+            color: #f9fafb;
+            border-left: 4px solid #f59e0b;
+            padding-left: 1rem;
+        }
+        .article-content h3 { font-size: 1.25rem; margin: 2rem 0 0.75rem; color: #e5e7eb; }
+        .article-content p { margin-bottom: 1.25rem; color: #d1d5db; }
+        .article-content ul, .article-content ol { margin: 1rem 0 1.5rem 1.5rem; color: #d1d5db; }
+        .article-content li { margin-bottom: 0.5rem; }
+        .article-content strong { color: #f9fafb; }
+        .article-content a { color: #38bdf8; text-decoration: underline; }
+
+        pre {
+            background: #0f172a;
+            border: 1px solid rgba(245,158,11,0.3);
+            border-radius: 12px;
+            padding: 1.25rem;
+            overflow-x: auto;
+            margin: 1.5rem 0;
+            font-size: 0.85rem;
+            line-height: 1.6;
+        }
+        code { font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace; color: #e5e7eb; }
+        .code-keyword { color: #c084fc; }
+        .code-func { color: #38bdf8; }
+        .code-type { color: #4ade80; }
+        .code-string { color: #fbbf24; }
+        .code-comment { color: #6b7280; }
+        .code-annotation { color: #f472b6; }
+
+        .tip-box {
+            background: rgba(245,158,11,0.1);
+            border: 1px solid rgba(245,158,11,0.3);
+            border-radius: 12px;
+            padding: 1.25rem;
+            margin: 1.5rem 0;
+        }
+        .tip-box.info {
+            background: rgba(59,130,246,0.1);
+            border-color: rgba(59,130,246,0.3);
+        }
+        .tip-box.success {
+            background: rgba(34,197,94,0.1);
+            border-color: rgba(34,197,94,0.3);
+        }
+        .tip-box.warning {
+            background: rgba(239,68,68,0.1);
+            border-color: rgba(239,68,68,0.3);
+        }
+        .tip-title { font-weight: 600; color: #fcd34d; margin-bottom: 0.5rem; }
+        .info .tip-title { color: #93c5fd; }
+        .success .tip-title { color: #4ade80; }
+        .warning .tip-title { color: #fca5a5; }
+
+        .diagram-box {
+            background: #0f172a;
+            border: 1px solid rgba(245,158,11,0.3);
+            border-radius: 12px;
+            padding: 1.5rem;
+            margin: 1.5rem 0;
+            font-family: ui-monospace, monospace;
+            font-size: 0.8rem;
+            line-height: 1.5;
+            overflow-x: auto;
+            white-space: pre;
+            color: #9ca3af;
+        }
+        .diagram-highlight { color: #4ade80; }
+        .diagram-accent { color: #38bdf8; }
+        .diagram-warning { color: #fbbf24; }
+        .diagram-pink { color: #f472b6; }
+
+        .comparison-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 1.5rem 0;
+        }
+        .comparison-table th, .comparison-table td {
+            border: 1px solid rgba(245,158,11,0.3);
+            padding: 0.75rem;
+            text-align: left;
+        }
+        .comparison-table th {
+            background: #0f172a;
+            color: #fcd34d;
+        }
+        .comparison-table td {
+            color: #d1d5db;
+        }
+
+        .footer {
+            background: #0f172a;
+            padding: 3rem 20px;
+            text-align: center;
+            border-top: 1px solid rgba(245,158,11,0.2);
+        }
+        .footer p { color: #6b7280; font-size: 0.9rem; }
+    </style>
+</head>
+<body>
+    <nav class="navbar">
+        <div class="nav-container">
+            <a href="../index.html" class="logo">Fidroid</a>
+            <a href="../index.html#articles" class="back-link">← 返回文章列表</a>
+        </div>
+    </nav>
+
+    <header class="article-header">
+        <h1>RemoteCompose：服务器驱动 UI 的全新范式</h1>
+        <div class="article-meta">📅 2024-07-09 · ⏱ 28 min · 🚀 前沿技术</div>
+        <div class="article-tags">
+            <span class="article-tag">RemoteCompose</span>
+            <span class="article-tag">Server-Driven UI</span>
+            <span class="article-tag">SDUI</span>
+            <span class="article-tag">Canvas</span>
+        </div>
+    </header>
+
+    <article class="article-content">
+        <p>在移动应用开发中，<strong>服务器驱动 UI (Server-Driven UI, SDUI)</strong> 是一种越来越受欢迎的架构模式。它允许服务器动态控制客户端的界面结构，无需发布新版本即可更新 UI。然而，传统的 SDUI 方案面临着诸多挑战。<strong>RemoteCompose</strong> 提供了一种全新的范式，通过 Canvas 级别的操作捕获，彻底改变了我们对 SDUI 的理解。</p>
+
+        <h2>I. 传统 SDUI 的困境</h2>
+
+        <h3>1.1 传统方案的工作方式</h3>
+
+        <p>传统的 SDUI 通常采用以下架构：</p>
+
+        <div class="diagram-box">
+传统 Server-Driven UI 架构:
+
+┌─────────────┐     JSON/XML      ┌─────────────────────────────┐
+│   Server    │ ───────────────→  │         Client              │
+│             │                   │                             │
+│  UI Schema  │   {"type":"Card", │  ┌─────────────────────┐   │
+│  Generator  │    "title":"...", │  │   Schema Parser     │   │
+│             │    "children":[]} │  │   ↓                 │   │
+└─────────────┘                   │  │   Component Mapper  │   │
+                                  │  │   ↓                 │   │
+                                  │  │   Compose UI        │   │
+                                  │  └─────────────────────┘   │
+                                  └─────────────────────────────┘
+        </div>
+
+        <p>服务器发送类似这样的 JSON：</p>
+
+        <pre><code>{
+  <span class="code-string">"type"</span>: <span class="code-string">"Column"</span>,
+  <span class="code-string">"children"</span>: [
+    {
+      <span class="code-string">"type"</span>: <span class="code-string">"Card"</span>,
+      <span class="code-string">"title"</span>: <span class="code-string">"Welcome"</span>,
+      <span class="code-string">"subtitle"</span>: <span class="code-string">"Hello, User!"</span>,
+      <span class="code-string">"imageUrl"</span>: <span class="code-string">"https://..."</span>
+    },
+    {
+      <span class="code-string">"type"</span>: <span class="code-string">"Button"</span>,
+      <span class="code-string">"text"</span>: <span class="code-string">"Get Started"</span>,
+      <span class="code-string">"action"</span>: <span class="code-string">"navigate://home"</span>
+    }
+  ]
+}</code></pre>
+
+        <h3>1.2 传统方案的问题</h3>
+
+        <div class="tip-box warning">
+            <div class="tip-title">❌ 传统 SDUI 的痛点</div>
+            <ul>
+                <li><strong>Schema 同步</strong>：服务器和客户端必须就组件定义达成一致，版本管理复杂</li>
+                <li><strong>组件注册</strong>：每个新组件都需要在客户端预先注册和实现</li>
+                <li><strong>有限的视觉能力</strong>：只能使用预定义的组件，自定义样式受限</li>
+                <li><strong>前向兼容问题</strong>：新组件在旧客户端上无法显示</li>
+                <li><strong>自定义组件困难</strong>：复杂的自定义 UI 难以通过 Schema 描述</li>
+            </ul>
+        </div>
+
+        <h2>II. RemoteCompose 的革命性设计</h2>
+
+        <h3>2.1 核心理念：文档式架构</h3>
+
+        <p>RemoteCompose 的核心突破在于：<strong>不发送组件描述，而是发送绘制指令</strong>。它将 UI 视为一个「文档」，在 Canvas 层级捕获所有绘制操作。</p>
+
+        <div class="diagram-box">
+RemoteCompose 架构:
+
+<span class="diagram-warning">创建阶段 (服务端)</span>
+┌───────────────────────────────────────────────────────────┐
+│                                                           │
+│   @Composable 代码                                         │
+│        ↓                                                  │
+│   Compose Runtime                                         │
+│        ↓                                                  │
+│   <span class="diagram-highlight">Canvas 操作拦截</span>                                         │
+│        ↓                                                  │
+│   二进制文档 (Binary Document)                              │
+│   [Op1][Op2][Op3]...[Op93+]                               │
+│                                                           │
+└───────────────────────────────────────────────────────────┘
+                          │
+                          ▼ 传输
+                          
+<span class="diagram-accent">播放阶段 (客户端)</span>
+┌───────────────────────────────────────────────────────────┐
+│                                                           │
+│   接收二进制文档                                            │
+│        ↓                                                  │
+│   <span class="diagram-highlight">Document Player</span>                                         │
+│        ↓                                                  │
+│   遍历操作指令，在 Canvas 上执行                             │
+│        ↓                                                  │
+│   渲染到屏幕                                                │
+│                                                           │
+└───────────────────────────────────────────────────────────┘
+        </div>
+
+        <h3>2.2 Canvas 级别的操作捕获</h3>
+
+        <p>RemoteCompose 在 Android 渲染管道的最低层级进行拦截，捕获所有绘制操作：</p>
+
+        <pre><code><span class="code-comment">// RemoteCompose 捕获的操作类型 (93+ 种)</span>
+
+<span class="code-comment">// 基础绘制操作</span>
+<span class="code-keyword">sealed class</span> <span class="code-type">DrawOperation</span> {
+    <span class="code-keyword">data class</span> <span class="code-type">DrawRect</span>(
+        <span class="code-keyword">val</span> left: <span class="code-type">Float</span>,
+        <span class="code-keyword">val</span> top: <span class="code-type">Float</span>,
+        <span class="code-keyword">val</span> right: <span class="code-type">Float</span>,
+        <span class="code-keyword">val</span> bottom: <span class="code-type">Float</span>,
+        <span class="code-keyword">val</span> paint: <span class="code-type">PaintData</span>
+    ) : <span class="code-type">DrawOperation</span>()
+    
+    <span class="code-keyword">data class</span> <span class="code-type">DrawCircle</span>(
+        <span class="code-keyword">val</span> cx: <span class="code-type">Float</span>,
+        <span class="code-keyword">val</span> cy: <span class="code-type">Float</span>,
+        <span class="code-keyword">val</span> radius: <span class="code-type">Float</span>,
+        <span class="code-keyword">val</span> paint: <span class="code-type">PaintData</span>
+    ) : <span class="code-type">DrawOperation</span>()
+    
+    <span class="code-keyword">data class</span> <span class="code-type">DrawPath</span>(
+        <span class="code-keyword">val</span> path: <span class="code-type">PathData</span>,
+        <span class="code-keyword">val</span> paint: <span class="code-type">PaintData</span>
+    ) : <span class="code-type">DrawOperation</span>()
+    
+    <span class="code-keyword">data class</span> <span class="code-type">DrawText</span>(
+        <span class="code-keyword">val</span> text: <span class="code-type">String</span>,
+        <span class="code-keyword">val</span> x: <span class="code-type">Float</span>,
+        <span class="code-keyword">val</span> y: <span class="code-type">Float</span>,
+        <span class="code-keyword">val</span> font: <span class="code-type">FontData</span>,
+        <span class="code-keyword">val</span> paint: <span class="code-type">PaintData</span>
+    ) : <span class="code-type">DrawOperation</span>()
+    
+    <span class="code-keyword">data class</span> <span class="code-type">DrawImage</span>(
+        <span class="code-keyword">val</span> imageData: <span class="code-type">ByteArray</span>,
+        <span class="code-keyword">val</span> srcRect: <span class="code-type">RectData</span>,
+        <span class="code-keyword">val</span> dstRect: <span class="code-type">RectData</span>
+    ) : <span class="code-type">DrawOperation</span>()
+    
+    <span class="code-comment">// 变换操作</span>
+    <span class="code-keyword">data class</span> <span class="code-type">Translate</span>(<span class="code-keyword">val</span> dx: <span class="code-type">Float</span>, <span class="code-keyword">val</span> dy: <span class="code-type">Float</span>) : <span class="code-type">DrawOperation</span>()
+    <span class="code-keyword">data class</span> <span class="code-type">Scale</span>(<span class="code-keyword">val</span> sx: <span class="code-type">Float</span>, <span class="code-keyword">val</span> sy: <span class="code-type">Float</span>) : <span class="code-type">DrawOperation</span>()
+    <span class="code-keyword">data class</span> <span class="code-type">Rotate</span>(<span class="code-keyword">val</span> degrees: <span class="code-type">Float</span>) : <span class="code-type">DrawOperation</span>()
+    
+    <span class="code-comment">// 裁剪操作</span>
+    <span class="code-keyword">data class</span> <span class="code-type">ClipRect</span>(<span class="code-keyword">val</span> rect: <span class="code-type">RectData</span>) : <span class="code-type">DrawOperation</span>()
+    <span class="code-keyword">data class</span> <span class="code-type">ClipPath</span>(<span class="code-keyword">val</span> path: <span class="code-type">PathData</span>) : <span class="code-type">DrawOperation</span>()
+    
+    <span class="code-comment">// 状态保存/恢复</span>
+    <span class="code-keyword">object</span> <span class="code-type">Save</span> : <span class="code-type">DrawOperation</span>()
+    <span class="code-keyword">object</span> <span class="code-type">Restore</span> : <span class="code-type">DrawOperation</span>()
+    
+    <span class="code-comment">// ... 更多操作</span>
+}</code></pre>
+
+        <h3>2.3 文档结构</h3>
+
+        <p>捕获的操作被编码为紧凑的二进制格式：</p>
+
+        <pre><code><span class="code-comment">// 文档结构示意</span>
+<span class="code-keyword">class</span> <span class="code-type">RemoteComposeDocument</span> {
+    <span class="code-comment">// 文档头</span>
+    <span class="code-keyword">val</span> version: <span class="code-type">Int</span>
+    <span class="code-keyword">val</span> width: <span class="code-type">Float</span>
+    <span class="code-keyword">val</span> height: <span class="code-type">Float</span>
+    
+    <span class="code-comment">// 资源表 (图片、字体等)</span>
+    <span class="code-keyword">val</span> resources: <span class="code-type">List</span>&lt;<span class="code-type">ResourceEntry</span>&gt;
+    
+    <span class="code-comment">// 操作序列</span>
+    <span class="code-keyword">val</span> operations: <span class="code-type">List</span>&lt;<span class="code-type">DrawOperation</span>&gt;
+    
+    <span class="code-comment">// 交互区域</span>
+    <span class="code-keyword">val</span> clickableAreas: <span class="code-type">List</span>&lt;<span class="code-type">ClickableArea</span>&gt;
+    
+    <span class="code-comment">// 动画定义</span>
+    <span class="code-keyword">val</span> animations: <span class="code-type">List</span>&lt;<span class="code-type">AnimationDef</span>&gt;
+}</code></pre>
+
+        <h2>III. 操作模型深入解析</h2>
+
+        <h3>3.1 93+ 种操作的分类</h3>
+
+        <table class="comparison-table">
+            <tr>
+                <th>类别</th>
+                <th>操作示例</th>
+                <th>说明</th>
+            </tr>
+            <tr>
+                <td><strong>形状绘制</strong></td>
+                <td>DrawRect, DrawCircle, DrawOval, DrawRoundRect, DrawArc</td>
+                <td>基础几何形状</td>
+            </tr>
+            <tr>
+                <td><strong>路径绘制</strong></td>
+                <td>DrawPath, DrawLine, DrawPoints</td>
+                <td>复杂路径和线条</td>
+            </tr>
+            <tr>
+                <td><strong>文本渲染</strong></td>
+                <td>DrawText, DrawTextOnPath</td>
+                <td>包含字体、样式信息</td>
+            </tr>
+            <tr>
+                <td><strong>图像绘制</strong></td>
+                <td>DrawImage, DrawImageRect</td>
+                <td>图片数据内嵌</td>
+            </tr>
+            <tr>
+                <td><strong>变换</strong></td>
+                <td>Translate, Scale, Rotate, Skew, Concat</td>
+                <td>矩阵变换</td>
+            </tr>
+            <tr>
+                <td><strong>裁剪</strong></td>
+                <td>ClipRect, ClipPath, ClipRoundRect</td>
+                <td>裁剪区域</td>
+            </tr>
+            <tr>
+                <td><strong>状态</strong></td>
+                <td>Save, Restore, SaveLayer</td>
+                <td>Canvas 状态管理</td>
+            </tr>
+            <tr>
+                <td><strong>效果</strong></td>
+                <td>BlendMode, Shader, MaskFilter, ColorFilter</td>
+                <td>视觉效果</td>
+            </tr>
+        </table>
+
+        <h3>3.2 Paint 数据的完整性</h3>
+
+        <pre><code><span class="code-comment">// Paint 包含完整的样式信息</span>
+<span class="code-keyword">data class</span> <span class="code-type">PaintData</span>(
+    <span class="code-comment">// 颜色</span>
+    <span class="code-keyword">val</span> color: <span class="code-type">Int</span>,
+    <span class="code-keyword">val</span> alpha: <span class="code-type">Float</span>,
+    
+    <span class="code-comment">// 样式</span>
+    <span class="code-keyword">val</span> style: <span class="code-type">PaintStyle</span>,  <span class="code-comment">// Fill, Stroke, FillAndStroke</span>
+    <span class="code-keyword">val</span> strokeWidth: <span class="code-type">Float</span>,
+    <span class="code-keyword">val</span> strokeCap: <span class="code-type">StrokeCap</span>,
+    <span class="code-keyword">val</span> strokeJoin: <span class="code-type">StrokeJoin</span>,
+    
+    <span class="code-comment">// 渐变</span>
+    <span class="code-keyword">val</span> shader: <span class="code-type">ShaderData</span>?,  <span class="code-comment">// LinearGradient, RadialGradient, etc.</span>
+    
+    <span class="code-comment">// 阴影</span>
+    <span class="code-keyword">val</span> shadow: <span class="code-type">ShadowData</span>?,
+    
+    <span class="code-comment">// 混合模式</span>
+    <span class="code-keyword">val</span> blendMode: <span class="code-type">BlendMode</span>,
+    
+    <span class="code-comment">// 抗锯齿</span>
+    <span class="code-keyword">val</span> isAntiAlias: <span class="code-type">Boolean</span>
+)</code></pre>
+
+        <h2>IV. 双端播放器</h2>
+
+        <h3>4.1 Compose 播放器</h3>
+
+        <p>作为 Composable 函数，与现有 Compose UI 无缝集成：</p>
+
+        <pre><code><span class="code-annotation">@Composable</span>
+<span class="code-keyword">fun</span> <span class="code-func">RemoteComposeView</span>(
+    document: <span class="code-type">RemoteComposeDocument</span>,
+    modifier: <span class="code-type">Modifier</span> = <span class="code-type">Modifier</span>,
+    onClickEvent: (<span class="code-type">ClickEvent</span>) -&gt; <span class="code-type">Unit</span> = {}
+) {
+    <span class="code-func">Canvas</span>(modifier = modifier.<span class="code-func">fillMaxSize</span>()) {
+        <span class="code-comment">// 遍历并执行所有绘制操作</span>
+        document.operations.<span class="code-func">forEach</span> { op -&gt;
+            <span class="code-keyword">when</span> (op) {
+                <span class="code-keyword">is</span> <span class="code-type">DrawOperation.DrawRect</span> -&gt; {
+                    <span class="code-func">drawRect</span>(
+                        color = <span class="code-type">Color</span>(op.paint.color),
+                        topLeft = <span class="code-type">Offset</span>(op.left, op.top),
+                        size = <span class="code-type">Size</span>(op.right - op.left, op.bottom - op.top)
+                    )
+                }
+                <span class="code-keyword">is</span> <span class="code-type">DrawOperation.DrawText</span> -&gt; {
+                    <span class="code-func">drawText</span>(
+                        textMeasurer = textMeasurer,
+                        text = op.text,
+                        topLeft = <span class="code-type">Offset</span>(op.x, op.y)
+                    )
+                }
+                <span class="code-comment">// ... 处理其他操作</span>
+            }
+        }
+    }
+}
+
+<span class="code-comment">// 使用示例</span>
+<span class="code-annotation">@Composable</span>
+<span class="code-keyword">fun</span> <span class="code-func">RemoteScreen</span>(viewModel: <span class="code-type">RemoteViewModel</span>) {
+    <span class="code-keyword">val</span> document <span class="code-keyword">by</span> viewModel.document.<span class="code-func">collectAsState</span>()
+    
+    <span class="code-func">Scaffold</span>(
+        topBar = { <span class="code-func">TopAppBar</span>(title = { <span class="code-func">Text</span>(<span class="code-string">"Remote UI"</span>) }) }
+    ) { padding -&gt;
+        document?.<span class="code-func">let</span> { doc -&gt;
+            <span class="code-func">RemoteComposeView</span>(
+                document = doc,
+                modifier = <span class="code-type">Modifier</span>.<span class="code-func">padding</span>(padding),
+                onClickEvent = { event -&gt;
+                    viewModel.<span class="code-func">handleClick</span>(event)
+                }
+            )
+        }
+    }
+}</code></pre>
+
+        <h3>4.2 View 播放器</h3>
+
+        <p>兼容传统 View 层次结构：</p>
+
+        <pre><code><span class="code-keyword">class</span> <span class="code-type">RemoteComposePlayerView</span> <span class="code-annotation">@JvmOverloads</span> <span class="code-keyword">constructor</span>(
+    context: <span class="code-type">Context</span>,
+    attrs: <span class="code-type">AttributeSet</span>? = <span class="code-keyword">null</span>
+) : <span class="code-type">View</span>(context, attrs) {
+    
+    <span class="code-keyword">private var</span> document: <span class="code-type">RemoteComposeDocument</span>? = <span class="code-keyword">null</span>
+    
+    <span class="code-keyword">fun</span> <span class="code-func">setDocument</span>(doc: <span class="code-type">RemoteComposeDocument</span>) {
+        <span class="code-keyword">this</span>.document = doc
+        <span class="code-func">invalidate</span>()
+    }
+    
+    <span class="code-keyword">override fun</span> <span class="code-func">onDraw</span>(canvas: <span class="code-type">Canvas</span>) {
+        <span class="code-keyword">super</span>.<span class="code-func">onDraw</span>(canvas)
+        
+        document?.<span class="code-func">let</span> { doc -&gt;
+            doc.operations.<span class="code-func">forEach</span> { op -&gt;
+                <span class="code-func">executeOperation</span>(canvas, op)
+            }
+        }
+    }
+    
+    <span class="code-keyword">private fun</span> <span class="code-func">executeOperation</span>(canvas: <span class="code-type">Canvas</span>, op: <span class="code-type">DrawOperation</span>) {
+        <span class="code-keyword">when</span> (op) {
+            <span class="code-keyword">is</span> <span class="code-type">DrawOperation.DrawRect</span> -&gt; {
+                canvas.<span class="code-func">drawRect</span>(
+                    op.left, op.top, op.right, op.bottom,
+                    op.paint.<span class="code-func">toAndroidPaint</span>()
+                )
+            }
+            <span class="code-keyword">is</span> <span class="code-type">DrawOperation.Save</span> -&gt; canvas.<span class="code-func">save</span>()
+            <span class="code-keyword">is</span> <span class="code-type">DrawOperation.Restore</span> -&gt; canvas.<span class="code-func">restore</span>()
+            <span class="code-comment">// ...</span>
+        }
+    }
+}</code></pre>
+
+        <h2>V. 交互处理</h2>
+
+        <h3>5.1 点击区域定义</h3>
+
+        <p>RemoteCompose 通过定义可点击区域来支持交互：</p>
+
+        <pre><code><span class="code-comment">// 点击区域数据</span>
+<span class="code-keyword">data class</span> <span class="code-type">ClickableArea</span>(
+    <span class="code-keyword">val</span> id: <span class="code-type">String</span>,
+    <span class="code-keyword">val</span> bounds: <span class="code-type">RectData</span>,
+    <span class="code-keyword">val</span> action: <span class="code-type">ClickAction</span>
+)
+
+<span class="code-keyword">sealed class</span> <span class="code-type">ClickAction</span> {
+    <span class="code-keyword">data class</span> <span class="code-type">Navigate</span>(<span class="code-keyword">val</span> route: <span class="code-type">String</span>) : <span class="code-type">ClickAction</span>()
+    <span class="code-keyword">data class</span> <span class="code-type">SendEvent</span>(<span class="code-keyword">val</span> eventId: <span class="code-type">String</span>, <span class="code-keyword">val</span> data: <span class="code-type">Map</span>&lt;<span class="code-type">String</span>, <span class="code-type">Any</span>&gt;) : <span class="code-type">ClickAction</span>()
+    <span class="code-keyword">data class</span> <span class="code-type">OpenUrl</span>(<span class="code-keyword">val</span> url: <span class="code-type">String</span>) : <span class="code-type">ClickAction</span>()
+}</code></pre>
+
+        <h3>5.2 触摸检测</h3>
+
+        <pre><code><span class="code-annotation">@Composable</span>
+<span class="code-keyword">fun</span> <span class="code-func">RemoteComposeView</span>(
+    document: <span class="code-type">RemoteComposeDocument</span>,
+    onClickEvent: (<span class="code-type">ClickAction</span>) -&gt; <span class="code-type">Unit</span>
+) {
+    <span class="code-func">Canvas</span>(
+        modifier = <span class="code-type">Modifier</span>
+            .<span class="code-func">fillMaxSize</span>()
+            .<span class="code-func">pointerInput</span>(<span class="code-type">Unit</span>) {
+                <span class="code-func">detectTapGestures</span> { offset -&gt;
+                    <span class="code-comment">// 查找点击的区域</span>
+                    <span class="code-keyword">val</span> clickedArea = document.clickableAreas
+                        .<span class="code-func">find</span> { area -&gt;
+                            offset.x >= area.bounds.left &&
+                            offset.x <= area.bounds.right &&
+                            offset.y >= area.bounds.top &&
+                            offset.y <= area.bounds.bottom
+                        }
+                    
+                    clickedArea?.<span class="code-func">let</span> { area -&gt;
+                        <span class="code-func">onClickEvent</span>(area.action)
+                    }
+                }
+            }
+    ) {
+        <span class="code-comment">// 绘制操作...</span>
+    }
+}</code></pre>
+
+        <h2>VI. 动画支持</h2>
+
+        <h3>6.1 动画定义</h3>
+
+        <pre><code><span class="code-comment">// 动画可以内嵌在文档中</span>
+<span class="code-keyword">data class</span> <span class="code-type">AnimationDef</span>(
+    <span class="code-keyword">val</span> id: <span class="code-type">String</span>,
+    <span class="code-keyword">val</span> targetOperationId: <span class="code-type">Int</span>,  <span class="code-comment">// 要动画的操作</span>
+    <span class="code-keyword">val</span> property: <span class="code-type">AnimatableProperty</span>,  <span class="code-comment">// 动画属性</span>
+    <span class="code-keyword">val</span> fromValue: <span class="code-type">Float</span>,
+    <span class="code-keyword">val</span> toValue: <span class="code-type">Float</span>,
+    <span class="code-keyword">val</span> duration: <span class="code-type">Long</span>,
+    <span class="code-keyword">val</span> easing: <span class="code-type">EasingType</span>,
+    <span class="code-keyword">val</span> repeatMode: <span class="code-type">RepeatMode</span>
+)
+
+<span class="code-keyword">enum class</span> <span class="code-type">AnimatableProperty</span> {
+    ALPHA,
+    TRANSLATE_X,
+    TRANSLATE_Y,
+    SCALE_X,
+    SCALE_Y,
+    ROTATION
+}</code></pre>
+
+        <h3>6.2 动画执行</h3>
+
+        <pre><code><span class="code-annotation">@Composable</span>
+<span class="code-keyword">fun</span> <span class="code-func">AnimatedRemoteComposeView</span>(document: <span class="code-type">RemoteComposeDocument</span>) {
+    <span class="code-comment">// 为每个动画创建动画状态</span>
+    <span class="code-keyword">val</span> animationStates = document.animations.<span class="code-func">associate</span> { anim -&gt;
+        anim.id <span class="code-func">to</span> <span class="code-func">animateFloatAsState</span>(
+            targetValue = anim.toValue,
+            animationSpec = <span class="code-func">tween</span>(
+                durationMillis = anim.duration.toInt(),
+                easing = anim.easing.<span class="code-func">toComposeEasing</span>()
+            )
+        )
+    }
+    
+    <span class="code-func">Canvas</span>(modifier = <span class="code-type">Modifier</span>.<span class="code-func">fillMaxSize</span>()) {
+        document.operations.<span class="code-func">forEachIndexed</span> { index, op -&gt;
+            <span class="code-comment">// 检查是否有动画应用到此操作</span>
+            <span class="code-keyword">val</span> animValue = <span class="code-func">findAnimationValue</span>(index, animationStates)
+            
+            <span class="code-func">withTransform</span>({
+                animValue?.<span class="code-func">let</span> { <span class="code-func">applyAnimation</span>(it) }
+            }) {
+                <span class="code-func">executeOperation</span>(op)
+            }
+        }
+    }
+}</code></pre>
+
+        <h2>VII. 与传统 SDUI 的对比</h2>
+
+        <table class="comparison-table">
+            <tr>
+                <th>特性</th>
+                <th>传统 SDUI</th>
+                <th>RemoteCompose</th>
+            </tr>
+            <tr>
+                <td><strong>协议类型</strong></td>
+                <td>高层组件描述 (JSON/XML)</td>
+                <td>低层绘制指令 (Binary)</td>
+            </tr>
+            <tr>
+                <td><strong>Schema 同步</strong></td>
+                <td>需要服务端和客户端同步</td>
+                <td>不需要</td>
+            </tr>
+            <tr>
+                <td><strong>组件注册</strong></td>
+                <td>每个组件需预先注册</td>
+                <td>不需要</td>
+            </tr>
+            <tr>
+                <td><strong>视觉保真度</strong></td>
+                <td>受限于预定义组件</td>
+                <td>100% 保真</td>
+            </tr>
+            <tr>
+                <td><strong>自定义组件</strong></td>
+                <td>需要额外支持</td>
+                <td>自动支持</td>
+            </tr>
+            <tr>
+                <td><strong>前向兼容</strong></td>
+                <td>新组件需要客户端更新</td>
+                <td>完全兼容</td>
+            </tr>
+            <tr>
+                <td><strong>文档大小</strong></td>
+                <td>较小 (仅描述)</td>
+                <td>较大 (含完整绘制数据)</td>
+            </tr>
+            <tr>
+                <td><strong>动态内容</strong></td>
+                <td>易于更新数据</td>
+                <td>需要重新生成文档</td>
+            </tr>
+        </table>
+
+        <h2>VIII. 适用场景</h2>
+
+        <div class="tip-box success">
+            <div class="tip-title">✅ RemoteCompose 适合的场景</div>
+            <ul>
+                <li><strong>营销活动页面</strong>：设计师可以自由创作，无需客户端开发配合</li>
+                <li><strong>A/B 测试</strong>：快速测试不同的视觉设计</li>
+                <li><strong>个性化 UI</strong>：为不同用户群体提供定制化界面</li>
+                <li><strong>富文本内容</strong>：复杂的图文混排展示</li>
+                <li><strong>动态广告</strong>：高保真的广告创意渲染</li>
+                <li><strong>预览功能</strong>：设计稿实时预览</li>
+            </ul>
+        </div>
+
+        <div class="tip-box warning">
+            <div class="tip-title">⚠️ 需要谨慎使用的场景</div>
+            <ul>
+                <li><strong>高频更新的数据</strong>：如实时股票、聊天消息</li>
+                <li><strong>复杂交互</strong>：如拖拽排序、手势识别</li>
+                <li><strong>表单输入</strong>：需要双向数据绑定</li>
+                <li><strong>网络受限环境</strong>：文档体积可能较大</li>
+            </ul>
+        </div>
+
+        <h2>IX. 实现建议</h2>
+
+        <h3>9.1 文档缓存策略</h3>
+
+        <pre><code><span class="code-keyword">class</span> <span class="code-type">RemoteComposeCache</span>(
+    <span class="code-keyword">private val</span> maxSize: <span class="code-type">Int</span> = <span class="code-string">50</span>
+) {
+    <span class="code-keyword">private val</span> cache = <span class="code-func">LruCache</span>&lt;<span class="code-type">String</span>, <span class="code-type">RemoteComposeDocument</span>&gt;(maxSize)
+    
+    <span class="code-keyword">suspend fun</span> <span class="code-func">getDocument</span>(
+        url: <span class="code-type">String</span>,
+        version: <span class="code-type">String</span>
+    ): <span class="code-type">RemoteComposeDocument</span> {
+        <span class="code-keyword">val</span> cacheKey = <span class="code-string">"$url:$version"</span>
+        
+        <span class="code-comment">// 检查内存缓存</span>
+        cache[cacheKey]?.<span class="code-func">let</span> { <span class="code-keyword">return</span> it }
+        
+        <span class="code-comment">// 检查磁盘缓存</span>
+        <span class="code-func">loadFromDisk</span>(cacheKey)?.<span class="code-func">let</span> { doc -&gt;
+            cache.<span class="code-func">put</span>(cacheKey, doc)
+            <span class="code-keyword">return</span> doc
+        }
+        
+        <span class="code-comment">// 从网络获取</span>
+        <span class="code-keyword">val</span> doc = <span class="code-func">fetchFromNetwork</span>(url)
+        cache.<span class="code-func">put</span>(cacheKey, doc)
+        <span class="code-func">saveToDisk</span>(cacheKey, doc)
+        
+        <span class="code-keyword">return</span> doc
+    }
+}</code></pre>
+
+        <h3>9.2 增量更新</h3>
+
+        <pre><code><span class="code-comment">// 支持 Diff 更新，只传输变化的操作</span>
+<span class="code-keyword">data class</span> <span class="code-type">DocumentPatch</span>(
+    <span class="code-keyword">val</span> baseVersion: <span class="code-type">String</span>,
+    <span class="code-keyword">val</span> deletedOperations: <span class="code-type">List</span>&lt;<span class="code-type">Int</span>&gt;,
+    <span class="code-keyword">val</span> modifiedOperations: <span class="code-type">Map</span>&lt;<span class="code-type">Int</span>, <span class="code-type">DrawOperation</span>&gt;,
+    <span class="code-keyword">val</span> addedOperations: <span class="code-type">List</span>&lt;<span class="code-type">DrawOperation</span>&gt;
+)
+
+<span class="code-keyword">fun</span> <span class="code-type">RemoteComposeDocument</span>.<span class="code-func">applyPatch</span>(patch: <span class="code-type">DocumentPatch</span>): <span class="code-type">RemoteComposeDocument</span> {
+    <span class="code-keyword">val</span> newOps = operations.<span class="code-func">toMutableList</span>()
+    
+    <span class="code-comment">// 删除</span>
+    patch.deletedOperations.<span class="code-func">sortedDescending</span>().<span class="code-func">forEach</span> { idx -&gt;
+        newOps.<span class="code-func">removeAt</span>(idx)
+    }
+    
+    <span class="code-comment">// 修改</span>
+    patch.modifiedOperations.<span class="code-func">forEach</span> { (idx, op) -&gt;
+        newOps[idx] = op
+    }
+    
+    <span class="code-comment">// 添加</span>
+    newOps.<span class="code-func">addAll</span>(patch.addedOperations)
+    
+    <span class="code-keyword">return</span> <span class="code-func">copy</span>(operations = newOps)
+}</code></pre>
+
+        <h2>X. 总结</h2>
+
+        <div class="tip-box">
+            <div class="tip-title">🎯 核心要点</div>
+            <ul>
+                <li><strong>范式转变</strong>：从「组件描述」转向「绘制指令」</li>
+                <li><strong>Canvas 级别</strong>：在渲染管道最低层级捕获操作</li>
+                <li><strong>93+ 操作</strong>：覆盖所有绘制、变换、裁剪、效果</li>
+                <li><strong>双端播放</strong>：Compose 和 View 两种渲染后端</li>
+                <li><strong>交互支持</strong>：点击区域定义 + 事件回调</li>
+                <li><strong>动画内嵌</strong>：动画定义可以包含在文档中</li>
+                <li><strong>完全解耦</strong>：服务端和客户端无需 Schema 同步</li>
+            </ul>
+        </div>
+
+        <p>RemoteCompose 代表了服务器驱动 UI 的一种全新思路。它通过在更低的抽象层级进行操作，解决了传统 SDUI 面临的诸多问题。虽然它可能不适合所有场景，但在需要高视觉保真度、快速迭代的场景中，RemoteCompose 是一个值得考虑的选择。</p>
+
+        <p>随着 Compose Multiplatform 的发展，这种架构也有潜力扩展到跨平台场景，让同一份文档在 Android、iOS、Web、Desktop 上都能渲染。这将是服务器驱动 UI 的一个激动人心的方向。</p>
+    </article>
+
+    <footer class="footer">
+        <p>© 2024 Fidroid - 专注 Android 与 Jetpack Compose</p>
+    </footer>
+</body>
+</html>
+
