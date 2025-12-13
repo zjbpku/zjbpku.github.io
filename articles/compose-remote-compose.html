@@ -182,7 +182,7 @@
 
     <header class="article-header">
         <h1>RemoteCompose：服务器驱动 UI 的全新范式</h1>
-        <div class="article-meta">📅 2024-07-09 · ⏱ 28 min · 🚀 前沿技术</div>
+        <div class="article-meta">📅 2024-07-09 · ⏱ 35 min · 🚀 前沿技术</div>
         <div class="article-tags">
             <span class="article-tag">RemoteCompose</span>
             <span class="article-tag">Server-Driven UI</span>
@@ -192,7 +192,12 @@
     </header>
 
     <article class="article-content">
-        <p>在移动应用开发中，<strong>服务器驱动 UI (Server-Driven UI, SDUI)</strong> 是一种越来越受欢迎的架构模式。它允许服务器动态控制客户端的界面结构，无需发布新版本即可更新 UI。然而，传统的 SDUI 方案面临着诸多挑战。<strong>RemoteCompose</strong> 提供了一种全新的范式，通过 Canvas 级别的操作捕获，彻底改变了我们对 SDUI 的理解。</p>
+        <p>在移动应用开发中，<strong>服务器驱动 UI (Server-Driven UI, SDUI)</strong> 是一种越来越受欢迎的架构模式。它允许服务器动态控制客户端的界面结构，无需发布新版本即可更新 UI。然而，传统的 SDUI 方案面临着诸多挑战。<strong>RemoteCompose</strong> 是 AndroidX 官方库的一部分（位于 <a href="https://github.com/androidx/androidx/tree/androidx-main/compose/remote" target="_blank">compose/remote</a>），提供了一种全新的范式，通过 Canvas 级别的操作捕获，彻底改变了我们对 SDUI 的理解。</p>
+
+        <div class="tip-box info">
+            <div class="tip-title">📦 AndroidX 官方库</div>
+            <p>RemoteCompose 是 Android 官方 Jetpack 库的一部分，源码位于 <code>androidx/compose/remote</code> 目录下。这意味着它将获得 Google 的长期支持和维护，与 Jetpack Compose 生态系统深度集成。</p>
+        </div>
 
         <h2>I. 传统 SDUI 的困境</h2>
 
@@ -250,7 +255,34 @@
 
         <h2>II. RemoteCompose 的革命性设计</h2>
 
-        <h3>2.1 核心理念：文档式架构</h3>
+        <h3>2.1 源码模块结构</h3>
+
+        <p>从 <a href="https://github.com/androidx/androidx/tree/androidx-main/compose/remote" target="_blank">AndroidX 源码</a> 可以看到，RemoteCompose 采用了清晰的模块化设计：</p>
+
+        <div class="diagram-box">
+<span class="diagram-warning">androidx/compose/remote/ 模块结构</span>
+
+├── <span class="diagram-highlight">core/</span>                     <span class="diagram-accent">← 核心库：定义基础类型和协议</span>
+│   ├── core-api/            <span class="code-comment">公共 API 接口</span>
+│   └── core-impl/           <span class="code-comment">内部实现</span>
+│
+├── <span class="diagram-highlight">layout/</span>                   <span class="diagram-accent">← 布局系统：组件树和约束</span>
+│   ├── layout-api/          <span class="code-comment">布局接口定义</span>
+│   └── layout-impl/         <span class="code-comment">布局算法实现</span>
+│
+├── <span class="diagram-highlight">player/</span>                   <span class="diagram-accent">← 播放器：文档解析和渲染</span>
+│   ├── player-api/          <span class="code-comment">播放器接口</span>
+│   ├── player-compose/      <span class="code-comment">Compose 渲染后端</span>
+│   └── player-view/         <span class="code-comment">View 渲染后端</span>
+│
+├── <span class="diagram-highlight">sender/</span>                   <span class="diagram-accent">← 发送端：文档生成和编码</span>
+│   └── sender-api/          <span class="code-comment">文档创建接口</span>
+│
+└── <span class="diagram-highlight">samples/</span>                  <span class="diagram-accent">← 示例应用</span>
+    └── demo-app/            <span class="code-comment">演示应用</span>
+        </div>
+
+        <h3>2.2 核心理念：文档式架构</h3>
 
         <p>RemoteCompose 的核心突破在于：<strong>不发送组件描述，而是发送绘制指令</strong>。它将 UI 视为一个「文档」，在 Canvas 层级捕获所有绘制操作。</p>
 
@@ -369,9 +401,81 @@ RemoteCompose 架构:
     <span class="code-keyword">val</span> animations: <span class="code-type">List</span>&lt;<span class="code-type">AnimationDef</span>&gt;
 }</code></pre>
 
-        <h2>III. 操作模型深入解析</h2>
+        <h2>III. Wire Protocol 与二进制编码</h2>
 
-        <h3>3.1 93+ 种操作的分类</h3>
+        <h3>3.1 WireBuffer：高效的二进制协议</h3>
+
+        <p>RemoteCompose 使用自定义的 <strong>WireBuffer</strong> 进行二进制编码，而非 JSON 或 Protobuf。这种设计选择是为了最大化性能和最小化文档体积：</p>
+
+        <pre><code><span class="code-comment">// WireBuffer 核心实现原理</span>
+<span class="code-keyword">class</span> <span class="code-type">WireBuffer</span> {
+    <span class="code-keyword">private val</span> buffer: <span class="code-type">ByteArray</span>
+    <span class="code-keyword">private var</span> position: <span class="code-type">Int</span> = <span class="code-string">0</span>
+    
+    <span class="code-comment">// 变长整数编码 (类似 Protobuf varint)</span>
+    <span class="code-keyword">fun</span> <span class="code-func">writeVarInt</span>(value: <span class="code-type">Int</span>) {
+        <span class="code-keyword">var</span> v = value
+        <span class="code-keyword">while</span> (v >= <span class="code-string">0x80</span>) {
+            buffer[position++] = ((v <span class="code-keyword">and</span> <span class="code-string">0x7F</span>) <span class="code-keyword">or</span> <span class="code-string">0x80</span>).<span class="code-func">toByte</span>()
+            v = v <span class="code-keyword">ushr</span> <span class="code-string">7</span>
+        }
+        buffer[position++] = v.<span class="code-func">toByte</span>()
+    }
+    
+    <span class="code-comment">// 浮点数编码 (IEEE 754)</span>
+    <span class="code-keyword">fun</span> <span class="code-func">writeFloat</span>(value: <span class="code-type">Float</span>) {
+        <span class="code-keyword">val</span> bits = value.<span class="code-func">toBits</span>()
+        buffer[position++] = (bits <span class="code-keyword">shr</span> <span class="code-string">24</span>).<span class="code-func">toByte</span>()
+        buffer[position++] = (bits <span class="code-keyword">shr</span> <span class="code-string">16</span>).<span class="code-func">toByte</span>()
+        buffer[position++] = (bits <span class="code-keyword">shr</span> <span class="code-string">8</span>).<span class="code-func">toByte</span>()
+        buffer[position++] = bits.<span class="code-func">toByte</span>()
+    }
+    
+    <span class="code-comment">// 字符串编码 (长度前缀 + UTF-8)</span>
+    <span class="code-keyword">fun</span> <span class="code-func">writeString</span>(value: <span class="code-type">String</span>) {
+        <span class="code-keyword">val</span> bytes = value.<span class="code-func">encodeToByteArray</span>()
+        <span class="code-func">writeVarInt</span>(bytes.size)
+        bytes.<span class="code-func">copyInto</span>(buffer, position)
+        position += bytes.size
+    }
+}</code></pre>
+
+        <h3>3.2 操作码编码格式</h3>
+
+        <p>每个操作都有唯一的操作码 (OpCode)，按照固定格式编码：</p>
+
+        <div class="diagram-box">
+<span class="diagram-warning">二进制操作编码格式</span>
+
+┌─────────┬──────────────┬────────────────────────────────┐
+│ OpCode  │  Data Length │  Operation Data                │
+│ (1 byte)│  (varint)    │  (variable length)             │
+└─────────┴──────────────┴────────────────────────────────┘
+
+<span class="diagram-highlight">示例: DrawRect 操作编码</span>
+
+OpCode: <span class="diagram-accent">0x10</span> (DrawRect)
+┌──────┬───────┬───────┬───────┬───────┬─────────────────┐
+│ 0x10 │ left  │ top   │ right │ bottom│ paint_ref       │
+│      │(float)│(float)│(float)│(float)│ (varint)        │
+└──────┴───────┴───────┴───────┴───────┴─────────────────┘
+  1B     4B      4B      4B      4B      1-5B
+
+<span class="diagram-highlight">Paint 引用表</span>
+
+Paint 数据通过引用表共享，避免重复编码：
+┌─────────┬─────────────────────────────────────────────┐
+│ Index 0 │ Color: #FF0000, Style: FILL, StrokeWidth: 0│
+├─────────┼─────────────────────────────────────────────┤
+│ Index 1 │ Color: #00FF00, Style: STROKE, Width: 2    │
+├─────────┼─────────────────────────────────────────────┤
+│ Index 2 │ LinearGradient + Shadow                    │
+└─────────┴─────────────────────────────────────────────┘
+        </div>
+
+        <h2>IV. 操作模型深入解析</h2>
+
+        <h3>4.1 93+ 种操作的分类</h3>
 
         <table class="comparison-table">
             <tr>
@@ -421,7 +525,45 @@ RemoteCompose 架构:
             </tr>
         </table>
 
-        <h3>3.2 Paint 数据的完整性</h3>
+        <h3>4.2 ContentType 系统</h3>
+
+        <p>RemoteCompose 定义了丰富的 <strong>ContentType</strong> 枚举，用于语义化地描述内容类型：</p>
+
+        <pre><code><span class="code-comment">// 源码参考: ContentType.kt</span>
+<span class="code-keyword">enum class</span> <span class="code-type">ContentType</span>(<span class="code-keyword">val</span> id: <span class="code-type">Int</span>) {
+    <span class="code-comment">// 基础类型</span>
+    UNKNOWN(<span class="code-string">0</span>),
+    TEXT(<span class="code-string">1</span>),
+    IMAGE(<span class="code-string">2</span>),
+    ICON(<span class="code-string">3</span>),
+    BUTTON(<span class="code-string">4</span>),
+    
+    <span class="code-comment">// 容器类型</span>
+    ROW(<span class="code-string">10</span>),
+    COLUMN(<span class="code-string">11</span>),
+    BOX(<span class="code-string">12</span>),
+    CARD(<span class="code-string">13</span>),
+    
+    <span class="code-comment">// 列表类型</span>
+    LIST(<span class="code-string">20</span>),
+    LIST_ITEM(<span class="code-string">21</span>),
+    GRID(<span class="code-string">22</span>),
+    
+    <span class="code-comment">// 导航类型</span>
+    TAB_BAR(<span class="code-string">30</span>),
+    TAB_ITEM(<span class="code-string">31</span>),
+    NAVIGATION_BAR(<span class="code-string">32</span>),
+    
+    <span class="code-comment">// 媒体类型</span>
+    VIDEO(<span class="code-string">40</span>),
+    AUDIO(<span class="code-string">41</span>),
+    ANIMATION(<span class="code-string">42</span>),
+    
+    <span class="code-comment">// 自定义类型 (1000+)</span>
+    CUSTOM(<span class="code-string">1000</span>)
+}</code></pre>
+
+        <h3>4.3 Paint 数据的完整性</h3>
 
         <pre><code><span class="code-comment">// Paint 包含完整的样式信息</span>
 <span class="code-keyword">data class</span> <span class="code-type">PaintData</span>(
@@ -448,9 +590,128 @@ RemoteCompose 架构:
     <span class="code-keyword">val</span> isAntiAlias: <span class="code-type">Boolean</span>
 )</code></pre>
 
-        <h2>IV. 双端播放器</h2>
+        <h2>V. Layout 模块：组件树系统</h2>
 
-        <h3>4.1 Compose 播放器</h3>
+        <h3>5.1 ComponentTree 结构</h3>
+
+        <p>与纯绘制指令不同，Layout 模块引入了更高层的抽象——<strong>组件树</strong>。这允许更智能的布局计算和语义化操作：</p>
+
+        <pre><code><span class="code-comment">// 组件树节点定义</span>
+<span class="code-keyword">sealed class</span> <span class="code-type">ComponentNode</span> {
+    <span class="code-keyword">abstract val</span> id: <span class="code-type">Int</span>
+    <span class="code-keyword">abstract val</span> contentType: <span class="code-type">ContentType</span>
+    <span class="code-keyword">abstract val</span> bounds: <span class="code-type">Rect</span>
+    <span class="code-keyword">abstract val</span> semanticActions: <span class="code-type">List</span>&lt;<span class="code-type">SemanticAction</span>&gt;
+    
+    <span class="code-comment">// 容器节点</span>
+    <span class="code-keyword">data class</span> <span class="code-type">Container</span>(
+        <span class="code-keyword">override val</span> id: <span class="code-type">Int</span>,
+        <span class="code-keyword">override val</span> contentType: <span class="code-type">ContentType</span>,
+        <span class="code-keyword">override val</span> bounds: <span class="code-type">Rect</span>,
+        <span class="code-keyword">override val</span> semanticActions: <span class="code-type">List</span>&lt;<span class="code-type">SemanticAction</span>&gt;,
+        <span class="code-keyword">val</span> children: <span class="code-type">List</span>&lt;<span class="code-type">ComponentNode</span>&gt;,
+        <span class="code-keyword">val</span> layoutParams: <span class="code-type">LayoutParams</span>
+    ) : <span class="code-type">ComponentNode</span>()
+    
+    <span class="code-comment">// 叶子节点 (绘制内容)</span>
+    <span class="code-keyword">data class</span> <span class="code-type">Leaf</span>(
+        <span class="code-keyword">override val</span> id: <span class="code-type">Int</span>,
+        <span class="code-keyword">override val</span> contentType: <span class="code-type">ContentType</span>,
+        <span class="code-keyword">override val</span> bounds: <span class="code-type">Rect</span>,
+        <span class="code-keyword">override val</span> semanticActions: <span class="code-type">List</span>&lt;<span class="code-type">SemanticAction</span>&gt;,
+        <span class="code-keyword">val</span> drawOperations: <span class="code-type">List</span>&lt;<span class="code-type">DrawOperation</span>&gt;
+    ) : <span class="code-type">ComponentNode</span>()
+}</code></pre>
+
+        <h3>5.2 SemanticAction 语义动作</h3>
+
+        <p>语义动作是 RemoteCompose 处理交互的核心机制，比简单的点击区域更强大：</p>
+
+        <pre><code><span class="code-comment">// 语义动作定义</span>
+<span class="code-keyword">sealed class</span> <span class="code-type">SemanticAction</span> {
+    <span class="code-keyword">abstract val</span> id: <span class="code-type">String</span>
+    
+    <span class="code-comment">// 导航动作</span>
+    <span class="code-keyword">data class</span> <span class="code-type">Navigate</span>(
+        <span class="code-keyword">override val</span> id: <span class="code-type">String</span>,
+        <span class="code-keyword">val</span> route: <span class="code-type">String</span>,
+        <span class="code-keyword">val</span> params: <span class="code-type">Map</span>&lt;<span class="code-type">String</span>, <span class="code-type">String</span>&gt;
+    ) : <span class="code-type">SemanticAction</span>()
+    
+    <span class="code-comment">// 打开 URL</span>
+    <span class="code-keyword">data class</span> <span class="code-type">OpenUrl</span>(
+        <span class="code-keyword">override val</span> id: <span class="code-type">String</span>,
+        <span class="code-keyword">val</span> url: <span class="code-type">String</span>,
+        <span class="code-keyword">val</span> openInBrowser: <span class="code-type">Boolean</span>
+    ) : <span class="code-type">SemanticAction</span>()
+    
+    <span class="code-comment">// 发送事件到服务器</span>
+    <span class="code-keyword">data class</span> <span class="code-type">SendEvent</span>(
+        <span class="code-keyword">override val</span> id: <span class="code-type">String</span>,
+        <span class="code-keyword">val</span> eventName: <span class="code-type">String</span>,
+        <span class="code-keyword">val</span> payload: <span class="code-type">Map</span>&lt;<span class="code-type">String</span>, <span class="code-type">Any</span>&gt;
+    ) : <span class="code-type">SemanticAction</span>()
+    
+    <span class="code-comment">// 执行本地动作 (预定义)</span>
+    <span class="code-keyword">data class</span> <span class="code-type">LocalAction</span>(
+        <span class="code-keyword">override val</span> id: <span class="code-type">String</span>,
+        <span class="code-keyword">val</span> actionType: <span class="code-type">LocalActionType</span>,
+        <span class="code-keyword">val</span> params: <span class="code-type">Map</span>&lt;<span class="code-type">String</span>, <span class="code-type">String</span>&gt;
+    ) : <span class="code-type">SemanticAction</span>()
+    
+    <span class="code-comment">// 复合动作 (多个动作串联)</span>
+    <span class="code-keyword">data class</span> <span class="code-type">Composite</span>(
+        <span class="code-keyword">override val</span> id: <span class="code-type">String</span>,
+        <span class="code-keyword">val</span> actions: <span class="code-type">List</span>&lt;<span class="code-type">SemanticAction</span>&gt;
+    ) : <span class="code-type">SemanticAction</span>()
+}
+
+<span class="code-comment">// 本地动作类型</span>
+<span class="code-keyword">enum class</span> <span class="code-type">LocalActionType</span> {
+    SHARE,           <span class="code-comment">// 分享</span>
+    COPY_TO_CLIPBOARD, <span class="code-comment">// 复制到剪贴板</span>
+    SHOW_TOAST,      <span class="code-comment">// 显示 Toast</span>
+    HAPTIC_FEEDBACK, <span class="code-comment">// 触觉反馈</span>
+    ANALYTICS_EVENT  <span class="code-comment">// 埋点事件</span>
+}</code></pre>
+
+        <h3>5.3 布局约束系统</h3>
+
+        <pre><code><span class="code-comment">// 布局参数</span>
+<span class="code-keyword">data class</span> <span class="code-type">LayoutParams</span>(
+    <span class="code-keyword">val</span> direction: <span class="code-type">LayoutDirection</span>,  <span class="code-comment">// HORIZONTAL, VERTICAL</span>
+    <span class="code-keyword">val</span> mainAxisAlignment: <span class="code-type">Alignment</span>,
+    <span class="code-keyword">val</span> crossAxisAlignment: <span class="code-type">Alignment</span>,
+    <span class="code-keyword">val</span> spacing: <span class="code-type">Float</span>,
+    <span class="code-keyword">val</span> padding: <span class="code-type">Padding</span>
+)
+
+<span class="code-comment">// 布局解析器根据约束计算最终位置</span>
+<span class="code-keyword">class</span> <span class="code-type">LayoutResolver</span> {
+    <span class="code-keyword">fun</span> <span class="code-func">resolve</span>(
+        node: <span class="code-type">ComponentNode.Container</span>,
+        availableWidth: <span class="code-type">Float</span>,
+        availableHeight: <span class="code-type">Float</span>
+    ): <span class="code-type">ResolvedLayout</span> {
+        <span class="code-comment">// 1. 测量子节点</span>
+        <span class="code-keyword">val</span> childSizes = node.children.<span class="code-func">map</span> { <span class="code-func">measure</span>(it) }
+        
+        <span class="code-comment">// 2. 根据布局参数计算位置</span>
+        <span class="code-keyword">val</span> positions = <span class="code-func">calculatePositions</span>(
+            childSizes,
+            node.layoutParams,
+            availableWidth,
+            availableHeight
+        )
+        
+        <span class="code-comment">// 3. 返回解析后的布局</span>
+        <span class="code-keyword">return</span> <span class="code-type">ResolvedLayout</span>(node, positions)
+    }
+}</code></pre>
+
+        <h2>VI. 双端播放器</h2>
+
+        <h3>6.1 Compose 播放器</h3>
 
         <p>作为 Composable 函数，与现有 Compose UI 无缝集成：</p>
 
@@ -504,7 +765,7 @@ RemoteCompose 架构:
     }
 }</code></pre>
 
-        <h3>4.2 View 播放器</h3>
+        <h3>6.2 View 播放器</h3>
 
         <p>兼容传统 View 层次结构：</p>
 
@@ -545,9 +806,9 @@ RemoteCompose 架构:
     }
 }</code></pre>
 
-        <h2>V. 交互处理</h2>
+        <h2>VII. 交互处理</h2>
 
-        <h3>5.1 点击区域定义</h3>
+        <h3>7.1 点击区域定义</h3>
 
         <p>RemoteCompose 通过定义可点击区域来支持交互：</p>
 
@@ -564,7 +825,7 @@ RemoteCompose 架构:
     <span class="code-keyword">data class</span> <span class="code-type">OpenUrl</span>(<span class="code-keyword">val</span> url: <span class="code-type">String</span>) : <span class="code-type">ClickAction</span>()
 }</code></pre>
 
-        <h3>5.2 触摸检测</h3>
+        <h3>7.2 触摸检测</h3>
 
         <pre><code><span class="code-annotation">@Composable</span>
 <span class="code-keyword">fun</span> <span class="code-func">RemoteComposeView</span>(
@@ -595,9 +856,9 @@ RemoteCompose 架构:
     }
 }</code></pre>
 
-        <h2>VI. 动画支持</h2>
+        <h2>VIII. 动画支持</h2>
 
-        <h3>6.1 动画定义</h3>
+        <h3>8.1 动画定义</h3>
 
         <pre><code><span class="code-comment">// 动画可以内嵌在文档中</span>
 <span class="code-keyword">data class</span> <span class="code-type">AnimationDef</span>(
@@ -620,7 +881,7 @@ RemoteCompose 架构:
     ROTATION
 }</code></pre>
 
-        <h3>6.2 动画执行</h3>
+        <h3>8.2 动画执行</h3>
 
         <pre><code><span class="code-annotation">@Composable</span>
 <span class="code-keyword">fun</span> <span class="code-func">AnimatedRemoteComposeView</span>(document: <span class="code-type">RemoteComposeDocument</span>) {
@@ -649,7 +910,7 @@ RemoteCompose 架构:
     }
 }</code></pre>
 
-        <h2>VII. 与传统 SDUI 的对比</h2>
+        <h2>IX. 与传统 SDUI 的对比</h2>
 
         <table class="comparison-table">
             <tr>
@@ -699,7 +960,7 @@ RemoteCompose 架构:
             </tr>
         </table>
 
-        <h2>VIII. 适用场景</h2>
+        <h2>X. 适用场景</h2>
 
         <div class="tip-box success">
             <div class="tip-title">✅ RemoteCompose 适合的场景</div>
@@ -723,9 +984,9 @@ RemoteCompose 架构:
             </ul>
         </div>
 
-        <h2>IX. 实现建议</h2>
+        <h2>XI. 实现建议</h2>
 
-        <h3>9.1 文档缓存策略</h3>
+        <h3>11.1 文档缓存策略</h3>
 
         <pre><code><span class="code-keyword">class</span> <span class="code-type">RemoteComposeCache</span>(
     <span class="code-keyword">private val</span> maxSize: <span class="code-type">Int</span> = <span class="code-string">50</span>
@@ -756,7 +1017,7 @@ RemoteCompose 架构:
     }
 }</code></pre>
 
-        <h3>9.2 增量更新</h3>
+        <h3>11.2 增量更新</h3>
 
         <pre><code><span class="code-comment">// 支持 Diff 更新，只传输变化的操作</span>
 <span class="code-keyword">data class</span> <span class="code-type">DocumentPatch</span>(
@@ -785,24 +1046,78 @@ RemoteCompose 架构:
     <span class="code-keyword">return</span> <span class="code-func">copy</span>(operations = newOps)
 }</code></pre>
 
-        <h2>X. 总结</h2>
+        <h3>11.3 安全性考虑</h3>
+
+        <pre><code><span class="code-comment">// 文档签名验证</span>
+<span class="code-keyword">class</span> <span class="code-type">SecureDocumentLoader</span>(
+    <span class="code-keyword">private val</span> publicKey: <span class="code-type">PublicKey</span>
+) {
+    <span class="code-keyword">fun</span> <span class="code-func">loadAndVerify</span>(
+        documentBytes: <span class="code-type">ByteArray</span>,
+        signature: <span class="code-type">ByteArray</span>
+    ): <span class="code-type">RemoteComposeDocument</span>? {
+        <span class="code-comment">// 1. 验证签名</span>
+        <span class="code-keyword">val</span> verifier = <span class="code-type">Signature</span>.<span class="code-func">getInstance</span>(<span class="code-string">"SHA256withRSA"</span>)
+        verifier.<span class="code-func">initVerify</span>(publicKey)
+        verifier.<span class="code-func">update</span>(documentBytes)
+        
+        <span class="code-keyword">if</span> (!verifier.<span class="code-func">verify</span>(signature)) {
+            <span class="code-keyword">return null</span>  <span class="code-comment">// 签名无效</span>
+        }
+        
+        <span class="code-comment">// 2. 解析文档</span>
+        <span class="code-keyword">return</span> <span class="code-type">RemoteComposeDocument</span>.<span class="code-func">parse</span>(documentBytes)
+    }
+    
+    <span class="code-comment">// 限制允许的操作类型 (白名单)</span>
+    <span class="code-keyword">fun</span> <span class="code-func">sanitize</span>(doc: <span class="code-type">RemoteComposeDocument</span>): <span class="code-type">RemoteComposeDocument</span> {
+        <span class="code-keyword">val</span> allowedOps = doc.operations.<span class="code-func">filter</span> { op -&gt;
+            op <span class="code-keyword">!is</span> <span class="code-type">DrawOperation.ExecuteScript</span>  <span class="code-comment">// 禁止脚本执行</span>
+        }
+        <span class="code-keyword">return</span> doc.<span class="code-func">copy</span>(operations = allowedOps)
+    }
+}</code></pre>
+
+        <h2>XII. 总结与展望</h2>
 
         <div class="tip-box">
             <div class="tip-title">🎯 核心要点</div>
             <ul>
+                <li><strong>AndroidX 官方</strong>：作为 Jetpack 库的一部分，获得 Google 长期支持</li>
                 <li><strong>范式转变</strong>：从「组件描述」转向「绘制指令」</li>
-                <li><strong>Canvas 级别</strong>：在渲染管道最低层级捕获操作</li>
-                <li><strong>93+ 操作</strong>：覆盖所有绘制、变换、裁剪、效果</li>
+                <li><strong>模块化设计</strong>：core、layout、player、sender 清晰分离</li>
+                <li><strong>二进制协议</strong>：WireBuffer 高效编码，最小化文档体积</li>
+                <li><strong>组件树系统</strong>：支持语义化操作和智能布局</li>
                 <li><strong>双端播放</strong>：Compose 和 View 两种渲染后端</li>
-                <li><strong>交互支持</strong>：点击区域定义 + 事件回调</li>
-                <li><strong>动画内嵌</strong>：动画定义可以包含在文档中</li>
+                <li><strong>语义动作</strong>：丰富的交互处理机制</li>
                 <li><strong>完全解耦</strong>：服务端和客户端无需 Schema 同步</li>
             </ul>
         </div>
 
-        <p>RemoteCompose 代表了服务器驱动 UI 的一种全新思路。它通过在更低的抽象层级进行操作，解决了传统 SDUI 面临的诸多问题。虽然它可能不适合所有场景，但在需要高视觉保真度、快速迭代的场景中，RemoteCompose 是一个值得考虑的选择。</p>
+        <h3>12.1 未来发展方向</h3>
 
-        <p>随着 Compose Multiplatform 的发展，这种架构也有潜力扩展到跨平台场景，让同一份文档在 Android、iOS、Web、Desktop 上都能渲染。这将是服务器驱动 UI 的一个激动人心的方向。</p>
+        <div class="tip-box info">
+            <div class="tip-title">🔮 可能的发展方向</div>
+            <ul>
+                <li><strong>Compose Multiplatform 支持</strong>：同一份文档在 Android、iOS、Web、Desktop 渲染</li>
+                <li><strong>实时协作</strong>：多人同时编辑和预览 UI</li>
+                <li><strong>AI 生成</strong>：通过 AI 生成 RemoteCompose 文档</li>
+                <li><strong>设计工具集成</strong>：Figma 等设计工具直接导出 RemoteCompose 格式</li>
+                <li><strong>低代码平台</strong>：可视化拖拽生成 RemoteCompose 文档</li>
+            </ul>
+        </div>
+
+        <p>RemoteCompose 代表了服务器驱动 UI 的一种全新思路。它通过在更低的抽象层级进行操作，解决了传统 SDUI 面临的诸多问题。作为 AndroidX 官方库的一部分，它将获得持续的维护和改进。</p>
+
+        <p>虽然它可能不适合所有场景，但在需要高视觉保真度、快速迭代的场景中，RemoteCompose 是一个值得考虑的选择。随着 Compose Multiplatform 的发展，这种架构也有潜力扩展到跨平台场景，让同一份文档在多个平台上都能渲染。</p>
+
+        <h3>12.2 参考资料</h3>
+
+        <ul>
+            <li><a href="https://github.com/androidx/androidx/tree/androidx-main/compose/remote" target="_blank">AndroidX RemoteCompose 源码</a></li>
+            <li><a href="https://proandroiddev.com/remotecompose-another-paradigm-for-server-driven-ui-in-jetpack-compose-92186619ba8f" target="_blank">RemoteCompose: Another Paradigm for Server-Driven UI</a></li>
+            <li><a href="https://developer.android.com/jetpack/compose" target="_blank">Jetpack Compose 官方文档</a></li>
+        </ul>
     </article>
 
     <footer class="footer">
