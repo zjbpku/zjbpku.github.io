@@ -1,0 +1,1014 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>RemoteCompose 完整使用指南：从入门到实战 - Fidroid</title>
+    <meta name="description" content="超详细的 RemoteCompose 使用教程，涵盖环境配置、API 详解、文档创建、播放器使用、交互处理、完整示例项目等，助你快速掌握 RemoteCompose 开发。">
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            line-height: 1.8;
+            color: #e5e7eb;
+            background: #020617;
+        }
+        .navbar {
+            background: rgba(15,23,42,0.98);
+            backdrop-filter: blur(10px);
+            position: fixed;
+            top: 0;
+            width: 100%;
+            z-index: 1000;
+        }
+        .nav-container {
+            max-width: 900px;
+            margin: 0 auto;
+            padding: 1rem 20px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .logo {
+            font-size: 1.5rem;
+            font-weight: bold;
+            color: #38bdf8;
+            text-decoration: none;
+            letter-spacing: 0.08em;
+            text-transform: uppercase;
+        }
+        .back-link { color: #9ca3af; text-decoration: none; font-size: 0.9rem; }
+        .back-link:hover { color: #38bdf8; }
+
+        .article-header {
+            padding: 120px 20px 60px;
+            background: radial-gradient(circle at top left, #06b6d4 0, transparent 50%),
+                        radial-gradient(circle at bottom right, #f59e0b 0, transparent 55%),
+                        #020617;
+            text-align: center;
+        }
+        .article-header h1 {
+            max-width: 800px;
+            margin: 0 auto 1rem;
+            font-size: 2.5rem;
+            font-weight: 800;
+            letter-spacing: -0.03em;
+            color: #fff;
+        }
+        .article-meta { color: #9ca3af; font-size: 0.9rem; margin-bottom: 1.5rem; }
+        .article-tags { display: flex; justify-content: center; flex-wrap: wrap; gap: 0.5rem; }
+        .article-tag {
+            padding: 0.25rem 0.75rem;
+            border-radius: 999px;
+            font-size: 0.75rem;
+            background: rgba(15,23,42,0.85);
+            border: 1px solid rgba(6,182,212,0.4);
+            color: #67e8f9;
+        }
+
+        .article-content {
+            max-width: 900px;
+            margin: 0 auto;
+            padding: 60px 20px 80px;
+        }
+        .article-content h2 {
+            font-size: 1.6rem;
+            margin: 2.5rem 0 1rem;
+            color: #f9fafb;
+            border-left: 4px solid #06b6d4;
+            padding-left: 1rem;
+        }
+        .article-content h3 { font-size: 1.25rem; margin: 2rem 0 0.75rem; color: #e5e7eb; }
+        .article-content h4 { font-size: 1.1rem; margin: 1.5rem 0 0.75rem; color: #d1d5db; }
+        .article-content p { margin-bottom: 1.25rem; color: #d1d5db; }
+        .article-content ul, .article-content ol { margin: 1rem 0 1.5rem 1.5rem; color: #d1d5db; }
+        .article-content li { margin-bottom: 0.5rem; }
+        .article-content strong { color: #f9fafb; }
+        .article-content a { color: #38bdf8; text-decoration: underline; }
+
+        pre {
+            background: #0f172a;
+            border: 1px solid rgba(6,182,212,0.3);
+            border-radius: 12px;
+            padding: 1.25rem;
+            overflow-x: auto;
+            margin: 1.5rem 0;
+            font-size: 0.85rem;
+            line-height: 1.6;
+        }
+        code { font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace; color: #e5e7eb; }
+        .code-keyword { color: #c084fc; }
+        .code-func { color: #38bdf8; }
+        .code-type { color: #4ade80; }
+        .code-string { color: #fbbf24; }
+        .code-comment { color: #6b7280; }
+        .code-annotation { color: #f472b6; }
+
+        .tip-box {
+            background: rgba(6,182,212,0.1);
+            border: 1px solid rgba(6,182,212,0.3);
+            border-radius: 12px;
+            padding: 1.25rem;
+            margin: 1.5rem 0;
+        }
+        .tip-box.success {
+            background: rgba(34,197,94,0.1);
+            border-color: rgba(34,197,94,0.3);
+        }
+        .tip-box.warning {
+            background: rgba(245,158,11,0.1);
+            border-color: rgba(245,158,11,0.3);
+        }
+        .tip-box.error {
+            background: rgba(239,68,68,0.1);
+            border-color: rgba(239,68,68,0.3);
+        }
+        .tip-title { font-weight: 600; color: #67e8f9; margin-bottom: 0.5rem; }
+        .success .tip-title { color: #4ade80; }
+        .warning .tip-title { color: #fcd34d; }
+        .error .tip-title { color: #fca5a5; }
+
+        .diagram-box {
+            background: #0f172a;
+            border: 1px solid rgba(6,182,212,0.3);
+            border-radius: 12px;
+            padding: 1.5rem;
+            margin: 1.5rem 0;
+            font-family: ui-monospace, monospace;
+            font-size: 0.8rem;
+            line-height: 1.5;
+            overflow-x: auto;
+            white-space: pre;
+            color: #9ca3af;
+        }
+        .diagram-highlight { color: #4ade80; }
+        .diagram-accent { color: #38bdf8; }
+        .diagram-warning { color: #fbbf24; }
+
+        .step-number {
+            display: inline-block;
+            width: 32px;
+            height: 32px;
+            line-height: 32px;
+            text-align: center;
+            background: #06b6d4;
+            color: #fff;
+            border-radius: 50%;
+            font-weight: bold;
+            margin-right: 12px;
+            vertical-align: middle;
+        }
+
+        .footer {
+            background: #0f172a;
+            padding: 3rem 20px;
+            text-align: center;
+            border-top: 1px solid rgba(6,182,212,0.2);
+        }
+        .footer p { color: #6b7280; font-size: 0.9rem; }
+    </style>
+</head>
+<body>
+    <nav class="navbar">
+        <div class="nav-container">
+            <a href="../index.html" class="logo">Fidroid</a>
+            <a href="../index.html#articles" class="back-link">← 返回文章列表</a>
+        </div>
+    </nav>
+
+    <header class="article-header">
+        <h1>RemoteCompose 完整使用指南：从入门到实战</h1>
+        <div class="article-meta">📅 2024-07-10 · ⏱ 45 min · 📚 实战教程</div>
+        <div class="article-tags">
+            <span class="article-tag">RemoteCompose</span>
+            <span class="article-tag">实战教程</span>
+            <span class="article-tag">Server-Driven UI</span>
+            <span class="article-tag">AndroidX</span>
+        </div>
+    </header>
+
+    <article class="article-content">
+        <p>本文是一份超详细的 RemoteCompose 使用指南，将带你从零开始，逐步掌握 RemoteCompose 的开发。我们将通过完整的示例项目，深入理解文档创建、播放器使用、交互处理等核心功能。</p>
+
+        <h2>目录</h2>
+        <ol>
+            <li><a href="#section-1">环境配置与依赖</a></li>
+            <li><a href="#section-2">核心概念理解</a></li>
+            <li><a href="#section-3">创建第一个文档</a></li>
+            <li><a href="#section-4">播放器使用</a></li>
+            <li><a href="#section-5">处理交互事件</a></li>
+            <li><a href="#section-6">完整示例项目</a></li>
+            <li><a href="#section-7">最佳实践</a></li>
+            <li><a href="#section-8">常见问题</a></li>
+        </ol>
+
+        <h2 id="section-1">I. 环境配置与依赖</h2>
+
+        <h3>1.1 项目要求</h3>
+
+        <ul>
+            <li><strong>Android Studio</strong>：Arctic Fox (2020.3.1) 或更高版本</li>
+            <li><strong>Kotlin</strong>：1.5.10 或更高版本</li>
+            <li><strong>最低 SDK</strong>：API 21 (Android 5.0)</li>
+            <li><strong>目标 SDK</strong>：API 33 或更高</li>
+            <li><strong>Gradle</strong>：7.0 或更高版本</li>
+        </ul>
+
+        <h3>1.2 添加依赖</h3>
+
+        <p>在项目的 <code>build.gradle.kts</code> (Module 级别) 中添加以下依赖：</p>
+
+        <pre><code><span class="code-comment">// build.gradle.kts (Module: app)</span>
+
+<span class="code-keyword">plugins</span> {
+    id(<span class="code-string">"com.android.application"</span>)
+    id(<span class="code-string">"org.jetbrains.kotlin.android"</span>)
+    id(<span class="code-string">"org.jetbrains.kotlin.plugin.compose"</span>)
+}
+
+android {
+    compileSdk = <span class="code-string">34</span>
+    
+    defaultConfig {
+        applicationId = <span class="code-string">"com.example.remotecompose"</span>
+        minSdk = <span class="code-string">21</span>
+        targetSdk = <span class="code-string">34</span>
+    }
+    
+    buildFeatures {
+        compose = <span class="code-string">true</span>
+    }
+    
+    composeOptions {
+        kotlinCompilerExtensionVersion = <span class="code-string">"1.5.3"</span>
+    }
+}
+
+<span class="code-keyword">dependencies</span> {
+    <span class="code-comment">// Compose BOM (统一版本管理)</span>
+    <span class="code-keyword">val</span> composeBom = platform(<span class="code-string">"androidx.compose:compose-bom:2024.01.00"</span>)
+    <span class="code-func">implementation</span>(composeBom)
+    
+    <span class="code-comment">// Compose 基础库</span>
+    <span class="code-func">implementation</span>(<span class="code-string">"androidx.compose.ui:ui"</span>)
+    <span class="code-func">implementation</span>(<span class="code-string">"androidx.compose.material3:material3"</span>)
+    <span class="code-func">implementation</span>(<span class="code-string">"androidx.activity:activity-compose:1.8.2"</span>)
+    
+    <span class="code-comment">// RemoteCompose 核心库</span>
+    <span class="code-func">implementation</span>(<span class="code-string">"androidx.compose.remote:core:1.0.0-alpha01"</span>)
+    
+    <span class="code-comment">// RemoteCompose 发送端 (用于创建文档)</span>
+    <span class="code-func">implementation</span>(<span class="code-string">"androidx.compose.remote:sender:1.0.0-alpha01"</span>)
+    
+    <span class="code-comment">// RemoteCompose 播放器 (Compose 后端)</span>
+    <span class="code-func">implementation</span>(<span class="code-string">"androidx.compose.remote:player-compose:1.0.0-alpha01"</span>)
+    
+    <span class="code-comment">// RemoteCompose 播放器 (View 后端，可选)</span>
+    <span class="code-comment">// implementation("androidx.compose.remote:player-view:1.0.0-alpha01")</span>
+    
+    <span class="code-comment">// Layout 模块 (可选，用于组件树)</span>
+    <span class="code-comment">// implementation("androidx.compose.remote:layout:1.0.0-alpha01")</span>
+    
+    <span class="code-comment">// 网络库 (用于从服务器获取文档)</span>
+    <span class="code-func">implementation</span>(<span class="code-string">"com.squareup.retrofit2:retrofit:2.9.0"</span>)
+    <span class="code-func">implementation</span>(<span class="code-string">"com.squareup.retrofit2:converter-gson:2.9.0"</span>)
+    <span class="code-func">implementation</span>(<span class="code-string">"com.squareup.okhttp3:okhttp:4.12.0"</span>)
+    
+    <span class="code-comment">// 协程</span>
+    <span class="code-func">implementation</span>(<span class="code-string">"org.jetbrains.kotlinx:kotlinx-coroutines-android:1.7.3"</span>)
+    
+    <span class="code-comment">// ViewModel</span>
+    <span class="code-func">implementation</span>(<span class="code-string">"androidx.lifecycle:lifecycle-viewmodel-compose:2.7.0"</span>)
+}</code></pre>
+
+        <div class="tip-box warning">
+            <div class="tip-title">⚠️ 版本说明</div>
+            <p>RemoteCompose 目前处于 Alpha 阶段，版本号可能会频繁变化。请访问 <a href="https://developer.android.com/jetpack/androidx/releases/compose" target="_blank">AndroidX Release Notes</a> 获取最新版本信息。</p>
+        </div>
+
+        <h3>1.3 启用 Compose Compiler</h3>
+
+        <p>确保在 <code>build.gradle.kts</code> (Project 级别) 中配置了 Compose Compiler：</p>
+
+        <pre><code><span class="code-comment">// build.gradle.kts (Project level)</span>
+
+<span class="code-keyword">buildscript</span> {
+    <span class="code-keyword">dependencies</span> {
+        <span class="code-keyword">classpath</span>(<span class="code-string">"org.jetbrains.kotlin:kotlin-gradle-plugin:1.9.20"</span>)
+    }
+}</code></pre>
+
+        <h2 id="section-2">II. 核心概念理解</h2>
+
+        <h3>2.1 RemoteCompose 工作流程</h3>
+
+        <div class="diagram-box">
+<span class="diagram-warning">RemoteCompose 完整工作流程</span>
+
+<span class="diagram-highlight">1. 文档创建 (Sender 端)</span>
+┌─────────────────────────────────────────────────────┐
+│  @Composable 函数                                    │
+│       ↓                                             │
+│  RemoteComposeSender                                │
+│       ↓                                             │
+│  捕获 Canvas 操作                                    │
+│       ↓                                             │
+│  生成二进制文档 (WireBuffer)                          │
+│       ↓                                             │
+│  序列化并传输                                        │
+└─────────────────────────────────────────────────────┘
+
+<span class="diagram-accent">2. 文档传输</span>
+┌─────────────────────────────────────────────────────┐
+│  二进制文档                                          │
+│  (可通过 HTTP, WebSocket, 本地文件等传输)              │
+└─────────────────────────────────────────────────────┘
+
+<span class="diagram-highlight">3. 文档播放 (Player 端)</span>
+┌─────────────────────────────────────────────────────┐
+│  接收二进制文档                                       │
+│       ↓                                             │
+│  RemoteComposePlayer                                │
+│       ↓                                             │
+│  解析 WireBuffer                                    │
+│       ↓                                             │
+│  在 Canvas 上执行绘制操作                             │
+│       ↓                                             │
+│  渲染到屏幕                                          │
+└─────────────────────────────────────────────────────┘
+        </div>
+
+        <h3>2.2 核心 API 概览</h3>
+
+        <pre><code><span class="code-comment">// 1. RemoteComposeSender - 文档创建器</span>
+<span class="code-keyword">class</span> <span class="code-type">RemoteComposeSender</span> {
+    <span class="code-keyword">fun</span> <span class="code-func">createDocument</span>(
+        width: <span class="code-type">Float</span>,
+        height: <span class="code-type">Float</span>,
+        content: <span class="code-annotation">@Composable</span> () -&gt; <span class="code-type">Unit</span>
+    ): <span class="code-type">RemoteComposeDocument</span>
+    
+    <span class="code-keyword">fun</span> <span class="code-func">encode</span>(document: <span class="code-type">RemoteComposeDocument</span>): <span class="code-type">ByteArray</span>
+}
+
+<span class="code-comment">// 2. RemoteComposePlayer - 文档播放器</span>
+<span class="code-keyword">class</span> <span class="code-type">RemoteComposePlayer</span> {
+    <span class="code-keyword">fun</span> <span class="code-func">decode</span>(bytes: <span class="code-type">ByteArray</span>): <span class="code-type">RemoteComposeDocument</span>
+    
+    <span class="code-annotation">@Composable</span>
+    <span class="code-keyword">fun</span> <span class="code-func">Play</span>(
+        document: <span class="code-type">RemoteComposeDocument</span>,
+        modifier: <span class="code-type">Modifier</span> = <span class="code-type">Modifier</span>,
+        onSemanticAction: (<span class="code-type">SemanticAction</span>) -&gt; <span class="code-type">Unit</span> = {}
+    )
+}</code></pre>
+
+        <h2 id="section-3">III. 创建第一个文档</h2>
+
+        <h3>3.1 最简单的示例</h3>
+
+        <p>让我们从最简单的例子开始：创建一个包含文本的文档。</p>
+
+        <pre><code><span class="code-keyword">import</span> androidx.compose.remote.sender.RemoteComposeSender
+<span class="code-keyword">import</span> androidx.compose.foundation.layout.*
+<span class="code-keyword">import</span> androidx.compose.material3.*
+<span class="code-keyword">import</span> androidx.compose.runtime.*
+<span class="code-keyword">import</span> androidx.compose.ui.Modifier
+<span class="code-keyword">import</span> androidx.compose.ui.unit.dp
+
+<span class="code-keyword">class</span> <span class="code-type">DocumentCreator</span> {
+    <span class="code-keyword">private val</span> sender = <span class="code-type">RemoteComposeSender</span>()
+    
+    <span class="code-keyword">fun</span> <span class="code-func">createSimpleDocument</span>(): <span class="code-type">ByteArray</span> {
+        <span class="code-comment">// 1. 创建文档</span>
+        <span class="code-keyword">val</span> document = sender.<span class="code-func">createDocument</span>(
+            width = <span class="code-string">360f</span>,  <span class="code-comment">// 文档宽度 (dp)</span>
+            height = <span class="code-string">640f</span>  <span class="code-comment">// 文档高度 (dp)</span>
+        ) {
+            <span class="code-comment">// 2. 定义 UI 内容</span>
+            <span class="code-type">Column</span>(
+                modifier = <span class="code-type">Modifier</span>
+                    .<span class="code-func">fillMaxSize</span>()
+                    .<span class="code-func">padding</span>(<span class="code-string">16.dp</span>),
+                verticalArrangement = <span class="code-type">Arrangement</span>.Center,
+                horizontalAlignment = <span class="code-type">Alignment</span>.CenterHorizontally
+            ) {
+                <span class="code-type">Text</span>(
+                    text = <span class="code-string">"Hello, RemoteCompose!"</span>,
+                    style = <span class="code-type">MaterialTheme</span>.typography.headlineLarge
+                )
+            }
+        }
+        
+        <span class="code-comment">// 3. 编码为二进制</span>
+        <span class="code-keyword">return</span> sender.<span class="code-func">encode</span>(document)
+    }
+}</code></pre>
+
+        <h3>3.2 添加按钮和交互</h3>
+
+        <pre><code><span class="code-keyword">fun</span> <span class="code-func">createInteractiveDocument</span>(): <span class="code-type">ByteArray</span> {
+    <span class="code-keyword">val</span> document = sender.<span class="code-func">createDocument</span>(
+        width = <span class="code-string">360f</span>,
+        height = <span class="code-string">640f</span>
+    ) {
+        <span class="code-keyword">var</span> count <span class="code-keyword">by</span> <span class="code-func">remember</span> { <span class="code-func">mutableStateOf</span>(<span class="code-string">0</span>) }
+        
+        <span class="code-type">Column</span>(
+            modifier = <span class="code-type">Modifier</span>
+                .<span class="code-func">fillMaxSize</span>()
+                .<span class="code-func">padding</span>(<span class="code-string">16.dp</span>),
+            verticalArrangement = <span class="code-type">Arrangement</span>.Center,
+            horizontalAlignment = <span class="code-type">Alignment</span>.CenterHorizontally
+        ) {
+            <span class="code-type">Text</span>(
+                text = <span class="code-string">"Count: $count"</span>,
+                style = <span class="code-type">MaterialTheme</span>.typography.headlineMedium
+            )
+            
+            <span class="code-type">Spacer</span>(modifier = <span class="code-type">Modifier</span>.<span class="code-func">height</span>(<span class="code-string">16.dp</span>))
+            
+            <span class="code-type">Button</span>(
+                onClick = { count++ },
+                modifier = <span class="code-type">Modifier</span>.<span class="code-func">semantics</span> {
+                    <span class="code-comment">// 添加语义动作，用于客户端处理</span>
+                    <span class="code-func">semanticAction</span>(
+                        action = <span class="code-type">SemanticAction</span>.<span class="code-type">SendEvent</span>(
+                            id = <span class="code-string">"button_click"</span>,
+                            eventName = <span class="code-string">"increment"</span>,
+                            payload = <span class="code-func">mapOf</span>(<span class="code-string">"current_count"</span> <span class="code-keyword">to</span> count)
+                        )
+                    )
+                }
+            ) {
+                <span class="code-type">Text</span>(<span class="code-string">"Increment"</span>)
+            }
+        }
+    }
+    
+    <span class="code-keyword">return</span> sender.<span class="code-func">encode</span>(document)
+}</code></pre>
+
+        <h3>3.3 使用 Modifier 自定义样式</h3>
+
+        <pre><code><span class="code-keyword">fun</span> <span class="code-func">createStyledDocument</span>(): <span class="code-type">ByteArray</span> {
+    <span class="code-keyword">val</span> document = sender.<span class="code-func">createDocument</span>(
+        width = <span class="code-string">360f</span>,
+        height = <span class="code-string">640f</span>
+    ) {
+        <span class="code-type">Box</span>(
+            modifier = <span class="code-type">Modifier</span>
+                .<span class="code-func">fillMaxSize</span>()
+                .<span class="code-func">background</span>(
+                    brush = <span class="code-type">Brush</span>.<span class="code-func">linearGradient</span>(
+                        colors = <span class="code-func">listOf</span>(
+                            <span class="code-type">Color</span>(<span class="code-string">0xFF6200EE</span>),
+                            <span class="code-type">Color</span>(<span class="code-string">0xFF03DAC5</span>)
+                        )
+                    )
+                )
+        ) {
+            <span class="code-type">Card</span>(
+                modifier = <span class="code-type">Modifier</span>
+                    .<span class="code-func">fillMaxWidth</span>()
+                    .<span class="code-func">padding</span>(<span class="code-string">16.dp</span>)
+                    .<span class="code-func">align</span>(<span class="code-type">Alignment</span>.Center),
+                elevation = <span class="code-type">CardDefaults</span>.<span class="code-func">cardElevation</span>(<span class="code-string">8.dp</span>)
+            ) {
+                <span class="code-type">Column</span>(
+                    modifier = <span class="code-type">Modifier</span>.<span class="code-func">padding</span>(<span class="code-string">24.dp</span>)
+                ) {
+                    <span class="code-type">Text</span>(
+                        text = <span class="code-string">"Styled Card"</span>,
+                        style = <span class="code-type">MaterialTheme</span>.typography.headlineSmall
+                    )
+                    <span class="code-type">Spacer</span>(modifier = <span class="code-type">Modifier</span>.<span class="code-func">height</span>(<span class="code-string">8.dp</span>))
+                    <span class="code-type">Text</span>(
+                        text = <span class="code-string">"This is a beautifully styled card with gradient background."</span>,
+                        style = <span class="code-type">MaterialTheme</span>.typography.bodyMedium
+                    )
+                }
+            }
+        }
+    }
+    
+    <span class="code-keyword">return</span> sender.<span class="code-func">encode</span>(document)
+}</code></pre>
+
+        <h2 id="section-4">IV. 播放器使用</h2>
+
+        <h3>4.1 基础播放</h3>
+
+        <pre><code><span class="code-keyword">import</span> androidx.compose.remote.player.RemoteComposePlayer
+<span class="code-keyword">import</span> androidx.compose.foundation.layout.*
+<span class="code-keyword">import</span> androidx.compose.runtime.*
+<span class="code-keyword">import</span> androidx.compose.ui.Modifier
+
+<span class="code-keyword">class</span> <span class="code-type">DocumentViewModel</span> : <span class="code-type">ViewModel</span>() {
+    <span class="code-keyword">private val</span> player = <span class="code-type">RemoteComposePlayer</span>()
+    
+    <span class="code-keyword">private val</span> _document = <span class="code-type">MutableStateFlow</span>&lt;<span class="code-type">RemoteComposeDocument</span>?&gt;(<span class="code-keyword">null</span>)
+    <span class="code-keyword">val</span> document: <span class="code-type">StateFlow</span>&lt;<span class="code-type">RemoteComposeDocument</span>?&gt; = _document
+    
+    <span class="code-keyword">fun</span> <span class="code-func">loadDocument</span>(bytes: <span class="code-type">ByteArray</span>) {
+        <span class="code-keyword">try</span> {
+            <span class="code-keyword">val</span> doc = player.<span class="code-func">decode</span>(bytes)
+            _document.<span class="code-func">value</span> = doc
+        } <span class="code-keyword">catch</span> (e: <span class="code-type">Exception</span>) {
+            <span class="code-comment">// 处理解码错误</span>
+            <span class="code-func">Log</span>.e(<span class="code-string">"DocumentViewModel"</span>, <span class="code-string">"Failed to decode document"</span>, e)
+        }
+    }
+}
+
+<span class="code-annotation">@Composable</span>
+<span class="code-keyword">fun</span> <span class="code-func">RemoteComposeScreen</span>(
+    viewModel: <span class="code-type">DocumentViewModel</span> = <span class="code-func">viewModel</span>()
+) {
+    <span class="code-keyword">val</span> document <span class="code-keyword">by</span> viewModel.document.<span class="code-func">collectAsState</span>()
+    <span class="code-keyword">val</span> player = <span class="code-func">remember</span> { <span class="code-type">RemoteComposePlayer</span>() }
+    
+    <span class="code-type">Scaffold</span> { padding -&gt;
+        <span class="code-type">Box</span>(
+            modifier = <span class="code-type">Modifier</span>
+                .<span class="code-func">fillMaxSize</span>()
+                .<span class="code-func">padding</span>(padding)
+        ) {
+            document?.<span class="code-func">let</span> { doc -&gt;
+                <span class="code-comment">// 播放文档</span>
+                player.<span class="code-func">Play</span>(
+                    document = doc,
+                    modifier = <span class="code-type">Modifier</span>.<span class="code-func">fillMaxSize</span>()
+                )
+            } ?: <span class="code-type">CircularProgressIndicator</span>(
+                modifier = <span class="code-type">Modifier</span>.<span class="code-func">align</span>(<span class="code-type">Alignment</span>.Center)
+            )
+        }
+    }
+}</code></pre>
+
+        <h3>4.2 从网络加载文档</h3>
+
+        <pre><code><span class="code-keyword">interface</span> <span class="code-type">RemoteComposeApi</span> {
+    <span class="code-annotation">@GET</span>(<span class="code-string">"api/document/{id}"</span>)
+    <span class="code-keyword">suspend fun</span> <span class="code-func">getDocument</span>(<span class="code-annotation">@Path</span>(<span class="code-string">"id"</span>) id: <span class="code-type">String</span>): <span class="code-type">ResponseBody</span>
+}
+
+<span class="code-keyword">class</span> <span class="code-type">DocumentRepository</span>(
+    <span class="code-keyword">private val</span> api: <span class="code-type">RemoteComposeApi</span>
+) {
+    <span class="code-keyword">suspend fun</span> <span class="code-func">fetchDocument</span>(id: <span class="code-type">String</span>): <span class="code-type">Result</span>&lt;<span class="code-type">ByteArray</span>&gt; {
+        <span class="code-keyword">return try</span> {
+            <span class="code-keyword">val</span> response = api.<span class="code-func">getDocument</span>(id)
+            <span class="code-keyword">if</span> (response.<span class="code-func">isSuccessful</span>) {
+                <span class="code-type">Result</span>.<span class="code-func">success</span>(response.<span class="code-func">bytes</span>()!!)
+            } <span class="code-keyword">else</span> {
+                <span class="code-type">Result</span>.<span class="code-func">failure</span>(<span class="code-type">Exception</span>(<span class="code-string">"Failed to fetch document"</span>))
+            }
+        } <span class="code-keyword">catch</span> (e: <span class="code-type">Exception</span>) {
+            <span class="code-type">Result</span>.<span class="code-func">failure</span>(e)
+        }
+    }
+}
+
+<span class="code-keyword">class</span> <span class="code-type">DocumentViewModel</span>(
+    <span class="code-keyword">private val</span> repository: <span class="code-type">DocumentRepository</span>
+) : <span class="code-type">ViewModel</span>() {
+    <span class="code-keyword">private val</span> player = <span class="code-type">RemoteComposePlayer</span>()
+    
+    <span class="code-keyword">private val</span> _uiState = <span class="code-type">MutableStateFlow</span>&lt;<span class="code-type">DocumentUiState</span>&gt;(
+        <span class="code-type">DocumentUiState</span>.<span class="code-func">Loading</span>()
+    )
+    <span class="code-keyword">val</span> uiState: <span class="code-type">StateFlow</span>&lt;<span class="code-type">DocumentUiState</span>&gt; = _uiState
+    
+    <span class="code-keyword">fun</span> <span class="code-func">loadDocument</span>(id: <span class="code-type">String</span>) {
+        viewModelScope.<span class="code-func">launch</span> {
+            _uiState.<span class="code-func">value</span> = <span class="code-type">DocumentUiState</span>.<span class="code-func">Loading</span>()
+            
+            <span class="code-keyword">when</span> (<span class="code-keyword">val</span> result = repository.<span class="code-func">fetchDocument</span>(id)) {
+                <span class="code-keyword">is</span> <span class="code-type">Result</span>.<span class="code-type">Success</span> -&gt; {
+                    <span class="code-keyword">try</span> {
+                        <span class="code-keyword">val</span> doc = player.<span class="code-func">decode</span>(result.<span class="code-func">getOrNull</span>()!!)
+                        _uiState.<span class="code-func">value</span> = <span class="code-type">DocumentUiState</span>.<span class="code-func">Success</span>(doc)
+                    } <span class="code-keyword">catch</span> (e: <span class="code-type">Exception</span>) {
+                        _uiState.<span class="code-func">value</span> = <span class="code-type">DocumentUiState</span>.<span class="code-func">Error</span>(e.<span class="code-func">message</span> ?: <span class="code-string">"Unknown error"</span>)
+                    }
+                }
+                <span class="code-keyword">is</span> <span class="code-type">Result</span>.<span class="code-type">Failure</span> -&gt; {
+                    _uiState.<span class="code-func">value</span> = <span class="code-type">DocumentUiState</span>.<span class="code-func">Error</span>(
+                        result.<span class="code-func">exceptionOrNull</span>()?.<span class="code-func">message</span> ?: <span class="code-string">"Unknown error"</span>
+                    )
+                }
+            }
+        }
+    }
+}
+
+<span class="code-keyword">sealed class</span> <span class="code-type">DocumentUiState</span> {
+    <span class="code-keyword">data class</span> <span class="code-type">Loading</span>(<span class="code-keyword">val</span> message: <span class="code-type">String</span> = <span class="code-string">"Loading..."</span>) : <span class="code-type">DocumentUiState</span>()
+    <span class="code-keyword">data class</span> <span class="code-type">Success</span>(<span class="code-keyword">val</span> document: <span class="code-type">RemoteComposeDocument</span>) : <span class="code-type">DocumentUiState</span>()
+    <span class="code-keyword">data class</span> <span class="code-type">Error</span>(<span class="code-keyword">val</span> message: <span class="code-type">String</span>) : <span class="code-type">DocumentUiState</span>()
+}</code></pre>
+
+        <h2 id="section-5">V. 处理交互事件</h2>
+
+        <h3>5.1 语义动作处理</h3>
+
+        <pre><code><span class="code-annotation">@Composable</span>
+<span class="code-keyword">fun</span> <span class="code-func">RemoteComposeScreen</span>(
+    viewModel: <span class="code-type">DocumentViewModel</span> = <span class="code-func">viewModel</span>()
+) {
+    <span class="code-keyword">val</span> uiState <span class="code-keyword">by</span> viewModel.uiState.<span class="code-func">collectAsState</span>()
+    <span class="code-keyword">val</span> player = <span class="code-func">remember</span> { <span class="code-type">RemoteComposePlayer</span>() }
+    
+    <span class="code-type">Scaffold</span> { padding -&gt;
+        <span class="code-type">Box</span>(
+            modifier = <span class="code-type">Modifier</span>
+                .<span class="code-func">fillMaxSize</span>()
+                .<span class="code-func">padding</span>(padding)
+        ) {
+            <span class="code-keyword">when</span> (<span class="code-keyword">val</span> state = uiState) {
+                <span class="code-keyword">is</span> <span class="code-type">DocumentUiState</span>.<span class="code-type">Loading</span> -&gt; {
+                    <span class="code-type">Column</span>(
+                        modifier = <span class="code-type">Modifier</span>.<span class="code-func">align</span>(<span class="code-type">Alignment</span>.Center),
+                        horizontalAlignment = <span class="code-type">Alignment</span>.CenterHorizontally
+                    ) {
+                        <span class="code-type">CircularProgressIndicator</span>()
+                        <span class="code-type">Spacer</span>(modifier = <span class="code-type">Modifier</span>.<span class="code-func">height</span>(<span class="code-string">16.dp</span>))
+                        <span class="code-type">Text</span>(text = state.message)
+                    }
+                }
+                <span class="code-keyword">is</span> <span class="code-type">DocumentUiState</span>.<span class="code-type">Success</span> -&gt; {
+                    player.<span class="code-func">Play</span>(
+                        document = state.document,
+                        modifier = <span class="code-type">Modifier</span>.<span class="code-func">fillMaxSize</span>(),
+                        onSemanticAction = { action -&gt;
+                            <span class="code-comment">// 处理语义动作</span>
+                            <span class="code-func">handleSemanticAction</span>(action, viewModel)
+                        }
+                    )
+                }
+                <span class="code-keyword">is</span> <span class="code-type">DocumentUiState</span>.<span class="code-type">Error</span> -&gt; {
+                    <span class="code-type">Column</span>(
+                        modifier = <span class="code-type">Modifier</span>.<span class="code-func">align</span>(<span class="code-type">Alignment</span>.Center),
+                        horizontalAlignment = <span class="code-type">Alignment</span>.CenterHorizontally
+                    ) {
+                        <span class="code-type">Text</span>(
+                            text = <span class="code-string">"Error: ${state.message}"</span>,
+                            color = <span class="code-type">MaterialTheme</span>.colorScheme.error
+                        )
+                        <span class="code-type">Spacer</span>(modifier = <span class="code-type">Modifier</span>.<span class="code-func">height</span>(<span class="code-string">16.dp</span>))
+                        <span class="code-type">Button</span>(onClick = { viewModel.<span class="code-func">loadDocument</span>(<span class="code-string">"default"</span>) }) {
+                            <span class="code-type">Text</span>(<span class="code-string">"Retry"</span>)
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+<span class="code-keyword">fun</span> <span class="code-func">handleSemanticAction</span>(
+    action: <span class="code-type">SemanticAction</span>,
+    viewModel: <span class="code-type">DocumentViewModel</span>
+) {
+    <span class="code-keyword">when</span> (action) {
+        <span class="code-keyword">is</span> <span class="code-type">SemanticAction</span>.<span class="code-type">Navigate</span> -&gt; {
+            <span class="code-comment">// 处理导航</span>
+            <span class="code-func">Log</span>.d(<span class="code-string">"RemoteCompose"</span>, <span class="code-string">"Navigate to: ${action.route}"</span>)
+            <span class="code-comment">// 使用 Navigation Compose 导航</span>
+        }
+        <span class="code-keyword">is</span> <span class="code-type">SemanticAction</span>.<span class="code-type">OpenUrl</span> -&gt; {
+            <span class="code-comment">// 打开 URL</span>
+            <span class="code-keyword">val</span> intent = <span class="code-type">Intent</span>(<span class="code-type">Intent</span>.<span class="code-type">ACTION_VIEW</span>, <span class="code-type">Uri</span>.<span class="code-func">parse</span>(action.url))
+            context.<span class="code-func">startActivity</span>(intent)
+        }
+        <span class="code-keyword">is</span> <span class="code-type">SemanticAction</span>.<span class="code-type">SendEvent</span> -&gt; {
+            <span class="code-comment">// 发送事件到服务器</span>
+            viewModel.<span class="code-func">sendEvent</span>(action.eventName, action.payload)
+        }
+        <span class="code-keyword">is</span> <span class="code-type">SemanticAction</span>.<span class="code-type">LocalAction</span> -&gt; {
+            <span class="code-comment">// 执行本地动作</span>
+            <span class="code-keyword">when</span> (action.actionType) {
+                <span class="code-type">LocalActionType</span>.<span class="code-type">SHARE</span> -&gt; {
+                    <span class="code-comment">// 分享</span>
+                }
+                <span class="code-type">LocalActionType</span>.<span class="code-type">COPY_TO_CLIPBOARD</span> -&gt; {
+                    <span class="code-comment">// 复制到剪贴板</span>
+                }
+                <span class="code-comment">// ... 其他动作</span>
+            }
+        }
+        <span class="code-keyword">is</span> <span class="code-type">SemanticAction</span>.<span class="code-type">Composite</span> -&gt; {
+            <span class="code-comment">// 执行复合动作</span>
+            action.actions.<span class="code-func">forEach</span> { 
+                <span class="code-func">handleSemanticAction</span>(it, viewModel) 
+            }
+        }
+    }
+}</code></pre>
+
+        <h3>5.2 事件回传到服务器</h3>
+
+        <pre><code><span class="code-keyword">interface</span> <span class="code-type">RemoteComposeApi</span> {
+    <span class="code-annotation">@POST</span>(<span class="code-string">"api/event"</span>)
+    <span class="code-keyword">suspend fun</span> <span class="code-func">sendEvent</span>(
+        <span class="code-annotation">@Body</span> event: <span class="code-type">EventRequest</span>
+    ): <span class="code-type">EventResponse</span>
+}
+
+<span class="code-keyword">data class</span> <span class="code-type">EventRequest</span>(
+    <span class="code-keyword">val</span> documentId: <span class="code-type">String</span>,
+    <span class="code-keyword">val</span> eventName: <span class="code-type">String</span>,
+    <span class="code-keyword">val</span> payload: <span class="code-type">Map</span>&lt;<span class="code-type">String</span>, <span class="code-type">Any</span>&gt;
+)
+
+<span class="code-keyword">data class</span> <span class="code-type">EventResponse</span>(
+    <span class="code-keyword">val</span> success: <span class="code-type">Boolean</span>,
+    <span class="code-keyword">val</span> newDocumentId: <span class="code-type">String</span>?,  <span class="code-comment">// 可选：返回新文档</span>
+    <span class="code-keyword">val</span> message: <span class="code-type">String</span>?
+)
+
+<span class="code-keyword">class</span> <span class="code-type">DocumentViewModel</span>(
+    <span class="code-keyword">private val</span> repository: <span class="code-type">DocumentRepository</span>
+) : <span class="code-type">ViewModel</span>() {
+    <span class="code-keyword">private var</span> currentDocumentId: <span class="code-type">String</span>? = <span class="code-keyword">null</span>
+    
+    <span class="code-keyword">fun</span> <span class="code-func">sendEvent</span>(eventName: <span class="code-type">String</span>, payload: <span class="code-type">Map</span>&lt;<span class="code-type">String</span>, <span class="code-type">Any</span>&gt;) {
+        viewModelScope.<span class="code-func">launch</span> {
+            <span class="code-keyword">val</span> documentId = currentDocumentId ?: <span class="code-keyword">return@launch</span>
+            
+            <span class="code-keyword">val</span> result = repository.<span class="code-func">sendEvent</span>(
+                <span class="code-type">EventRequest</span>(documentId, eventName, payload)
+            )
+            
+            <span class="code-keyword">if</span> (result.<span class="code-keyword">is</span> <span class="code-type">Result</span>.<span class="code-type">Success</span>) {
+                <span class="code-keyword">val</span> response = result.<span class="code-func">getOrNull</span>()!!
+                <span class="code-keyword">if</span> (response.success) {
+                    <span class="code-comment">// 如果服务器返回了新文档，加载它</span>
+                    response.newDocumentId?.<span class="code-func">let</span> { newId -&gt;
+                        <span class="code-func">loadDocument</span>(newId)
+                    }
+                }
+            }
+        }
+    }
+}</code></pre>
+
+        <h2 id="section-6">VI. 完整示例项目</h2>
+
+        <h3>6.1 项目结构</h3>
+
+        <div class="diagram-box">
+<span class="diagram-warning">项目结构</span>
+
+app/
+├── src/main/java/com/example/remotecompose/
+│   ├── <span class="diagram-highlight">MainActivity.kt</span>
+│   ├── <span class="diagram-highlight">ui/</span>
+│   │   ├── RemoteComposeScreen.kt
+│   │   └── DocumentViewModel.kt
+│   ├── <span class="diagram-highlight">data/</span>
+│   │   ├── RemoteComposeApi.kt
+│   │   ├── DocumentRepository.kt
+│   │   └── models/
+│   │       ├── EventRequest.kt
+│   │       └── EventResponse.kt
+│   └── <span class="diagram-highlight">di/</span>
+│       └── AppModule.kt
+        </div>
+
+        <h3>6.2 MainActivity</h3>
+
+        <pre><code><span class="code-keyword">package</span> com.example.remotecompose
+
+<span class="code-keyword">import</span> android.os.Bundle
+<span class="code-keyword">import</span> androidx.activity.ComponentActivity
+<span class="code-keyword">import</span> androidx.activity.compose.setContent
+<span class="code-keyword">import</span> androidx.compose.foundation.layout.fillMaxSize
+<span class="code-keyword">import</span> androidx.compose.material3.MaterialTheme
+<span class="code-keyword">import</span> androidx.compose.material3.Surface
+<span class="code-keyword">import</span> androidx.compose.ui.Modifier
+<span class="code-keyword">import</span> com.example.remotecompose.ui.RemoteComposeScreen
+<span class="code-keyword">import</span> com.example.remotecompose.ui.theme.RemoteComposeTheme
+
+<span class="code-keyword">class</span> <span class="code-type">MainActivity</span> : <span class="code-type">ComponentActivity</span>() {
+    <span class="code-keyword">override fun</span> <span class="code-func">onCreate</span>(savedInstanceState: <span class="code-type">Bundle</span>?) {
+        <span class="code-keyword">super</span>.<span class="code-func">onCreate</span>(savedInstanceState)
+        
+        setContent {
+            <span class="code-type">RemoteComposeTheme</span> {
+                <span class="code-type">Surface</span>(
+                    modifier = <span class="code-type">Modifier</span>.<span class="code-func">fillMaxSize</span>(),
+                    color = <span class="code-type">MaterialTheme</span>.colorScheme.background
+                ) {
+                    <span class="code-type">RemoteComposeScreen</span>()
+                }
+            }
+        }
+    }
+}</code></pre>
+
+        <h3>6.3 依赖注入 (Hilt)</h3>
+
+        <pre><code><span class="code-keyword">package</span> com.example.remotecompose.di
+
+<span class="code-keyword">import</span> com.example.remotecompose.data.DocumentRepository
+<span class="code-keyword">import</span> com.example.remotecompose.data.RemoteComposeApi
+<span class="code-keyword">import</span> dagger.Module
+<span class="code-keyword">import</span> dagger.Provides
+<span class="code-keyword">import</span> dagger.hilt.InstallIn
+<span class="code-keyword">import</span> dagger.hilt.components.SingletonComponent
+<span class="code-keyword">import</span> okhttp3.OkHttpClient
+<span class="code-keyword">import</span> retrofit2.Retrofit
+<span class="code-keyword">import</span> retrofit2.converter.gson.GsonConverterFactory
+<span class="code-keyword">import</span> javax.inject.Singleton
+
+<span class="code-annotation">@Module</span>
+<span class="code-annotation">@InstallIn</span>(<span class="code-type">SingletonComponent</span>::<span class="code-type">class</span>)
+<span class="code-keyword">object</span> <span class="code-type">AppModule</span> {
+    
+    <span class="code-annotation">@Provides</span>
+    <span class="code-annotation">@Singleton</span>
+    <span class="code-keyword">fun</span> <span class="code-func">provideOkHttpClient</span>(): <span class="code-type">OkHttpClient</span> {
+        <span class="code-keyword">return</span> <span class="code-type">OkHttpClient</span>.Builder()
+            .<span class="code-func">connectTimeout</span>(<span class="code-string">30</span>, <span class="code-type">TimeUnit</span>.<span class="code-type">SECONDS</span>)
+            .<span class="code-func">readTimeout</span>(<span class="code-string">30</span>, <span class="code-type">TimeUnit</span>.<span class="code-type">SECONDS</span>)
+            .<span class="code-func">build</span>()
+    }
+    
+    <span class="code-annotation">@Provides</span>
+    <span class="code-annotation">@Singleton</span>
+    <span class="code-keyword">fun</span> <span class="code-func">provideRetrofit</span>(okHttpClient: <span class="code-type">OkHttpClient</span>): <span class="code-type">Retrofit</span> {
+        <span class="code-keyword">return</span> <span class="code-type">Retrofit</span>.Builder()
+            .<span class="code-func">baseUrl</span>(<span class="code-string">"https://your-api.com/"</span>)
+            .<span class="code-func">client</span>(okHttpClient)
+            .<span class="code-func">addConverterFactory</span>(<span class="code-type">GsonConverterFactory</span>.<span class="code-func">create</span>())
+            .<span class="code-func">build</span>()
+    }
+    
+    <span class="code-annotation">@Provides</span>
+    <span class="code-annotation">@Singleton</span>
+    <span class="code-keyword">fun</span> <span class="code-func">provideApi</span>(retrofit: <span class="code-type">Retrofit</span>): <span class="code-type">RemoteComposeApi</span> {
+        <span class="code-keyword">return</span> retrofit.<span class="code-func">create</span>(<span class="code-type">RemoteComposeApi</span>::<span class="code-type">class</span>.<span class="code-keyword">java</span>)
+    }
+    
+    <span class="code-annotation">@Provides</span>
+    <span class="code-annotation">@Singleton</span>
+    <span class="code-keyword">fun</span> <span class="code-func">provideRepository</span>(api: <span class="code-type">RemoteComposeApi</span>): <span class="code-type">DocumentRepository</span> {
+        <span class="code-keyword">return</span> <span class="code-type">DocumentRepository</span>(api)
+    }
+}</code></pre>
+
+        <h2 id="section-7">VII. 最佳实践</h2>
+
+        <h3>7.1 文档缓存</h3>
+
+        <pre><code><span class="code-keyword">class</span> <span class="code-type">DocumentCache</span>(
+    <span class="code-keyword">private val</span> context: <span class="code-type">Context</span>
+) {
+    <span class="code-keyword">private val</span> cacheDir = <span class="code-type">File</span>(context.cacheDir, <span class="code-string">"remote_compose"</span>)
+    <span class="code-keyword">private val</span> memoryCache = <span class="code-type">LruCache</span>&lt;<span class="code-type">String</span>, <span class="code-type">ByteArray</span>&gt;(<span class="code-string">50</span>)
+    
+    <span class="code-keyword">init</span> {
+        cacheDir.<span class="code-func">mkdirs</span>()
+    }
+    
+    <span class="code-keyword">suspend fun</span> <span class="code-func">get</span>(id: <span class="code-type">String</span>): <span class="code-type">ByteArray</span>? {
+        <span class="code-comment">// 1. 检查内存缓存</span>
+        memoryCache.<span class="code-func">get</span>(id)?.<span class="code-func">let</span> { <span class="code-keyword">return</span> it }
+        
+        <span class="code-comment">// 2. 检查磁盘缓存</span>
+        <span class="code-keyword">val</span> file = <span class="code-type">File</span>(cacheDir, <span class="code-string">"$id.bin"</span>)
+        <span class="code-keyword">if</span> (file.<span class="code-func">exists</span>()) {
+            <span class="code-keyword">val</span> bytes = <span class="code-keyword">withContext</span>(<span class="code-type">Dispatchers</span>.<span class="code-type">IO</span>) {
+                file.<span class="code-func">readBytes</span>()
+            }
+            memoryCache.<span class="code-func">put</span>(id, bytes)
+            <span class="code-keyword">return</span> bytes
+        }
+        
+        <span class="code-keyword">return null</span>
+    }
+    
+    <span class="code-keyword">suspend fun</span> <span class="code-func">put</span>(id: <span class="code-type">String</span>, bytes: <span class="code-type">ByteArray</span>) {
+        <span class="code-comment">// 1. 存入内存缓存</span>
+        memoryCache.<span class="code-func">put</span>(id, bytes)
+        
+        <span class="code-comment">// 2. 存入磁盘缓存</span>
+        <span class="code-keyword">withContext</span>(<span class="code-type">Dispatchers</span>.<span class="code-type">IO</span>) {
+            <span class="code-keyword">val</span> file = <span class="code-type">File</span>(cacheDir, <span class="code-string">"$id.bin"</span>)
+            file.<span class="code-func">writeBytes</span>(bytes)
+        }
+    }
+    
+    <span class="code-keyword">fun</span> <span class="code-func">clear</span>() {
+        memoryCache.<span class="code-func">evictAll</span>()
+        cacheDir.<span class="code-func">listFiles</span>()?.<span class="code-func">forEach</span> { it.<span class="code-func">delete</span>() }
+    }
+}</code></pre>
+
+        <h3>7.2 错误处理</h3>
+
+        <pre><code><span class="code-keyword">sealed class</span> <span class="code-type">DocumentError</span> : <span class="code-type">Exception</span>() {
+    <span class="code-keyword">data class</span> <span class="code-type">NetworkError</span>(<span class="code-keyword">val</span> message: <span class="code-type">String</span>) : <span class="code-type">DocumentError</span>()
+    <span class="code-keyword">data class</span> <span class="code-type">DecodeError</span>(<span class="code-keyword">val</span> message: <span class="code-type">String</span>) : <span class="code-type">DocumentError</span>()
+    <span class="code-keyword">data class</span> <span class="code-type">VersionMismatch</span>(<span class="code-keyword">val</span> expected: <span class="code-type">Int</span>, <span class="code-keyword">val</span> actual: <span class="code-type">Int</span>) : <span class="code-type">DocumentError</span>()
+    <span class="code-keyword">data class</span> <span class="code-type">InvalidFormat</span>(<span class="code-keyword">val</span> message: <span class="code-type">String</span>) : <span class="code-type">DocumentError</span>()
+}
+
+<span class="code-keyword">fun</span> <span class="code-type">DocumentError</span>.<span class="code-func">getUserMessage</span>(): <span class="code-type">String</span> {
+    <span class="code-keyword">return when</span> (<span class="code-keyword">this</span>) {
+        <span class="code-keyword">is</span> <span class="code-type">NetworkError</span> -&gt; <span class="code-string">"网络连接失败，请检查网络设置"</span>
+        <span class="code-keyword">is</span> <span class="code-type">DecodeError</span> -&gt; <span class="code-string">"文档解析失败，请重试"</span>
+        <span class="code-keyword">is</span> <span class="code-type">VersionMismatch</span> -&gt; <span class="code-string">"文档版本不兼容，请更新应用"</span>
+        <span class="code-keyword">is</span> <span class="code-type">InvalidFormat</span> -&gt; <span class="code-string">"文档格式错误"</span>
+    }
+}</code></pre>
+
+        <h3>7.3 性能优化</h3>
+
+        <div class="tip-box success">
+            <div class="tip-title">✅ 性能优化建议</div>
+            <ul>
+                <li><strong>文档大小</strong>：尽量控制文档大小，避免包含过多图片</li>
+                <li><strong>懒加载</strong>：对于长列表，使用分页加载</li>
+                <li><strong>缓存策略</strong>：合理使用内存和磁盘缓存</li>
+                <li><strong>增量更新</strong>：只传输变化的操作，而非整个文档</li>
+                <li><strong>预加载</strong>：在用户可能访问前预加载文档</li>
+            </ul>
+        </div>
+
+        <h2 id="section-8">VIII. 常见问题</h2>
+
+        <h3>8.1 文档无法解码</h3>
+
+        <div class="tip-box error">
+            <div class="tip-title">❌ 问题：文档解码失败</div>
+            <p><strong>可能原因：</strong></p>
+            <ul>
+                <li>文档版本不兼容</li>
+                <li>文档格式损坏</li>
+                <li>编码过程中出错</li>
+            </ul>
+            <p><strong>解决方案：</strong></p>
+            <ul>
+                <li>检查文档版本号</li>
+                <li>验证文档完整性（使用校验和）</li>
+                <li>确保使用相同版本的 RemoteCompose 库</li>
+            </ul>
+        </div>
+
+        <h3>8.2 交互事件不响应</h3>
+
+        <div class="tip-box warning">
+            <div class="tip-title">⚠️ 问题：点击无响应</div>
+            <p><strong>检查清单：</strong></p>
+            <ol>
+                <li>确认文档中定义了语义动作</li>
+                <li>检查 <code>onSemanticAction</code> 回调是否正确设置</li>
+                <li>验证点击区域是否在文档范围内</li>
+                <li>检查是否有其他 View 遮挡</li>
+            </ol>
+        </div>
+
+        <h3>8.3 文档渲染不完整</h3>
+
+        <div class="tip-box warning">
+            <div class="tip-title">⚠️ 问题：UI 显示不完整</div>
+            <p><strong>可能原因：</strong></p>
+            <ul>
+                <li>文档尺寸与屏幕不匹配</li>
+                <li>某些操作未正确捕获</li>
+                <li>资源（图片、字体）缺失</li>
+            </ul>
+            <p><strong>解决方案：</strong></p>
+            <ul>
+                <li>使用响应式尺寸（<code>fillMaxSize</code>）</li>
+                <li>检查资源是否完整嵌入文档</li>
+                <li>使用布局约束而非固定尺寸</li>
+            </ul>
+        </div>
+
+        <h2>IX. 总结</h2>
+
+        <p>通过本文的详细讲解，你应该已经掌握了 RemoteCompose 的完整使用方法。从环境配置到实际项目集成，从基础播放到交互处理，RemoteCompose 为服务器驱动 UI 提供了一个强大而灵活的解决方案。</p>
+
+        <p>记住以下关键点：</p>
+        <ul>
+            <li>使用 <code>RemoteComposeSender</code> 创建文档</li>
+            <li>使用 <code>RemoteComposePlayer</code> 播放文档</li>
+            <li>通过 <code>SemanticAction</code> 处理交互</li>
+            <li>实现合理的缓存和错误处理</li>
+            <li>遵循最佳实践优化性能</li>
+        </ul>
+
+        <p>现在，开始构建你的第一个 RemoteCompose 应用吧！🚀</p>
+    </article>
+
+    <footer class="footer">
+        <p>© 2024 Fidroid - 专注 Android 与 Jetpack Compose</p>
+    </footer>
+</body>
+</html>
+
