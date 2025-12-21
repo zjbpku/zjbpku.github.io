@@ -857,13 +857,18 @@
         Greeting("Bob")    // 执行，参数变了
         </code></pre>
         <h5>两者的关系和区别</h5>
-        <table class="comparison-table"><thead>
-        <tr><th>特性</th><th>Restartable</th><th>Skippable</th></tr>
-        <tr><td><strong>定义</strong></td><td>可以被重新调用</td><td>可以被跳过执行</td></tr>
-        <tr><td><strong>触发条件</strong></td><td>读取的状态变化</td><td>参数没有变化</td></tr>
-        <tr><td><strong>前提条件</strong></td><td>无特殊要求</td><td>参数必须稳定</td></tr>
-        <tr><td><strong>性能影响</strong></td><td>必要的重组</td><td>避免不必要的重组</td></tr>
-        <tr><td><strong>默认状态</strong></td><td>所有 Composable 都是</td><td>需要满足条件</td></tr>
+        <table class="comparison-table">
+            <thead>
+                <tr><th>特性</th><th>Restartable</th><th>Skippable</th></tr>
+            </thead>
+            <tbody>
+                <tr><td><strong>定义</strong></td><td>可以被重新调用</td><td>可以被跳过执行</td></tr>
+                <tr><td><strong>触发条件</strong></td><td>读取的状态变化</td><td>参数没有变化</td></tr>
+                <tr><td><strong>前提条件</strong></td><td>无特殊要求</td><td>参数必须稳定</td></tr>
+                <tr><td><strong>性能影响</strong></td><td>必要的重组</td><td>避免不必要的重组</td></tr>
+                <tr><td><strong>默认状态</strong></td><td>所有 Composable 都是</td><td>需要满足条件</td></tr>
+            </tbody>
+        </table>
         <div class="callout callout">
         <p class="callout-title">关键理解</p>
         <p>🔬</p>
@@ -1583,12 +1588,18 @@
         }
         </code></pre>
         <h5>与传统模式的差异</h5>
-        <tr><th>特性</th><th>传统模式</th><th>Strong Skipping Mode</th></tr>
-        <tr><td><strong>跳过条件</strong></td><td>所有参数必须稳定且未变化</td><td>所有参数（稳定或不稳定）实例未变化</td></tr>
-        <tr><td><strong>不稳定类型比较</strong></td><td>不比较，直接认为变化</td><td>使用实例相等性（===）</td></tr>
-        <tr><td><strong>Lambda 处理</strong></td><td>需要手动 remember</td><td>自动记忆化</td></tr>
-        <tr><td><strong>性能</strong></td><td>较低（很多函数无法跳过）</td><td>较高（更多函数可以跳过）</td></tr>
-        <tr><td><strong>向后兼容</strong></td><td>N/A</td><td>完全兼容</td></tr>
+        <table class="comparison-table">
+            <thead>
+                <tr><th>特性</th><th>传统模式</th><th>Strong Skipping Mode</th></tr>
+            </thead>
+            <tbody>
+                <tr><td><strong>跳过条件</strong></td><td>所有参数必须稳定且未变化</td><td>所有参数（稳定或不稳定）实例未变化</td></tr>
+                <tr><td><strong>不稳定类型比较</strong></td><td>不比较，直接认为变化</td><td>使用实例相等性（===）</td></tr>
+                <tr><td><strong>Lambda 处理</strong></td><td>需要手动 remember</td><td>自动记忆化</td></tr>
+                <tr><td><strong>性能</strong></td><td>较低（很多函数无法跳过）</td><td>较高（更多函数可以跳过）</td></tr>
+                <tr><td><strong>向后兼容</strong></td><td>N/A</td><td>完全兼容</td></tr>
+            </tbody>
+        </table>
         <h4>6.4 启用方式与注意事项</h4>
         <p>Strong Skipping Mode 在 Compose 1.5.4+ 中默认启用，但你可以通过编译器选项控制。</p>
         <h5>启用方式</h5>
@@ -1958,12 +1969,18 @@
         <li>[ ] 使用 Profiler 分析性能瓶颈</li>
         </ul>
         <h4>常见陷阱与解决方案</h4>
-        <tr><th>常见陷阱</th><th>问题</th><th>解决方案</th></tr>
-        <tr><td><strong>可变集合作为参数</strong></td><td>MutableList 等类型不稳定，导致无法跳过</td><td>使用不可变集合（List）或添加 @Stable 注解</td></tr>
-        <tr><td><strong>Lambda 每次都是新实例</strong></td><td>导致接收 Lambda 的函数无法跳过</td><td>启用 Strong Skipping Mode 或手动 remember</td></tr>
-        <tr><td><strong>条件语句中的 Composable</strong></td><td>位置变化导致状态错乱</td><td>使用 key 明确标识，或提取到独立函数</td></tr>
-        <tr><td><strong>忘记使用 remember</strong></td><td>每次重组都重新计算，性能差</td><td>对计算结果使用 remember 缓存</td></tr>
-        <tr><td><strong>不稳定的数据类</strong></td><td>包含 var 属性或可变集合</td><td>改为 val 属性，使用不可变集合，添加 @Stable</td></tr>
+        <table class="comparison-table">
+            <thead>
+                <tr><th>常见陷阱</th><th>问题</th><th>解决方案</th></tr>
+            </thead>
+            <tbody>
+                <tr><td><strong>可变集合作为参数</strong></td><td>MutableList 等类型不稳定，导致无法跳过</td><td>使用不可变集合（List）或添加 @Stable 注解</td></tr>
+                <tr><td><strong>Lambda 每次都是新实例</strong></td><td>导致接收 Lambda 的函数无法跳过</td><td>启用 Strong Skipping Mode 或手动 remember</td></tr>
+                <tr><td><strong>条件语句中的 Composable</strong></td><td>位置变化导致状态错乱</td><td>使用 key 明确标识，或提取到独立函数</td></tr>
+                <tr><td><strong>忘记使用 remember</strong></td><td>每次重组都重新计算，性能差</td><td>对计算结果使用 remember 缓存</td></tr>
+                <tr><td><strong>不稳定的数据类</strong></td><td>包含 var 属性或可变集合</td><td>改为 val 属性，使用不可变集合，添加 @Stable</td></tr>
+            </tbody>
+        </table>
         <h4>性能优化示例</h4>
         <p>让我们看一个完整的优化示例：</p>
         <pre><code>
