@@ -1,0 +1,1061 @@
+# Compose 实战技巧：常见陷阱与解决方案
+
+> **发布日期**: 2024-12-21  
+> **阅读时间**: 约 35-40 分钟  
+> **标签**: Compose, 实战技巧, 常见陷阱, 最佳实践, 性能优化
+
+在实际项目中，即使理解了 Compose 的基本概念，仍然会遇到各种意想不到的问题。本文总结了实际开发中最常见的陷阱，并提供经过验证的解决方案，帮助你避免这些坑，写出更健壮、更高效的 Compose 代码。
+
+## 📚 官方参考
+
+- [Compose Performance - Android Developers](https://developer.android.com/jetpack/compose/performance)
+- [Thinking in Compose - Android Developers](https://developer.android.com/jetpack/compose/mental-model)
+- [Compose Best Practices - Android Developers](https://developer.android.com/jetpack/compose/best-practices)
+
+## 目录
+
+- [I. 状态管理陷阱](#i-状态管理陷阱)
+- [II. 性能优化陷阱](#ii-性能优化陷阱)
+- [III. 列表渲染陷阱](#iii-列表渲染陷阱)
+- [IV. 副作用处理陷阱](#iv-副作用处理陷阱)
+- [V. 内存泄漏陷阱](#v-内存泄漏陷阱)
+- [VI. 动画与交互陷阱](#vi-动画与交互陷阱)
+- [VII. 代码组织陷阱](#vii-代码组织陷阱)
+- [VIII. 调试与排查技巧](#viii-调试与排查技巧)
+
+## I. 状态管理陷阱
+
+状态管理是 Compose 开发中最容易出错的地方。以下是最常见的陷阱和解决方案。
+
+### 1.1 忘记使用 remember
+
+这是最常见的错误之一，会导致状态在每次重组时被重置。
+
+```kotlin
+// ❌ 错误：每次重组都创建新状态
+@Composable
+fun BrokenCounter() {
+    var count = mutableStateOf(0)  // 没有 remember！
+    Button(onClick = { count.value++ }) {
+        Text("Count: ${count.value}")
+    }
+    // 点击按钮后，count 会立即重置为 0
+}
+
+// ✅ 正确：使用 remember 保持状态
+@Composable
+fun FixedCounter() {
+    var count by remember { mutableStateOf(0) }
+    Button(onClick = { count++ }) {
+        Text("Count: $count")
+    }
+}
+```
+
+**为什么会出错？**
+- 每次重组时，`mutableStateOf(0)` 都会创建新的状态对象
+- 新对象的值是 0，所以 UI 总是显示 0
+- `remember` 确保状态对象在重组之间保持
+
+### 1.2 remember 的 key 不稳定
+
+使用不稳定的 key 会导致 `remember` 失效。
+
+```kotlin
+// ❌ 错误：listOf 每次都是新对象
+@Composable
+fun ExpensiveComponent(items: List<Item>) {
+    val sortedItems = remember(listOf(1, 2, 3)) {  // key 不稳定！
+        items.sortedBy { it.name }
+    }
+}
+
+// ✅ 正确：使用稳定的 key
+@Composable
+fun ExpensiveComponent(items: List<Item>) {
+    val sortedItems = remember(items) {  // items 作为 key
+        items.sortedBy { it.name }
+    }
+}
+
+// ✅ 或者使用多个稳定的 key
+@Composable
+fun FilteredList(items: List<Item>, filter: String) {
+    val filtered = remember(items, filter) {  // 多个 key
+        items.filter { it.name.contains(filter) }
+    }
+}
+```
+
+### 1.3 状态提升过度或不足
+
+状态提升是 Compose 的核心概念，但提升的层级需要仔细考虑。
+
+```kotlin
+// ❌ 错误：状态提升不足，组件不可复用
+@Composable
+fun ProductCard(product: Product) {
+    var isExpanded by remember { mutableStateOf(false) }  // 内部状态
+    // 父组件无法控制展开状态
+}
+
+// ❌ 错误：状态提升过度，不必要的复杂性
+@Composable
+fun ProductList(products: List<Product>) {
+    var expandedIds = remember { mutableSetOf<Long>() }  // 管理所有展开状态
+    
+    products.forEach { product ->
+        ProductCard(
+            product = product,
+            isExpanded = expandedIds.contains(product.id),
+            onExpandedChange = { /* 复杂的更新逻辑 */ }
+        )
+    }
+}
+
+// ✅ 正确：平衡的状态提升
+@Composable
+fun ProductCard(
+    product: Product,
+    isExpanded: Boolean = false,  // 默认值，可选的受控状态
+    onExpandedChange: (Boolean) -> Unit = {}  // 可选的回调
+) {
+    // 如果没有提供回调，使用内部状态
+    var internalExpanded by remember { mutableStateOf(false) }
+    val expanded = if (onExpandedChange != {}) isExpanded else internalExpanded
+    val onToggle = if (onExpandedChange != {}) onExpandedChange else { internalExpanded = !internalExpanded }
+    
+    // UI 实现...
+}
+```
+
+### 1.4 在组合中修改状态
+
+这是导致无限重组的常见原因。
+
+```kotlin
+// ❌ 错误：在组合中修改状态，导致无限重组
+@Composable
+fun InfiniteLoop() {
+    var count by remember { mutableStateOf(0) }
+    count++  // 每次重组都修改，导致无限循环！
+    Text("Count: $count")
+}
+
+// ✅ 正确：在事件中修改状态
+@Composable
+fun FixedLoop() {
+    var count by remember { mutableStateOf(0) }
+    
+    LaunchedEffect(Unit) {
+        delay(1000)
+        count++  // 在协程中修改，不会导致无限重组
+    }
+    
+    Text("Count: $count")
+}
+```
+
+### 1.5 状态同步问题
+
+多个状态源可能导致 UI 不一致。
+
+```kotlin
+// ❌ 错误：状态不同步
+@Composable
+fun SyncProblem() {
+    var name by remember { mutableStateOf("") }
+    var displayName by remember { mutableStateOf("") }
+    
+    Column {
+        TextField(
+            value = name,
+            onValueChange = { name = it }
+        )
+        Text("Display: $displayName")  // 可能不同步
+    }
+}
+
+// ✅ 正确：单一数据源
+@Composable
+fun FixedSync() {
+    var name by remember { mutableStateOf("") }
+    val displayName = name  // 派生状态，自动同步
+    
+    Column {
+        TextField(
+            value = name,
+            onValueChange = { name = it }
+        )
+        Text("Display: $displayName")
+    }
+}
+
+// ✅ 或者使用 derivedStateOf
+@Composable
+fun DerivedState() {
+    var name by remember { mutableStateOf("") }
+    val displayName by remember {
+        derivedStateOf { name.uppercase() }
+    }
+    
+    Column {
+        TextField(value = name, onValueChange = { name = it })
+        Text("Display: $displayName")
+    }
+}
+```
+
+## II. 性能优化陷阱
+
+性能问题往往在项目后期才暴露，但很多问题可以在开发阶段避免。
+
+### 2.1 忘记缓存计算结果
+
+每次重组都重新计算昂贵操作会严重影响性能。
+
+```kotlin
+// ❌ 错误：每次重组都重新计算
+@Composable
+fun ExpensiveList(items: List<Item>) {
+    val sortedItems = items.sortedBy { it.name }  // 每次都排序！
+    val filteredItems = sortedItems.filter { it.isActive }  // 每次都过滤！
+    
+    LazyColumn {
+        items(filteredItems) { item ->
+            ItemRow(item)
+        }
+    }
+}
+
+// ✅ 正确：使用 remember 缓存
+@Composable
+fun OptimizedList(items: List<Item>) {
+    val sortedItems = remember(items) {
+        items.sortedBy { it.name }
+    }
+    val filteredItems = remember(sortedItems) {
+        sortedItems.filter { it.isActive }
+    }
+    
+    LazyColumn {
+        items(filteredItems) { item ->
+            ItemRow(item)
+        }
+    }
+}
+
+// ✅ 更优雅：使用 derivedStateOf
+@Composable
+fun DerivedStateList(items: List<Item>) {
+    val processedItems by remember {
+        derivedStateOf {
+            items.sortedBy { it.name }
+                .filter { it.isActive }
+        }
+    }
+    
+    LazyColumn {
+        items(processedItems) { item ->
+            ItemRow(item)
+        }
+    }
+}
+```
+
+### 2.2 不必要的重组
+
+没有正确使用稳定性注解会导致不必要的重组。
+
+```kotlin
+// ❌ 错误：不稳定的数据类
+data class User(
+    var name: String,  // var 导致不稳定
+    var age: Int
+)
+
+@Composable
+fun UserProfile(user: User) {
+    // 即使 user 没变，也可能重组
+    Text(user.name)
+}
+
+// ✅ 正确：使用 @Stable 或 @Immutable
+@Stable
+data class User(
+    val name: String,  // val 属性
+    val age: Int
+)
+
+@Composable
+fun UserProfile(user: User) {
+    // 现在可以正确跳过重组
+    Text(user.name)
+}
+```
+
+### 2.3 Lambda 导致的重组
+
+Lambda 参数每次都是新实例，会导致接收它的函数无法跳过。
+
+```kotlin
+// ❌ 错误：每次重组都创建新 Lambda
+@Composable
+fun MyScreen() {
+    var count by remember { mutableStateOf(0) }
+    
+    Counter(
+        count = count,
+        onIncrement = { count++ }  // 新 Lambda 实例
+    )
+}
+
+@Composable
+fun Counter(count: Int, onIncrement: () -> Unit) {
+    // 即使 count 没变，onIncrement 是新实例，无法跳过
+    Button(onClick = onIncrement) {
+        Text("Count: $count")
+    }
+}
+
+// ✅ 正确：使用 remember 记忆化 Lambda
+@Composable
+fun FixedScreen() {
+    var count by remember { mutableStateOf(0) }
+    
+    val onIncrement = remember { { count++ } }
+    // 或者使用 rememberUpdatedState（如果需要捕获最新值）
+    val onIncrementUpdated = rememberUpdatedState { count++ }
+    
+    Counter(
+        count = count,
+        onIncrement = onIncrement
+    )
+}
+
+// ✅ 或者启用 Strong Skipping Mode（Compose 1.5.4+）
+// 编译器会自动处理
+```
+
+### 2.4 在 LazyColumn 中执行昂贵操作
+
+在列表项中执行昂贵操作会导致滚动卡顿。
+
+```kotlin
+// ❌ 错误：在列表项中执行昂贵操作
+@Composable
+fun ProductList(products: List<Product>) {
+    LazyColumn {
+        items(products) { product ->
+            // 每次滚动都可能重新计算
+            val formattedPrice = formatPrice(product.price)  // 昂贵操作
+            ProductRow(product, formattedPrice)
+        }
+    }
+}
+
+// ✅ 正确：预先处理数据
+@Composable
+fun OptimizedProductList(products: List<Product>) {
+    val processedProducts = remember(products) {
+        products.map { product ->
+            product.copy(
+                formattedPrice = formatPrice(product.price)  // 预先格式化
+            )
+        }
+    }
+    
+    LazyColumn {
+        items(processedProducts) { product ->
+            ProductRow(product, product.formattedPrice)
+        }
+    }
+}
+```
+
+## III. 列表渲染陷阱
+
+列表是大多数应用的核心，也是最容易出现性能问题的地方。
+
+### 3.1 忘记使用 key
+
+没有 key 会导致列表项状态错乱。
+
+```kotlin
+// ❌ 错误：没有 key，状态会错乱
+@Composable
+fun ItemList(items: List<Item>) {
+    LazyColumn {
+        items(items) { item ->
+            ItemRow(item)  // 如果 items 顺序改变，状态会错乱
+        }
+    }
+}
+
+// ✅ 正确：使用 key
+@Composable
+fun FixedItemList(items: List<Item>) {
+    LazyColumn {
+        items(
+            items = items,
+            key = { it.id }  // 使用唯一 ID
+        ) { item ->
+            ItemRow(item)
+        }
+    }
+}
+```
+
+### 3.2 key 不稳定
+
+使用不稳定的值作为 key 会导致问题。
+
+```kotlin
+// ❌ 错误：使用不稳定的 key
+@Composable
+fun UnstableKeyList(items: List<Item>) {
+    LazyColumn {
+        items(
+            items = items,
+            key = { it.hashCode() }  // hashCode 可能重复
+        ) { item ->
+            ItemRow(item)
+        }
+    }
+}
+
+// ✅ 正确：使用稳定的唯一标识
+@Composable
+fun StableKeyList(items: List<Item>) {
+    LazyColumn {
+        items(
+            items = items,
+            key = { it.id }  // 唯一且稳定的 ID
+        ) { item ->
+            ItemRow(item)
+        }
+    }
+}
+```
+
+### 3.3 列表项中的状态管理
+
+在列表项中创建状态可能导致内存泄漏或性能问题。
+
+```kotlin
+// ❌ 错误：每个列表项都有独立状态，可能导致内存问题
+@Composable
+fun ItemList(items: List<Item>) {
+    LazyColumn {
+        items(items) { item ->
+            var isExpanded by remember { mutableStateOf(false) }
+            // 如果列表很长，会有很多状态对象
+            ExpandableItemRow(item, isExpanded) { isExpanded = !isExpanded }
+        }
+    }
+}
+
+// ✅ 正确：状态提升到列表级别
+@Composable
+fun OptimizedItemList(items: List<Item>) {
+    var expandedIds by remember { mutableStateOf(setOf<Long>()) }
+    
+    LazyColumn {
+        items(items) { item ->
+            ExpandableItemRow(
+                item = item,
+                isExpanded = expandedIds.contains(item.id),
+                onExpandedChange = { expanded ->
+                    expandedIds = if (expanded) {
+                        expandedIds + item.id
+                    } else {
+                        expandedIds - item.id
+                    }
+                }
+            )
+        }
+    }
+}
+```
+
+### 3.4 列表更新导致全量重组
+
+更新列表时没有使用正确的 API 会导致性能问题。
+
+```kotlin
+// ❌ 错误：每次更新都创建新列表
+@Composable
+fun MutableListProblem() {
+    val items = remember { mutableStateOf(mutableListOf<Item>()) }
+    
+    LazyColumn {
+        items(items.value) { item ->  // MutableList 不稳定
+            ItemRow(item)
+        }
+    }
+    
+    Button(onClick = {
+        items.value.add(Item())  // 修改列表
+        items.value = items.value  // 触发重组，但可能不必要
+    }) {
+        Text("Add")
+    }
+}
+
+// ✅ 正确：使用不可变列表
+@Composable
+fun ImmutableListSolution() {
+    var items by remember { mutableStateOf(listOf<Item>()) }
+    
+    LazyColumn {
+        items(items) { item ->
+            ItemRow(item)
+        }
+    }
+    
+    Button(onClick = {
+        items = items + Item()  // 创建新列表
+    }) {
+        Text("Add")
+    }
+}
+```
+
+## IV. 副作用处理陷阱
+
+副作用（Side Effects）是 Compose 中容易出错的地方，需要仔细处理。
+
+### 4.1 LaunchedEffect 的 key 错误
+
+key 设置不当会导致副作用执行时机错误。
+
+```kotlin
+// ❌ 错误：key 设置错误
+@Composable
+fun UserProfile(userId: String) {
+    LaunchedEffect(Unit) {  // key 是 Unit，只执行一次
+        loadUser(userId)  // 但 userId 变化时不会重新加载
+    }
+}
+
+// ✅ 正确：使用正确的 key
+@Composable
+fun FixedUserProfile(userId: String) {
+    LaunchedEffect(userId) {  // userId 作为 key
+        loadUser(userId)  // userId 变化时重新加载
+    }
+}
+```
+
+### 4.2 副作用中的状态更新
+
+在副作用中更新状态可能导致无限循环。
+
+```kotlin
+// ❌ 错误：可能导致无限循环
+@Composable
+fun InfiniteEffect() {
+    var count by remember { mutableStateOf(0) }
+    
+    LaunchedEffect(count) {  // count 变化触发
+        delay(1000)
+        count++  // 又触发 LaunchedEffect，无限循环
+    }
+    
+    Text("Count: $count")
+}
+
+// ✅ 正确：使用标志位或条件判断
+@Composable
+fun FixedEffect() {
+    var count by remember { mutableStateOf(0) }
+    var isRunning by remember { mutableStateOf(false) }
+    
+    LaunchedEffect(isRunning) {
+        if (isRunning) {
+            while (true) {
+                delay(1000)
+                count++
+            }
+        }
+    }
+    
+    Column {
+        Text("Count: $count")
+        Button(onClick = { isRunning = !isRunning }) {
+            Text(if (isRunning) "Stop" else "Start")
+        }
+    }
+}
+```
+
+### 4.3 忘记清理资源
+
+DisposableEffect 中忘记清理资源会导致内存泄漏。
+
+```kotlin
+// ❌ 错误：没有清理资源
+@Composable
+fun ResourceLeak() {
+    DisposableEffect(Unit) {
+        val observer = object : Observer {
+            override fun onChanged(value: Any) {
+                // 处理变化
+            }
+        }
+        dataSource.observe(observer)
+        // 忘记移除 observer！
+        onDispose { }
+    }
+}
+
+// ✅ 正确：在 onDispose 中清理
+@Composable
+fun FixedResource() {
+    DisposableEffect(Unit) {
+        val observer = object : Observer {
+            override fun onChanged(value: Any) {
+                // 处理变化
+            }
+        }
+        dataSource.observe(observer)
+        
+        onDispose {
+            dataSource.removeObserver(observer)  // 清理
+        }
+    }
+}
+```
+
+### 4.4 在副作用中访问最新值
+
+副作用中的闭包可能捕获旧值。
+
+```kotlin
+// ❌ 错误：捕获旧值
+@Composable
+fun OldValueProblem(userId: String) {
+    LaunchedEffect(Unit) {
+        delay(5000)
+        loadUser(userId)  // 可能使用的是旧的 userId
+    }
+}
+
+// ✅ 正确：使用 rememberUpdatedState
+@Composable
+fun FixedValueProblem(userId: String) {
+    val currentUserId by rememberUpdatedState(userId)
+    
+    LaunchedEffect(Unit) {
+        delay(5000)
+        loadUser(currentUserId())  // 使用最新的 userId
+    }
+}
+```
+
+## V. 内存泄漏陷阱
+
+内存泄漏在 Compose 中可能不那么明显，但确实存在。
+
+### 5.1 在 Composable 中持有 View 引用
+
+持有 View 引用会导致内存泄漏。
+
+```kotlin
+// ❌ 错误：持有 View 引用
+@Composable
+fun ViewReferenceLeak() {
+    val webView = remember { WebView(context) }
+    
+    AndroidView(
+        factory = { webView },
+        update = { }
+    )
+    // webView 可能持有 Activity 引用
+}
+
+// ✅ 正确：使用 DisposableEffect 清理
+@Composable
+fun FixedViewReference() {
+    val webView = remember { WebView(context) }
+    
+    DisposableEffect(Unit) {
+        onDispose {
+            webView.destroy()  // 清理 WebView
+        }
+    }
+    
+    AndroidView(
+        factory = { webView },
+        update = { }
+    )
+}
+```
+
+### 5.2 协程未取消
+
+长时间运行的协程如果没有正确取消会导致内存泄漏。
+
+```kotlin
+// ❌ 错误：协程可能未取消
+@Composable
+fun CoroutineLeak() {
+    LaunchedEffect(Unit) {
+        while (true) {  // 无限循环
+            delay(1000)
+            // 做一些工作
+        }
+        // 如果 Composable 被移除，这个协程可能还在运行
+    }
+}
+
+// ✅ 正确：LaunchedEffect 会自动取消
+// 但如果是手动创建的协程，需要确保取消
+@Composable
+fun FixedCoroutine() {
+    val scope = rememberCoroutineScope()
+    
+    DisposableEffect(Unit) {
+        val job = scope.launch {
+            while (true) {
+                delay(1000)
+                // 做一些工作
+            }
+        }
+        
+        onDispose {
+            job.cancel()  // 确保取消
+        }
+    }
+}
+```
+
+### 5.3 闭包捕获大对象
+
+Lambda 捕获大对象可能导致内存问题。
+
+```kotlin
+// ❌ 错误：捕获大对象
+@Composable
+fun LargeObjectCapture(largeData: LargeData) {
+    LazyColumn {
+        items(largeData.items) { item ->
+            Button(
+                onClick = { 
+                    processItem(item, largeData)  // 捕获 largeData
+                }
+            ) {
+                Text(item.name)
+            }
+        }
+    }
+    // largeData 被所有 Lambda 捕获，无法释放
+}
+
+// ✅ 正确：只传递需要的部分
+@Composable
+fun FixedLargeObject(largeData: LargeData) {
+    val processor = remember(largeData) {
+        ItemProcessor(largeData.config)  // 只保留需要的部分
+    }
+    
+    LazyColumn {
+        items(largeData.items) { item ->
+            Button(
+                onClick = { 
+                    processor.process(item)  // 不捕获 largeData
+                }
+            ) {
+                Text(item.name)
+            }
+        }
+    }
+}
+```
+
+## VI. 动画与交互陷阱
+
+动画和交互是提升用户体验的关键，但也容易出现问题。
+
+### 6.1 动画导致性能问题
+
+复杂的动画可能导致掉帧。
+
+```kotlin
+// ❌ 错误：在重组中计算动画值
+@Composable
+fun ExpensiveAnimation() {
+    var target by remember { mutableStateOf(0f) }
+    
+    val animatedValue by animateFloatAsState(
+        targetValue = target,
+        animationSpec = tween(1000)
+    )
+    
+    // 每次重组都重新计算
+    val complexValue = calculateComplexValue(animatedValue)  // 昂贵计算
+    
+    Box(modifier = Modifier.offset(animatedValue.dp)) {
+        Text("Moving")
+    }
+}
+
+// ✅ 正确：使用 LaunchedEffect 或 remember
+@Composable
+fun OptimizedAnimation() {
+    var target by remember { mutableStateOf(0f) }
+    
+    val animatedValue by animateFloatAsState(
+        targetValue = target,
+        animationSpec = tween(1000)
+    )
+    
+    // 缓存计算结果
+    val complexValue = remember(animatedValue) {
+        calculateComplexValue(animatedValue)
+    }
+    
+    Box(modifier = Modifier.offset(animatedValue.dp)) {
+        Text("Moving")
+    }
+}
+```
+
+### 6.2 手势冲突
+
+多个手势同时存在可能导致冲突。
+
+```kotlin
+// ❌ 错误：手势冲突
+@Composable
+fun GestureConflict() {
+    Box(
+        modifier = Modifier
+            .clickable { /* 点击 */ }
+            .pointerInput(Unit) {
+                detectDragGestures { /* 拖拽 */ }
+            }
+    ) {
+        Text("Content")
+    }
+    // 点击和拖拽可能冲突
+}
+
+// ✅ 正确：使用条件判断或优先级
+@Composable
+fun FixedGesture() {
+    var isDragging by remember { mutableStateOf(false) }
+    
+    Box(
+        modifier = Modifier
+            .pointerInput(Unit) {
+                detectDragGestures(
+                    onDragStart = { isDragging = true },
+                    onDragEnd = { isDragging = false },
+                    onDrag = { /* 拖拽 */ }
+                )
+            }
+            .then(
+                if (!isDragging) {
+                    Modifier.clickable { /* 点击 */ }
+                } else {
+                    Modifier
+                }
+            )
+    ) {
+        Text("Content")
+    }
+}
+```
+
+## VII. 代码组织陷阱
+
+良好的代码组织是维护大型项目的关键。
+
+### 7.1 Composable 函数过大
+
+过大的 Composable 函数难以维护和测试。
+
+```kotlin
+// ❌ 错误：一个巨大的 Composable
+@Composable
+fun HugeScreen() {
+    // 200+ 行代码
+    // 包含所有逻辑和 UI
+    // 难以测试和维护
+}
+
+// ✅ 正确：拆分为小的 Composable
+@Composable
+fun OrganizedScreen() {
+    Column {
+        HeaderSection()
+        ContentSection()
+        FooterSection()
+    }
+}
+
+@Composable
+fun HeaderSection() {
+    // 独立的逻辑
+}
+
+@Composable
+fun ContentSection() {
+    // 独立的逻辑
+}
+```
+
+### 7.2 业务逻辑混在 UI 中
+
+业务逻辑应该放在 ViewModel 或其他业务层。
+
+```kotlin
+// ❌ 错误：业务逻辑在 UI 中
+@Composable
+fun ProductList() {
+    val products = remember { mutableStateOf<List<Product>>(emptyList()) }
+    
+    LaunchedEffect(Unit) {
+        // 业务逻辑混在 UI 中
+        val response = api.getProducts()
+        products.value = response.data
+    }
+    
+    LazyColumn {
+        items(products.value) { product ->
+            ProductRow(product)
+        }
+    }
+}
+
+// ✅ 正确：业务逻辑在 ViewModel
+@Composable
+fun FixedProductList(viewModel: ProductViewModel = hiltViewModel()) {
+    val uiState by viewModel.uiState.collectAsState()
+    
+    when (val state = uiState) {
+        is ProductUiState.Loading -> LoadingIndicator()
+        is ProductUiState.Success -> ProductListContent(state.products)
+        is ProductUiState.Error -> ErrorMessage(state.message)
+    }
+}
+```
+
+### 7.3 重复代码
+
+没有提取可复用组件导致代码重复。
+
+```kotlin
+// ❌ 错误：重复代码
+@Composable
+fun Screen1() {
+    Column {
+        Text("Title", style = MaterialTheme.typography.h5)
+        Text("Subtitle", style = MaterialTheme.typography.body1)
+        // 重复的样式和结构
+    }
+}
+
+@Composable
+fun Screen2() {
+    Column {
+        Text("Title", style = MaterialTheme.typography.h5)
+        Text("Subtitle", style = MaterialTheme.typography.body1)
+        // 相同的代码
+    }
+}
+
+// ✅ 正确：提取可复用组件
+@Composable
+fun TitleSection(title: String, subtitle: String) {
+    Column {
+        Text(title, style = MaterialTheme.typography.h5)
+        Text(subtitle, style = MaterialTheme.typography.body1)
+    }
+}
+
+@Composable
+fun Screen1() {
+    TitleSection("Title", "Subtitle")
+}
+
+@Composable
+fun Screen2() {
+    TitleSection("Title", "Subtitle")
+}
+```
+
+## VIII. 调试与排查技巧
+
+掌握调试技巧可以快速定位和解决问题。
+
+### 8.1 重组追踪
+
+使用重组计数器找出不必要的重组。
+
+```kotlin
+@Composable
+fun RecompositionTracker(name: String) {
+    val recompositionCount = remember { mutableIntStateOf(0) }
+    SideEffect {
+        recompositionCount.intValue++
+        Log.d("Recomposition", "$name recomposed ${recompositionCount.intValue} times")
+    }
+    
+    // 你的 UI 代码
+}
+```
+
+### 8.2 性能分析
+
+使用 Profiler 分析性能瓶颈。
+
+```kotlin
+// 在需要分析的地方添加标记
+@Composable
+fun ProfiledComponent() {
+    if (BuildConfig.DEBUG) {
+        Trace.beginSection("ProfiledComponent")
+    }
+    
+    // 你的代码
+    
+    if (BuildConfig.DEBUG) {
+        Trace.endSection()
+    }
+}
+```
+
+### 8.3 稳定性检查
+
+定期检查编译器报告，确保类型稳定。
+
+```kotlin
+// build.gradle.kts
+composeCompiler {
+    reportsDestination = layout.buildDirectory.dir("compose_reports")
+    metricsDestination = layout.buildDirectory.dir("compose_metrics")
+}
+```
+
+## 总结
+
+实际项目中的 Compose 开发需要注意：
+
+- ✅ **状态管理**：正确使用 remember，避免状态重置
+- ✅ **性能优化**：缓存计算结果，使用稳定性注解
+- ✅ **列表渲染**：使用 key，避免状态错乱
+- ✅ **副作用处理**：正确设置 key，及时清理资源
+- ✅ **内存管理**：避免持有大对象，及时取消协程
+- ✅ **代码组织**：拆分大函数，提取可复用组件
+
+掌握这些技巧，可以避免大部分常见问题，写出更健壮、更高效的 Compose 代码。
+
+---
+
+## 推荐阅读
+
+- [Compose Performance - Android Developers](https://developer.android.com/jetpack/compose/performance)
+- [Compose Best Practices - Android Developers](https://developer.android.com/jetpack/compose/best-practices)
+- [Thinking in Compose - Android Developers](https://developer.android.com/jetpack/compose/mental-model)
