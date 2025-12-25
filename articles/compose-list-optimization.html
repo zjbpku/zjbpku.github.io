@@ -1,0 +1,955 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Compose 复杂列表实战优化技巧 - Fidroid</title>
+    <meta name="description" content="深入探讨复杂列表的实战优化技巧，从基础优化到高级技巧，帮助你构建流畅、高效的列表界面。">
+    <style>
+
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; line-height: 1.8; color: #e5e7eb; background: #020617; }
+        .navbar { background: rgba(15,23,42,0.98); backdrop-filter: blur(10px); position: fixed; top: 0; width: 100%; z-index: 1000; }
+        .nav-container { max-width: 900px; margin: 0 auto; padding: 1rem 20px; display: flex; justify-content: space-between; align-items: center; }
+        .logo { font-size: 1.5rem; font-weight: bold; color: #38bdf8; text-decoration: none; letter-spacing: 0.08em; text-transform: uppercase; }
+        .back-link { color: #9ca3af; text-decoration: none; font-size: 0.9rem; }
+        .back-link:hover { color: #38bdf8; }
+        .article-header { padding: 120px 20px 60px; background: radial-gradient(circle at top left, #dc2626 0, transparent 50%), radial-gradient(circle at bottom right, #7c3aed 0, transparent 55%), #020617; text-align: center; }
+        .article-header h1 { max-width: 800px; margin: 0 auto 1rem; font-size: 2.5rem; font-weight: 800; letter-spacing: -0.03em; color: #fff; }
+        .article-meta { color: #9ca3af; font-size: 0.9rem; margin-bottom: 1.5rem; }
+        .article-tags { display: flex; justify-content: center; flex-wrap: wrap; gap: 0.5rem; }
+        .article-tag { padding: 0.25rem 0.75rem; border-radius: 999px; font-size: 0.75rem; background: rgba(15,23,42,0.85); border: 1px solid rgba(220,38,38,0.4); color: #f87171; }
+        .article-content { max-width: 800px; margin: 0 auto; padding: 60px 20px 80px; }
+        .article-content h2 { font-size: 1.6rem; margin: 2.5rem 0 1rem; color: #f9fafb; border-left: 4px solid #dc2626; padding-left: 1rem; }
+        .article-content h3 { font-size: 1.25rem; margin: 2rem 0 0.75rem; color: #e5e7eb; }
+        .article-content p { margin-bottom: 1.25rem; color: #d1d5db; }
+        .article-content ul, .article-content ol { margin: 1rem 0 1.5rem 1.5rem; color: #d1d5db; }
+        .article-content li { margin-bottom: 0.5rem; }
+        .article-content strong { color: #f9fafb; }
+        pre { background: #0f172a; border: 1px solid rgba(220,38,38,0.3); border-radius: 12px; padding: 1.25rem; overflow-x: auto; margin: 1.5rem 0; font-size: 0.85rem; line-height: 1.6; }
+        code { font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace; color: #e5e7eb; }
+        .code-keyword { color: #c084fc; }
+        .code-func { color: #38bdf8; }
+        .code-type { color: #4ade80; }
+        .code-string { color: #fb7185; }
+        .code-comment { color: #6b7280; font-style: italic; }
+        .footer { background: #020617; border-top: 1px solid #111827; padding: 2rem; text-align: center; color: #6b7280; }
+        .footer a { color: #38bdf8; text-decoration: none; }
+    
+        .toc {
+            background: rgba(15,23,42,0.6);
+            border: 1px solid rgba(220,38,38,0.3);
+            border-radius: 12px;
+            padding: 1.5rem;
+            margin: 2rem 0 3rem;
+        }
+        .toc-title {
+            font-size: 1.1rem;
+            font-weight: 600;
+            color: #f87171;
+            margin-bottom: 1rem;
+        }
+        .toc-list {
+            list-style: none;
+            margin: 0;
+            padding: 0;
+        }
+        .toc-list li {
+            margin: 0.5rem 0;
+        }
+        .toc-h2 {
+            margin-left: 0;
+        }
+        .toc-list a {
+            color: #d1d5db;
+            text-decoration: none;
+        }
+        .toc-list a:hover {
+            color: #38bdf8;
+        }
+        .code-bad {
+            background: rgba(220,38,38,0.1);
+            border-left: 3px solid #ef4444;
+            padding: 1rem;
+            margin: 1rem 0;
+        }
+        .code-good {
+            background: rgba(34,197,94,0.1);
+            border-left: 3px solid #22c55e;
+            padding: 1rem;
+            margin: 1rem 0;
+        }
+        .reference {
+            background: rgba(15,23,42,0.6);
+            border: 1px solid rgba(148,163,184,0.2);
+            border-radius: 8px;
+            padding: 1rem 1.25rem;
+            margin: 1rem 0;
+            font-size: 0.9rem;
+        }
+        .reference-title {
+            font-weight: 600;
+            color: #94a3b8;
+            font-size: 0.75rem;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            margin-bottom: 0.5rem;
+        }
+        .reference a { color: #38bdf8; }
+    </style>
+</head>
+<body>
+    <nav class="navbar">
+        <div class="nav-container">
+            <a href="../index.html" class="logo">Fidroid</a>
+            <a href="../index.html#blog" class="back-link">← 返回博客列表</a>
+        </div>
+    </nav>
+
+    <header class="article-header">
+        <h1>Compose 复杂列表实战优化技巧</h1>
+        <p class="article-meta">2024-12-23 · 30-35 min · 列表优化</p>
+        <div class="article-tags">
+            <span class="article-tag">列表优化</span>
+            <span class="article-tag">LazyColumn</span>
+            <span class="article-tag">性能优化</span>
+            <span class="article-tag">实战技巧</span>
+        </div>
+    </header>
+
+    <article class="article-content">
+        <nav class="toc">
+            <div class="toc-title">📚 目录</div>
+            <ul class="toc-list">
+                <li class="toc-h2"><a href="#i-基础优化技巧">I. 基础优化技巧</a></li>
+                <li class="toc-h2"><a href="#ii-复杂布局优化">II. 复杂布局优化</a></li>
+                <li class="toc-h2"><a href="#iii-图片加载优化">III. 图片加载优化</a></li>
+                <li class="toc-h2"><a href="#iv-动态内容优化">IV. 动态内容优化</a></li>
+                <li class="toc-h2"><a href="#v-多类型列表优化">V. 多类型列表优化</a></li>
+                <li class="toc-h2"><a href="#vi-网格列表优化">VI. 网格列表优化</a></li>
+                <li class="toc-h2"><a href="#vii-嵌套列表优化">VII. 嵌套列表优化</a></li>
+                <li class="toc-h2"><a href="#viii-高级优化技巧">VIII. 高级优化技巧</a></li>
+            </ul>
+        </nav>
+<p>在实际项目中，列表是最常见的 UI 组件之一。从简单的文本列表到复杂的卡片列表，从单列到多列网格，从静态内容到动态加载，列表的性能直接影响用户体验。本文深入探讨复杂列表的实战优化技巧，帮助你构建流畅、高效的列表界面。</p>
+        <h3 id="-官方参考">📚 官方参考</h3>
+        <ul>
+        <li><a href="https://developer.android.com/jetpack/compose/lists" target="_blank">Lists in Compose - Android Developers</a></li>
+        <li><a href="https://developer.android.com/jetpack/compose/performance" target="_blank">Performance best practices - Android Developers</a></li>
+        <li><a href="https://developer.android.com/jetpack/compose/lists#lazy" target="_blank">LazyColumn and LazyRow - Android Developers</a></li>
+        </ul>
+        <h3 id="目录">目录</h3>
+        <ul>
+        <li><a href="#i-基础优化技巧" target="_blank">I. 基础优化技巧</a></li>
+        <li><a href="#ii-复杂布局优化" target="_blank">II. 复杂布局优化</a></li>
+        <li><a href="#iii-图片加载优化" target="_blank">III. 图片加载优化</a></li>
+        <li><a href="#iv-动态内容优化" target="_blank">IV. 动态内容优化</a></li>
+        <li><a href="#v-多类型列表优化" target="_blank">V. 多类型列表优化</a></li>
+        <li><a href="#vi-网格列表优化" target="_blank">VI. 网格列表优化</a></li>
+        <li><a href="#vii-嵌套列表优化" target="_blank">VII. 嵌套列表优化</a></li>
+        <li><a href="#viii-高级优化技巧" target="_blank">VIII. 高级优化技巧</a></li>
+        </ul>
+        <h3 id="i-基础优化技巧">I. 基础优化技巧</h3>
+        <p>掌握基础优化技巧是构建高性能列表的前提。</p>
+        <h4>1.1 正确使用 key</h4>
+        <p>key 是列表优化的基础，没有 key 会导致状态错乱和性能问题。</p>
+        <div class="code-bad"><pre><code>
+        // ❌ 错误：没有 key
+@Composable
+fun ItemList(items: List&lt;Item&gt;) {
+    LazyColumn {
+        items(items) { item -&gt;
+            ItemRow(item)  // 状态会错乱
+        }
+    }
+}
+
+// ✅ 正确：使用稳定的 key
+@Composable
+fun ItemList(items: List&lt;Item&gt;) {
+    LazyColumn {
+        items(
+            items = items,
+            key = { it.id }  // 使用唯一且稳定的 ID
+        ) { item -&gt;
+            ItemRow(item)
+        }
+    }
+}
+
+// ✅ 更好的做法：使用复合 key
+@Composable
+fun ItemList(items: List&lt;Item&gt;) {
+    LazyColumn {
+        items(
+            items = items,
+            key = { "${it.type}-${it.id}" }  // 类型 + ID 组合
+        ) { item -&gt;
+            ItemRow(item)
+        }
+    }
+}
+        </code></pre></div>
+        <p><strong>为什么重要？</strong></p>
+        <ul>
+        <li>key 帮助 Compose 识别列表项的身份</li>
+        <li>没有 key 时，位置变化会导致状态错乱</li>
+        <li>正确的 key 可以避免不必要的重组</li>
+        </ul>
+        <h4>1.2 避免在列表项中创建状态</h4>
+        <p>在列表项中创建状态会导致每个项都有独立状态，可能造成内存问题。</p>
+        <div class="code-bad"><pre><code>
+        // ❌ 错误：每个列表项都有独立状态
+@Composable
+fun ItemList(items: List&lt;Item&gt;) {
+    LazyColumn {
+        items(items) { item -&gt;
+            var isExpanded by remember { mutableStateOf(false) }
+            // 如果列表有 1000 项，就有 1000 个状态对象
+            ExpandableItemRow(item, isExpanded) { 
+                isExpanded = !isExpanded 
+            }
+        }
+    }
+}
+
+// ✅ 正确：状态提升到列表级别
+@Composable
+fun ItemList(items: List&lt;Item&gt;) {
+    var expandedIds by remember { mutableStateOf(setOf&lt;Long&gt;()) }
+    
+    LazyColumn {
+        items(items) { item -&gt;
+            ExpandableItemRow(
+                item = item,
+                isExpanded = expandedIds.contains(item.id),
+                onExpandedChange = { expanded -&gt;
+                    expandedIds = if (expanded) {
+                        expandedIds + item.id
+                    } else {
+                        expandedIds - item.id
+                    }
+                }
+            )
+        }
+    }
+}
+        </code></pre></div>
+        <h4>1.3 使用 contentPadding 而非 padding</h4>
+        <p><code>contentPadding</code> 是 LazyColumn 的专用属性，性能更好。</p>
+        <div class="code-bad"><pre><code>
+        // ❌ 错误：使用 padding
+@Composable
+fun ItemList(items: List&lt;Item&gt;) {
+    LazyColumn(
+        modifier = Modifier.padding(16.dp)  // 影响整个列表
+    ) {
+        items(items) { item -&gt;
+            ItemRow(item)
+        }
+    }
+}
+
+// ✅ 正确：使用 contentPadding
+@Composable
+fun ItemList(items: List&lt;Item&gt;) {
+    LazyColumn(
+        contentPadding = PaddingValues(16.dp)  // 只影响内容区域
+    ) {
+        items(items) { item -&gt;
+            ItemRow(item)
+        }
+    }
+}
+        </code></pre></div>
+        <h4>1.4 合理设置 itemSpacing</h4>
+        <p>适当的间距可以提升视觉体验，但要注意性能。</p>
+        <div class="code-bad"><pre><code>
+        // ✅ 正确：使用 itemSpacing
+@Composable
+fun ItemList(items: List&lt;Item&gt;) {
+    LazyColumn(
+        verticalArrangement = Arrangement.spacedBy(8.dp)  // 统一间距
+    ) {
+        items(items) { item -&gt;
+            ItemRow(item)
+        }
+    }
+}
+
+// ❌ 避免：在每个 item 中单独设置 margin
+@Composable
+fun ItemList(items: List&lt;Item&gt;) {
+    LazyColumn {
+        items(items) { item -&gt;
+            ItemRow(
+                item = item,
+                modifier = Modifier.padding(vertical = 8.dp)  // 不推荐
+            )
+        }
+    }
+}
+        </code></pre></div>
+        <h3 id="ii-复杂布局优化">II. 复杂布局优化</h3>
+        <p>复杂布局的列表项需要特别注意优化。</p>
+        <h4>2.1 避免深层嵌套</h4>
+        <p>深层嵌套会影响布局性能。</p>
+        <div class="code-bad"><pre><code>
+        // ❌ 错误：过度嵌套
+@Composable
+fun ComplexItemRow(item: Item) {
+    Column {
+        Row {
+            Column {
+                Row {
+                    Text(item.title)
+                }
+            }
+        }
+    }
+}
+
+// ✅ 正确：扁平化布局
+@Composable
+fun OptimizedItemRow(item: Item) {
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.SpaceBetween
+    ) {
+        Column(modifier = Modifier.weight(1f)) {
+            Text(item.title)
+            Text(item.subtitle)
+        }
+        Image(item.avatar)
+    }
+}
+        </code></pre></div>
+        <h4>2.2 使用 ConstraintLayout 优化复杂布局</h4>
+        <p>对于复杂的布局，ConstraintLayout 可以提供更好的性能。</p>
+        <div class="code-good"><pre><code>
+        // ✅ 使用 ConstraintLayout 优化复杂布局
+@Composable
+fun ComplexItemRow(item: Item) {
+    ConstraintLayout(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(16.dp)
+    ) {
+        val (avatar, title, subtitle, action) = createRefs()
+        
+        AsyncImage(
+            model = item.avatarUrl,
+            contentDescription = null,
+            modifier = Modifier
+                .size(48.dp)
+                .constrainAs(avatar) {
+                    start.linkTo(parent.start)
+                    top.linkTo(parent.top)
+                }
+        )
+        
+        Text(
+            text = item.title,
+            modifier = Modifier.constrainAs(title) {
+                start.linkTo(avatar.end, 16.dp)
+                top.linkTo(parent.top)
+                end.linkTo(action.start, 16.dp)
+            }
+        )
+        
+        Text(
+            text = item.subtitle,
+            modifier = Modifier.constrainAs(subtitle) {
+                start.linkTo(title.start)
+                top.linkTo(title.bottom, 8.dp)
+            }
+        )
+        
+        Button(
+            onClick = { },
+            modifier = Modifier.constrainAs(action) {
+                end.linkTo(parent.end)
+                top.linkTo(parent.top)
+            }
+        ) {
+            Text("Action")
+        }
+    }
+}
+        </code></pre></div>
+        <h4>2.3 缓存计算结果</h4>
+        <p>在列表项中避免重复计算。</p>
+        <div class="code-bad"><pre><code>
+        // ❌ 错误：每次重组都计算
+@Composable
+fun ItemRow(item: Item) {
+    val formattedPrice = formatPrice(item.price)  // 每次都计算
+    val displayName = item.name.uppercase()  // 每次都计算
+    
+    Row {
+        Text(formattedPrice)
+        Text(displayName)
+    }
+}
+
+// ✅ 正确：预先处理数据
+data class ProcessedItem(
+    val id: Long,
+    val formattedPrice: String,
+    val displayName: String,
+    // ... 其他字段
+)
+
+@Composable
+fun ItemList(items: List&lt;Item&gt;) {
+    val processedItems = remember(items) {
+        items.map { item -&gt;
+            ProcessedItem(
+                id = item.id,
+                formattedPrice = formatPrice(item.price),
+                displayName = item.name.uppercase(),
+                // ...
+            )
+        }
+    }
+    
+    LazyColumn {
+        items(processedItems) { item -&gt;
+            ItemRow(item)  // 直接使用处理后的数据
+        }
+    }
+}
+        </code></pre></div>
+        <h3 id="iii-图片加载优化">III. 图片加载优化</h3>
+        <p>图片是列表性能的关键瓶颈，需要特别优化。</p>
+        <h4>3.1 使用 Coil 或 Glide 进行异步加载</h4>
+        <div class="code-good"><pre><code>
+        // ✅ 使用 Coil 异步加载
+@Composable
+fun ItemRow(item: Item) {
+    Row {
+        AsyncImage(
+            model = ImageRequest.Builder(LocalContext.current)
+                .data(item.imageUrl)
+                .crossfade(true)
+                .placeholder(R.drawable.placeholder)
+                .error(R.drawable.error)
+                .build(),
+            contentDescription = null,
+            modifier = Modifier.size(64.dp),
+            contentScale = ContentScale.Crop
+        )
+        Text(item.title)
+    }
+}
+
+// ✅ 使用自定义 Modifier 优化
+@Composable
+fun OptimizedImage(
+    url: String,
+    modifier: Modifier = Modifier
+) {
+    AsyncImage(
+        model = ImageRequest.Builder(LocalContext.current)
+            .data(url)
+            .size(Size.ORIGINAL)
+            .memoryCachePolicy(CachePolicy.ENABLED)
+            .diskCachePolicy(CachePolicy.ENABLED)
+            .build(),
+        contentDescription = null,
+        modifier = modifier,
+        contentScale = ContentScale.Crop
+    )
+}
+        </code></pre></div>
+        <h4>3.2 图片尺寸优化</h4>
+        <p>加载合适尺寸的图片可以显著提升性能。</p>
+        <div class="code-good"><pre><code>
+        // ✅ 根据显示尺寸加载图片
+@Composable
+fun ItemRow(item: Item) {
+    val density = LocalDensity.current
+    val imageSize = with(density) { 64.dp.toPx().toInt() }
+    
+    AsyncImage(
+        model = ImageRequest.Builder(LocalContext.current)
+            .data(item.imageUrl)
+            .size(imageSize)  // 只加载需要的尺寸
+            .build(),
+        contentDescription = null,
+        modifier = Modifier.size(64.dp)
+    )
+}
+        </code></pre></div>
+        <h4>3.3 使用占位符和过渡动画</h4>
+        <div class="code-good"><pre><code>
+        // ✅ 使用占位符和过渡
+@Composable
+fun ItemRow(item: Item) {
+    var imageState by remember { mutableStateOf&lt;ImageLoadState&gt;(ImageLoadState.Loading) }
+    
+    Box {
+        when (imageState) {
+            is ImageLoadState.Loading -&gt; {
+                Box(
+                    modifier = Modifier
+                        .size(64.dp)
+                        .background(Color.Gray.copy(alpha = 0.3f))
+                ) {
+                    CircularProgressIndicator(modifier = Modifier.align(Alignment.Center))
+                }
+            }
+            is ImageLoadState.Success -&gt; {
+                AsyncImage(
+                    model = item.imageUrl,
+                    contentDescription = null,
+                    modifier = Modifier.size(64.dp)
+                )
+            }
+            is ImageLoadState.Error -&gt; {
+                Icon(
+                    imageVector = Icons.Default.Error,
+                    contentDescription = null,
+                    modifier = Modifier.size(64.dp)
+                )
+            }
+        }
+    }
+}
+        </code></pre></div>
+        <h3 id="iv-动态内容优化">IV. 动态内容优化</h3>
+        <p>动态内容的列表需要特别处理。</p>
+        <h4>4.1 使用 itemContentType 优化</h4>
+        <p><code>itemContentType</code> 可以帮助 Compose 更好地识别列表项类型。</p>
+        <div class="code-good"><pre><code>
+        // ✅ 使用 itemContentType
+@Composable
+fun ItemList(items: List&lt;Item&gt;) {
+    LazyColumn {
+        items(
+            items = items,
+            key = { it.id },
+            contentType = { it.type }  // 帮助 Compose 识别类型
+        ) { item -&gt;
+            when (item.type) {
+                ItemType.TEXT -&gt; TextItemRow(item)
+                ItemType.IMAGE -&gt; ImageItemRow(item)
+                ItemType.VIDEO -&gt; VideoItemRow(item)
+            }
+        }
+    }
+}
+        </code></pre></div>
+        <h4>4.2 处理动态高度</h4>
+        <div class="code-good"><pre><code>
+        // ✅ 处理动态高度内容
+@Composable
+fun DynamicHeightItemRow(item: Item) {
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .animateItemPlacement()  // 平滑过渡
+    ) {
+        Text(item.title)
+        if (item.isExpanded) {
+            Text(
+                text = item.content,
+                modifier = Modifier.animateContentSize()  // 高度动画
+            )
+        }
+    }
+}
+        </code></pre></div>
+        <h4>4.3 使用 itemKey 和 itemContentType 组合</h4>
+        <div class="code-good"><pre><code>
+        // ✅ 组合使用 key 和 contentType
+@Composable
+fun MixedItemList(items: List&lt;Item&gt;) {
+    LazyColumn {
+        items(
+            items = items,
+            key = { "${it.type}-${it.id}" },
+            contentType = { it.type }
+        ) { item -&gt;
+            when (item.type) {
+                ItemType.HEADER -&gt; HeaderRow(item)
+                ItemType.ITEM -&gt; ItemRow(item)
+                ItemType.FOOTER -&gt; FooterRow(item)
+            }
+        }
+    }
+}
+        </code></pre></div>
+        <h3 id="v-多类型列表优化">V. 多类型列表优化</h3>
+        <p>多类型列表是实际项目中的常见需求。</p>
+        <h4>5.1 使用 LazyListScope 构建多类型列表</h4>
+        <div class="code-good"><pre><code>
+        // ✅ 使用 LazyListScope 构建多类型列表
+@Composable
+fun MultiTypeList(
+    header: String,
+    items: List&lt;Item&gt;,
+    footer: String
+) {
+    LazyColumn {
+        // Header
+        item(key = "header") {
+            HeaderRow(text = header)
+        }
+        
+        // Items
+        items(
+            items = items,
+            key = { it.id }
+        ) { item -&gt;
+            ItemRow(item)
+        }
+        
+        // Footer
+        item(key = "footer") {
+            FooterRow(text = footer)
+        }
+    }
+}
+        </code></pre></div>
+        <h4>5.2 分组列表优化</h4>
+        <div class="code-good"><pre><code>
+        // ✅ 分组列表优化
+@Composable
+fun GroupedItemList(groups: List&lt;ItemGroup&gt;) {
+    LazyColumn {
+        groups.forEach { group -&gt;
+            // Group Header
+            item(key = "group-${group.id}") {
+                GroupHeaderRow(group.title)
+            }
+            
+            // Group Items
+            items(
+                items = group.items,
+                key = { "${group.id}-${it.id}" }
+            ) { item -&gt;
+                ItemRow(item)
+            }
+        }
+    }
+}
+        </code></pre></div>
+        <h4>5.3 使用 StickyHeader 优化分组列表</h4>
+        <div class="code-good"><pre><code>
+        // ✅ 使用 stickyHeader 实现粘性头部
+@Composable
+fun StickyGroupedList(groups: List&lt;ItemGroup&gt;) {
+    LazyColumn {
+        groups.forEach { group -&gt;
+            stickyHeader(key = "header-${group.id}") {
+                GroupHeaderRow(group.title)
+            }
+            
+            items(
+                items = group.items,
+                key = { "${group.id}-${it.id}" }
+            ) { item -&gt;
+                ItemRow(item)
+            }
+        }
+    }
+}
+        </code></pre></div>
+        <h3 id="vi-网格列表优化">VI. 网格列表优化</h3>
+        <p>网格列表需要特殊的优化技巧。</p>
+        <h4>6.1 使用 LazyVerticalGrid</h4>
+        <div class="code-good"><pre><code>
+        // ✅ 使用 LazyVerticalGrid
+@Composable
+fun GridItemList(items: List&lt;Item&gt;) {
+    LazyVerticalGrid(
+        columns = GridCells.Fixed(2),
+        contentPadding = PaddingValues(16.dp),
+        horizontalArrangement = Arrangement.spacedBy(16.dp),
+        verticalArrangement = Arrangement.spacedBy(16.dp)
+    ) {
+        items(
+            items = items,
+            key = { it.id }
+        ) { item -&gt;
+            GridItemCard(item)
+        }
+    }
+}
+
+// ✅ 响应式网格
+@Composable
+fun ResponsiveGridList(items: List&lt;Item&gt;) {
+    val configuration = LocalConfiguration.current
+    val screenWidth = configuration.screenWidthDp
+    
+    val columns = when {
+        screenWidth &gt; 1200 -&gt; 4
+        screenWidth &gt; 800 -&gt; 3
+        screenWidth &gt; 600 -&gt; 2
+        else -&gt; 1
+    }
+    
+    LazyVerticalGrid(
+        columns = GridCells.Fixed(columns),
+        contentPadding = PaddingValues(16.dp),
+        horizontalArrangement = Arrangement.spacedBy(16.dp),
+        verticalArrangement = Arrangement.spacedBy(16.dp)
+    ) {
+        items(items, key = { it.id }) { item -&gt;
+            GridItemCard(item)
+        }
+    }
+}
+        </code></pre></div>
+        <h4>6.2 网格项优化</h4>
+        <div class="code-good"><pre><code>
+        // ✅ 优化网格项布局
+@Composable
+fun GridItemCard(item: Item) {
+    Card(
+        modifier = Modifier
+            .fillMaxWidth()
+            .aspectRatio(0.75f)  // 固定宽高比
+    ) {
+        Column {
+            AsyncImage(
+                model = item.imageUrl,
+                contentDescription = null,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .weight(1f),
+                contentScale = ContentScale.Crop
+            )
+            Column(
+                modifier = Modifier.padding(8.dp)
+            ) {
+                Text(
+                    text = item.title,
+                    maxLines = 2,
+                    overflow = TextOverflow.Ellipsis
+                )
+                Text(
+                    text = item.price,
+                    style = MaterialTheme.typography.bodyMedium
+                )
+            }
+        }
+    }
+}
+        </code></pre></div>
+        <h3 id="vii-嵌套列表优化">VII. 嵌套列表优化</h3>
+        <p>嵌套列表需要特别注意性能。</p>
+        <h4>7.1 避免深层嵌套 LazyColumn</h4>
+        <div class="code-bad"><pre><code>
+        // ❌ 错误：深层嵌套 LazyColumn
+@Composable
+fun NestedListProblem() {
+    LazyColumn {
+        items(10) { section -&gt;
+            LazyColumn {  // 嵌套的 LazyColumn
+                items(100) { item -&gt;
+                    ItemRow(item)
+                }
+            }
+        }
+    }
+}
+
+// ✅ 正确：扁平化列表
+@Composable
+fun FlattenedList(sections: List&lt;Section&gt;) {
+    LazyColumn {
+        sections.forEach { section -&gt;
+            item(key = "section-${section.id}") {
+                SectionHeader(section.title)
+            }
+            items(
+                items = section.items,
+                key = { "${section.id}-${it.id}" }
+            ) { item -&gt;
+                ItemRow(item)
+            }
+        }
+    }
+}
+        </code></pre></div>
+        <h4>7.2 使用 LazyRow 嵌套</h4>
+        <div class="code-good"><pre><code>
+        // ✅ 水平滚动的嵌套列表
+@Composable
+fun HorizontalNestedList(sections: List&lt;Section&gt;) {
+    LazyColumn {
+        items(sections, key = { it.id }) { section -&gt;
+            Column {
+                Text(
+                    text = section.title,
+                    style = MaterialTheme.typography.h6
+                )
+                LazyRow(
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    items(
+                        items = section.items,
+                        key = { it.id }
+                    ) { item -&gt;
+                        HorizontalItemCard(item)
+                    }
+                }
+            }
+        }
+    }
+}
+        </code></pre></div>
+        <h3 id="viii-高级优化技巧">VIII. 高级优化技巧</h3>
+        <h4>8.1 使用 rememberLazyListState 优化滚动</h4>
+        <div class="code-good"><pre><code>
+        // ✅ 使用 rememberLazyListState 优化滚动
+@Composable
+fun OptimizedScrollableList(items: List&lt;Item&gt;) {
+    val listState = rememberLazyListState()
+    
+    // 只在可见项变化时更新
+    val visibleItems = remember {
+        derivedStateOf {
+            val layoutInfo = listState.layoutInfo
+            layoutInfo.visibleItemsInfo.map { it.index }
+        }
+    }
+    
+    LazyColumn(
+        state = listState,
+        items = items,
+        key = { it.id }
+    ) { item -&gt;
+        ItemRow(item)
+    }
+}
+        </code></pre></div>
+        <h4>8.2 预加载优化</h4>
+        <div class="code-good"><pre><code>
+        // ✅ 预加载优化
+@Composable
+fun PreloadList(items: List&lt;Item&gt;) {
+    val listState = rememberLazyListState()
+    
+    LaunchedEffect(listState) {
+        snapshotFlow { listState.layoutInfo.visibleItemsInfo }
+            .collect { visibleItems -&gt;
+                val lastVisibleIndex = visibleItems.lastOrNull()?.index ?: 0
+                // 预加载接下来的 5 项
+                if (lastVisibleIndex &gt;= items.size - 5) {
+                    // 触发加载更多
+                }
+            }
+    }
+    
+    LazyColumn(state = listState) {
+        items(items, key = { it.id }) { item -&gt;
+            ItemRow(item)
+        }
+    }
+}
+        </code></pre></div>
+        <h4>8.3 使用 derivedStateOf 优化派生状态</h4>
+        <div class="code-good"><pre><code>
+        // ✅ 使用 derivedStateOf 优化派生状态
+@Composable
+fun FilteredList(allItems: List&lt;Item&gt;, filter: String) {
+    val filteredItems by remember(allItems, filter) {
+        derivedStateOf {
+            allItems.filter { it.title.contains(filter, ignoreCase = true) }
+        }
+    }
+    
+    LazyColumn {
+        items(filteredItems, key = { it.id }) { item -&gt;
+            ItemRow(item)
+        }
+    }
+}
+        </code></pre></div>
+        <h4>8.4 使用 Modifier.onSizeChanged 优化</h4>
+        <div class="code-good"><pre><code>
+        // ✅ 使用 onSizeChanged 优化布局
+@Composable
+fun ResponsiveItemRow(item: Item) {
+    var itemWidth by remember { mutableIntStateOf(0) }
+    
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .onSizeChanged { size -&gt;
+                itemWidth = size.width
+            }
+    ) {
+        if (itemWidth &gt; 600) {
+            // 宽屏布局
+            WideLayout(item)
+        } else {
+            // 窄屏布局
+            NarrowLayout(item)
+        }
+    }
+}
+        </code></pre></div>
+        <h4>8.5 性能监控</h4>
+        <div class="code-good"><pre><code>
+        // ✅ 性能监控
+@Composable
+fun MonitoredItemList(items: List&lt;Item&gt;) {
+    val listState = rememberLazyListState()
+    
+    LaunchedEffect(listState) {
+        snapshotFlow { listState.layoutInfo }
+            .collect { layoutInfo -&gt;
+                val averageItemSize = layoutInfo.visibleItemsInfo
+                    .map { it.size }
+                    .average()
+                
+                Log.d("ListPerformance", "Average item size: $averageItemSize")
+                Log.d("ListPerformance", "Visible items: ${layoutInfo.visibleItemsInfo.size}")
+            }
+    }
+    
+    LazyColumn(state = listState) {
+        items(items, key = { it.id }) { item -&gt;
+            ItemRow(item)
+        }
+    }
+}
+        </code></pre></div>
+        <h3 id="总结">总结</h3>
+        <p>复杂列表优化的核心原则：</p>
+        <ul>
+        <li>✅ <strong>正确使用 key</strong>：确保列表项身份识别</li>
+        <li>✅ <strong>状态提升</strong>：避免在列表项中创建状态</li>
+        <li>✅ <strong>预计算数据</strong>：在列表外处理数据</li>
+        <li>✅ <strong>图片优化</strong>：使用异步加载和缓存</li>
+        <li>✅ <strong>布局优化</strong>：避免深层嵌套，使用 ConstraintLayout</li>
+        <li>✅ <strong>类型识别</strong>：使用 itemContentType 帮助 Compose</li>
+        <li>✅ <strong>避免嵌套</strong>：扁平化列表结构</li>
+        <li>✅ <strong>性能监控</strong>：使用工具监控性能</li>
+        </ul>
+        <p>掌握这些技巧，可以构建流畅、高效的复杂列表界面。</p>
+        <p>---</p>
+        <h3 id="推荐阅读">推荐阅读</h3>
+        <ul>
+        <li><a href="https://developer.android.com/jetpack/compose/lists" target="_blank">Lists in Compose - Android Developers</a></li>
+        <li><a href="https://developer.android.com/jetpack/compose/performance" target="_blank">Performance best practices - Android Developers</a></li>
+        <li><a href="https://developer.android.com/jetpack/compose/lists#lazy" target="_blank">LazyColumn and LazyRow - Android Developers</a></li>
+        </ul>
+        <div class="reference">
+            <div class="reference-title">📚 官方参考</div>
+            <a href="https://developer.android.com/jetpack/compose/lists" target="_blank">Lists in Compose - Android Developers</a><br>
+            <a href="https://developer.android.com/jetpack/compose/performance" target="_blank">Performance best practices - Android Developers</a><br>
+            <a href="https://developer.android.com/jetpack/compose/lists#lazy" target="_blank">LazyColumn and LazyRow - Android Developers</a>
+        </div>
+    </article>
+
+    <footer class="footer">
+        <p>&copy; 2024 Fidroid. <a href="../index.html">返回首页</a></p>
+    </footer>
+</body>
+</html>
