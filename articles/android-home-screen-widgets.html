@@ -1,0 +1,961 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Android 桌面小部件开发完全指南：从传统到 Compose - Fidroid</title>
+    <meta name="description" content="全面介绍 Android 桌面小部件开发，从传统 RemoteViews 到现代 Glance (Compose) 方式，涵盖各版本特性演进。">
+    <style>
+
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; line-height: 1.8; color: #e5e7eb; background: #020617; }
+        .navbar { background: rgba(15,23,42,0.98); backdrop-filter: blur(10px); position: fixed; top: 0; width: 100%; z-index: 1000; }
+        .nav-container { max-width: 900px; margin: 0 auto; padding: 1rem 20px; display: flex; justify-content: space-between; align-items: center; }
+        .logo { font-size: 1.5rem; font-weight: bold; color: #38bdf8; text-decoration: none; letter-spacing: 0.08em; text-transform: uppercase; }
+        .back-link { color: #9ca3af; text-decoration: none; font-size: 0.9rem; }
+        .back-link:hover { color: #38bdf8; }
+        .article-header { padding: 120px 20px 60px; background: radial-gradient(circle at top left, #dc2626 0, transparent 50%), radial-gradient(circle at bottom right, #7c3aed 0, transparent 55%), #020617; text-align: center; }
+        .article-header h1 { max-width: 800px; margin: 0 auto 1rem; font-size: 2.5rem; font-weight: 800; letter-spacing: -0.03em; color: #fff; }
+        .article-meta { color: #9ca3af; font-size: 0.9rem; margin-bottom: 1.5rem; }
+        .article-tags { display: flex; justify-content: center; flex-wrap: wrap; gap: 0.5rem; }
+        .article-tag { padding: 0.25rem 0.75rem; border-radius: 999px; font-size: 0.75rem; background: rgba(15,23,42,0.85); border: 1px solid rgba(220,38,38,0.4); color: #f87171; }
+        .article-content { max-width: 800px; margin: 0 auto; padding: 60px 20px 80px; }
+        .article-content h2 { font-size: 1.6rem; margin: 2.5rem 0 1rem; color: #f9fafb; border-left: 4px solid #dc2626; padding-left: 1rem; }
+        .article-content h3 { font-size: 1.25rem; margin: 2rem 0 0.75rem; color: #e5e7eb; }
+        .article-content p { margin-bottom: 1.25rem; color: #d1d5db; }
+        .article-content ul, .article-content ol { margin: 1rem 0 1.5rem 1.5rem; color: #d1d5db; }
+        .article-content li { margin-bottom: 0.5rem; }
+        .article-content strong { color: #f9fafb; }
+        pre { background: #0f172a; border: 1px solid rgba(220,38,38,0.3); border-radius: 12px; padding: 1.25rem; overflow-x: auto; margin: 1.5rem 0; font-size: 0.85rem; line-height: 1.6; }
+        code { font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace; color: #e5e7eb; }
+        .code-keyword { color: #c084fc; }
+        .code-func { color: #38bdf8; }
+        .code-type { color: #4ade80; }
+        .code-string { color: #fb7185; }
+        .code-comment { color: #6b7280; font-style: italic; }
+        .footer { background: #020617; border-top: 1px solid #111827; padding: 2rem; text-align: center; color: #6b7280; }
+        .footer a { color: #38bdf8; text-decoration: none; }
+    
+        .toc {
+            background: rgba(15,23,42,0.6);
+            border: 1px solid rgba(220,38,38,0.3);
+            border-radius: 12px;
+            padding: 1.5rem;
+            margin: 2rem 0 3rem;
+        }
+        .toc-title {
+            font-size: 1.1rem;
+            font-weight: 600;
+            color: #f87171;
+            margin-bottom: 1rem;
+        }
+        .toc-list {
+            list-style: none;
+            margin: 0;
+            padding: 0;
+        }
+        .toc-list li {
+            margin: 0.5rem 0;
+        }
+        .toc-list a {
+            color: #d1d5db;
+            text-decoration: none;
+        }
+        .toc-list a:hover {
+            color: #38bdf8;
+        }
+        .comparison-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 1.5rem 0;
+            background: #0f172a;
+            border-radius: 12px;
+            overflow: hidden;
+        }
+        .comparison-table th,
+        .comparison-table td {
+            padding: 1rem;
+            text-align: left;
+            border-bottom: 1px solid rgba(220,38,38,0.2);
+        }
+        .comparison-table th {
+            background: rgba(220,38,38,0.2);
+            color: #f87171;
+            font-weight: 600;
+        }
+        .comparison-table tr:last-child td {
+            border-bottom: none;
+        }
+        .code-bad {
+            background: rgba(220,38,38,0.1);
+            border-left: 3px solid #ef4444;
+            padding: 1rem;
+            margin: 1rem 0;
+        }
+        .code-good {
+            background: rgba(34,197,94,0.1);
+            border-left: 3px solid #22c55e;
+            padding: 1rem;
+            margin: 1rem 0;
+        }
+        .reference {
+            background: rgba(15,23,42,0.6);
+            border: 1px solid rgba(148,163,184,0.2);
+            border-radius: 8px;
+            padding: 1rem 1.25rem;
+            margin: 1rem 0;
+            font-size: 0.9rem;
+        }
+        .reference-title {
+            font-weight: 600;
+            color: #94a3b8;
+            font-size: 0.75rem;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            margin-bottom: 0.5rem;
+        }
+        .reference a { color: #38bdf8; }
+    </style>
+</head>
+<body>
+    <nav class="navbar">
+        <div class="nav-container">
+            <a href="../index.html" class="logo">Fidroid</a>
+            <a href="../index.html#blog" class="back-link">← 返回博客列表</a>
+        </div>
+    </nav>
+
+    <header class="article-header">
+        <h1>Android 桌面小部件开发完全指南</h1>
+        <p class="article-meta">2024-12-23 · 50-60 min · 桌面小部件</p>
+        <div class="article-tags">
+            <span class="article-tag">Widgets</span>
+            <span class="article-tag">Glance</span>
+            <span class="article-tag">RemoteViews</span>
+            <span class="article-tag">Compose</span>
+        </div>
+    </header>
+
+    <article class="article-content">
+        <nav class="toc">
+            <div class="toc-title">📚 目录</div>
+            <ul class="toc-list">
+                <li><a href="#i-桌面小部件基础概念">I. 桌面小部件基础概念</a></li>
+                <li><a href="#ii-android-版本演进历史">II. Android 版本演进历史</a></li>
+                <li><a href="#iii-传统方式remoteviews--xml">III. 传统方式：RemoteViews + XML</a></li>
+                <li><a href="#iv-现代方式jetpack-glance-compose">IV. 现代方式：Jetpack Glance (Compose)</a></li>
+                <li><a href="#v-状态管理与数据更新">V. 状态管理与数据更新</a></li>
+                <li><a href="#vi-交互与响应">VI. 交互与响应</a></li>
+                <li><a href="#vii-性能优化与最佳实践">VII. 性能优化与最佳实践</a></li>
+                <li><a href="#viii-高级特性">VIII. 高级特性</a></li>
+            </ul>
+        </nav>
+<p>桌面小部件 (Home Screen Widgets) 是 Android 用户体验的重要组成部分，让用户无需打开应用即可查看关键信息。从 Android 1.5 引入至今，桌面小部件经历了多次重大更新。本文将全面介绍桌面小部件的开发，从传统的 XML/RemoteViews 方式到现代的 Jetpack Glance (Compose) 方式，以及各个 Android 版本的特性演进。</p>
+        <h3 id="-官方参考">📚 官方参考</h3>
+        <ul>
+        <li><a href="https://developer.android.com/develop/ui/views/appwidgets/overview" target="_blank">App Widgets Overview - Android Developers</a></li>
+        <li><a href="https://developer.android.com/jetpack/androidx/releases/glance" target="_blank">Jetpack Glance - Android Developers</a></li>
+        <li><a href="https://developer.android.com/develop/ui/views/appwidgets" target="_blank">Build an App Widget - Android Developers</a></li>
+        </ul>
+        <h3 id="目录">目录</h3>
+        <ul>
+        <li><a href="#i-桌面小部件基础概念" target="_blank">I. 桌面小部件基础概念</a></li>
+        <li><a href="#ii-android-版本演进历史" target="_blank">II. Android 版本演进历史</a></li>
+        <li><a href="#iii-传统方式remoteviews--xml" target="_blank">III. 传统方式：RemoteViews + XML</a></li>
+        <li><a href="#iv-现代方式jetpack-glance-compose" target="_blank">IV. 现代方式：Jetpack Glance (Compose)</a></li>
+        <li><a href="#v-状态管理与数据更新" target="_blank">V. 状态管理与数据更新</a></li>
+        <li><a href="#vi-交互与响应" target="_blank">VI. 交互与响应</a></li>
+        <li><a href="#vii-性能优化与最佳实践" target="_blank">VII. 性能优化与最佳实践</a></li>
+        <li><a href="#viii-高级特性" target="_blank">VIII. 高级特性</a></li>
+        </ul>
+        <h3 id="i-桌面小部件基础概念">I. 桌面小部件基础概念</h3>
+        <h4>1.1 什么是桌面小部件？</h4>
+        <p>桌面小部件是显示在设备主屏幕上的迷你应用视图，它们提供：</p>
+        <ul>
+        <li><strong>一目了然的信息</strong>：天气、日历、股票等</li>
+        <li><strong>快速操作</strong>：播放控制、便签、倒计时等</li>
+        <li><strong>实时更新</strong>：无需打开应用即可查看最新信息</li>
+        </ul>
+        <h4>1.2 核心组件</h4>
+        <p>一个完整的桌面小部件包含以下部分：</p>
+        <ol>
+        <li><strong>AppWidgetProvider</strong>：继承自 <code>BroadcastReceiver</code>，处理小部件的生命周期事件</li>
+        <li><strong>AppWidgetProviderInfo</strong>：XML 配置文件，定义小部件的元数据（尺寸、更新频率等）</li>
+        <li><strong>Layout (RemoteViews 或 Glance)</strong>：小部件的视图层</li>
+        <li><strong>AppWidgetManager</strong>：系统服务，负责管理所有小部件</li>
+        </ol>
+        <h4>1.3 生命周期</h4>
+        <pre><code>
+        用户添加小部件
+    ↓
+onEnabled() - 首次添加时调用一次
+    ↓
+onUpdate() - 每次更新时调用
+    ↓
+onAppWidgetOptionsChanged() - 尺寸改变时调用
+    ↓
+onDeleted() - 用户删除小部件
+    ↓
+onDisabled() - 最后一个小部件被删除时调用
+        </code></pre>
+        <h3 id="ii-android-版本演进历史">II. Android 版本演进历史</h3>
+        <h4>2.1 各版本重要特性</h4>
+        <table class="comparison-table"><thead>
+        <tr><th>Android 版本</th><th>API Level</th><th>重要特性</th></tr>
+        <tr><td><strong>Android 1.5 (Cupcake)</strong></td><td>3</td><td>首次引入桌面小部件</td></tr>
+        <tr><td><strong>Android 3.0 (Honeycomb)</strong></td><td>11</td><td>引入可调整大小的小部件</td></tr>
+        <tr><td><strong>Android 3.1</strong></td><td>12</td><td>引入 ListView/GridView 小部件（集合视图）</td></tr>
+        <tr><td><strong>Android 4.1 (Jelly Bean)</strong></td><td>16</td><td>自动调整大小以适应屏幕</td></tr>
+        <tr><td><strong>Android 4.2</strong></td><td>17</td><td>锁屏小部件（已在 Android 5.0 移除）</td></tr>
+        <tr><td><strong>Android 8.0 (Oreo)</strong></td><td>26</td><td>可固定的快捷方式和小部件</td></tr>
+        <tr><td><strong>Android 12</strong></td><td>31</td><td>改进的小部件选择器，圆角和边距支持</td></tr>
+        <tr><td><strong>Android 12L</strong></td><td>32</td><td>动态颜色主题支持</td></tr>
+        <tr><td><strong>Android 13</strong></td><td>33</td><td>改进的小部件配置流程</td></tr>
+        <h4>2.2 Android 12+ 的重大变化</h4>
+        <p>Android 12 引入了全新的小部件系统，主要变化包括：</p>
+        <ol>
+        <li><strong>动态颜色 (Dynamic Colors)</strong>：小部件可以自动适应系统壁纸配色</li>
+        <li><strong>圆角和边距</strong>：系统自动添加，无需手动处理</li>
+        <li><strong>改进的选择器</strong>：更美观的小部件预览和添加流程</li>
+        <li><strong>更灵活的尺寸</strong>：<code>targetCellWidth</code>/<code>targetCellHeight</code> 替代固定尺寸</li>
+        </ol>
+        <pre><code>
+        &lt;!-- Android 12+ 推荐的尺寸定义 --&gt;
+&lt;appwidget-provider
+    android:targetCellWidth="3"
+    android:targetCellHeight="2"
+    android:maxResizeWidth="180dp"
+    android:maxResizeHeight="110dp" /&gt;
+        </code></pre>
+        <h3 id="iii-传统方式remoteviews-xml">III. 传统方式：RemoteViews + XML</h3>
+        <p>传统方式是 Android 最初设计的小部件开发模式，直到现在仍然被广泛使用。</p>
+        <h4>3.1 创建 AppWidgetProvider</h4>
+        <p>这是小部件的核心逻辑类。</p>
+        <pre><code>
+        class WeatherWidgetProvider : AppWidgetProvider() {
+    
+    override fun onUpdate(
+        context: Context,
+        appWidgetManager: AppWidgetManager,
+        appWidgetIds: IntArray
+    ) {
+        // 遍历所有小部件实例
+        for (appWidgetId in appWidgetIds) {
+            updateAppWidget(context, appWidgetManager, appWidgetId)
+        }
+    }
+    
+    override fun onEnabled(context: Context) {
+        // 第一个小部件被添加时调用
+        // 启动后台服务、注册监听器等
+    }
+    
+    override fun onDisabled(context: Context) {
+        // 最后一个小部件被删除时调用
+        // 清理资源、取消注册等
+    }
+    
+    private fun updateAppWidget(
+        context: Context,
+        appWidgetManager: AppWidgetManager,
+        appWidgetId: Int
+    ) {
+        // 创建 RemoteViews
+        val views = RemoteViews(context.packageName, R.layout.widget_weather)
+        
+        // 更新数据
+        views.setTextViewText(R.id.widget_temperature, "25°C")
+        views.setTextViewText(R.id.widget_city, "Beijing")
+        views.setImageViewResource(R.id.widget_icon, R.drawable.ic_sunny)
+        
+        // 添加点击事件
+        val intent = Intent(context, MainActivity::class.java)
+        val pendingIntent = PendingIntent.getActivity(
+            context,
+            0,
+            intent,
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+        )
+        views.setOnClickPendingIntent(R.id.widget_container, pendingIntent)
+        
+        // 更新小部件
+        appWidgetManager.updateAppWidget(appWidgetId, views)
+    }
+}
+        </code></pre>
+        <h4>3.2 定义布局 (RemoteViews 限制)</h4>
+        <p>RemoteViews 只支持以下布局和视图：</p>
+        <p><strong>支持的布局：</strong></p>
+        <ul>
+        <li><code>FrameLayout</code></li>
+        <li><code>LinearLayout</code></li>
+        <li><code>RelativeLayout</code></li>
+        <li><code>GridLayout</code></li>
+        </ul>
+        <p><strong>支持的视图：</strong></p>
+        <ul>
+        <li><code>TextView</code></li>
+        <li><code>ImageView</code></li>
+        <li><code>Button</code></li>
+        <li><code>ProgressBar</code></li>
+        <li><code>Chronometer</code></li>
+        <li><code>ListView</code></li>
+        <li><code>GridView</code></li>
+        <li><code>StackView</code></li>
+        <li><code>ViewFlipper</code></li>
+        </ul>
+        <pre><code>
+        &lt;!-- res/layout/widget_weather.xml --&gt;
+&lt;LinearLayout
+    xmlns:android="http://schemas.android.com/apk/res/android"
+    android:id="@+id/widget_container"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:orientation="vertical"
+    android:padding="16dp"
+    android:background="@drawable/widget_background"&gt;
+
+    &lt;TextView
+        android:id="@+id/widget_city"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:textSize="16sp"
+        android:textColor="@android:color/white"
+        android:text="City" /&gt;
+
+    &lt;LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal"
+        android:gravity="center_vertical"&gt;
+
+        &lt;ImageView
+            android:id="@+id/widget_icon"
+            android:layout_width="48dp"
+            android:layout_height="48dp"
+            android:src="@drawable/ic_sunny" /&gt;
+
+        &lt;TextView
+            android:id="@+id/widget_temperature"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:textSize="32sp"
+            android:textColor="@android:color/white"
+            android:layout_marginStart="8dp"
+            android:text="25°C" /&gt;
+    &lt;/LinearLayout&gt;
+&lt;/LinearLayout&gt;
+        </code></pre>
+        <h4>3.3 配置 AppWidgetProviderInfo</h4>
+        <p>在 <code>res/xml/weather_widget_info.xml</code> 中定义元数据。</p>
+        <pre><code>
+        &lt;?xml version="1.0" encoding="utf-8"?&gt;
+&lt;appwidget-provider
+    xmlns:android="http://schemas.android.com/apk/res/android"
+    android:minWidth="180dp"
+    android:minHeight="110dp"
+    android:targetCellWidth="3"
+    android:targetCellHeight="2"
+    android:updatePeriodMillis="1800000"
+    android:initialLayout="@layout/widget_weather"
+    android:previewImage="@drawable/widget_preview"
+    android:resizeMode="horizontal|vertical"
+    android:widgetCategory="home_screen"
+    android:description="@string/widget_description"
+    android:previewLayout="@layout/widget_weather" /&gt;
+        </code></pre>
+        <p><strong>关键属性说明：</strong></p>
+        <ul>
+        <li><code>minWidth</code>/<code>minHeight</code>：最小尺寸（Android 12 前）</li>
+        <li><code>targetCellWidth</code>/<code>targetCellHeight</code>：目标单元格数量（Android 12+）</li>
+        <li><code>updatePeriodMillis</code>：自动更新间隔（最小 30 分钟）</li>
+        <li><code>resizeMode</code>：可调整大小的方向</li>
+        <li><code>widgetCategory</code>：小部件类型（<code>home_screen</code> 或 <code>keyguard</code>）</li>
+        </ul>
+        <h4>3.4 注册到 AndroidManifest.xml</h4>
+        <pre><code>
+        &lt;receiver
+    android:name=".WeatherWidgetProvider"
+    android:exported="true"&gt;
+    &lt;intent-filter&gt;
+        &lt;action android:name="android.appwidget.action.APPWIDGET_UPDATE" /&gt;
+    &lt;/intent-filter&gt;
+    &lt;meta-data
+        android:name="android.appwidget.provider"
+        android:resource="@xml/weather_widget_info" /&gt;
+&lt;/receiver&gt;
+        </code></pre>
+        <h3 id="iv-现代方式jetpack-glance-compose">IV. 现代方式：Jetpack Glance (Compose)</h3>
+        <p>Jetpack Glance 允许使用 Compose 风格的代码构建小部件，大大简化了开发流程。</p>
+        <h4>4.1 添加依赖</h4>
+        <pre><code>
+        // build.gradle.kts
+dependencies {
+    implementation("androidx.glance:glance-appwidget:1.1.0")
+    implementation("androidx.glance:glance-material3:1.1.0")
+}
+        </code></pre>
+        <h4>4.2 创建 GlanceAppWidget</h4>
+        <p>Glance 的核心是 <code>GlanceAppWidget</code> 类。</p>
+        <pre><code>
+        import androidx.compose.runtime.*
+import androidx.glance.*
+import androidx.glance.appwidget.*
+import androidx.glance.layout.*
+import androidx.glance.text.*
+import androidx.glance.action.*
+import androidx.glance.unit.ColorProvider
+
+class WeatherGlanceWidget : GlanceAppWidget() {
+
+    override suspend fun provideGlance(context: Context, id: GlanceId) {
+        // 加载数据（可以从 Repository/DataStore 获取）
+        val weatherData = loadWeatherData(context)
+        
+        // 提供内容
+        provideContent {
+            WeatherWidgetContent(weatherData)
+        }
+    }
+
+    @Composable
+    private fun WeatherWidgetContent(data: WeatherData) {
+        // 使用 Glance Composable
+        Column(
+            modifier = GlanceModifier
+                .fillMaxSize()
+                .background(ImageProvider(R.drawable.widget_background))
+                .padding(16.dp),
+            verticalAlignment = Alignment.Vertical.Top,
+            horizontalAlignment = Alignment.Horizontal.Start
+        ) {
+            // 城市名
+            Text(
+                text = data.city,
+                style = TextStyle(
+                    color = ColorProvider(Color.White),
+                    fontSize = 16.sp
+                )
+            )
+
+            Spacer(modifier = GlanceModifier.height(8.dp))
+
+            // 温度和图标
+            Row(
+                verticalAlignment = Alignment.Vertical.CenterVertically
+            ) {
+                Image(
+                    provider = ImageProvider(data.iconRes),
+                    contentDescription = "Weather Icon",
+                    modifier = GlanceModifier.size(48.dp)
+                )
+
+                Spacer(modifier = GlanceModifier.width(8.dp))
+
+                Text(
+                    text = "${data.temperature}°C",
+                    style = TextStyle(
+                        color = ColorProvider(Color.White),
+                        fontSize = 32.sp,
+                        fontWeight = FontWeight.Bold
+                    )
+                )
+            }
+
+            Spacer(modifier = GlanceModifier.height(8.dp))
+
+            // 刷新按钮
+            Button(
+                text = "Refresh",
+                onClick = actionRunCallback&lt;RefreshWeatherCallback&gt;(),
+                colors = ButtonDefaults.buttonColors(
+                    backgroundColor = ColorProvider(Color.White.copy(alpha = 0.2f))
+                )
+            )
+        }
+    }
+
+    private suspend fun loadWeatherData(context: Context): WeatherData {
+        // 从 DataStore/Repository 加载数据
+        return WeatherData("Beijing", 25, R.drawable.ic_sunny)
+    }
+}
+
+data class WeatherData(
+    val city: String,
+    val temperature: Int,
+    val iconRes: Int
+)
+        </code></pre>
+        <h4>4.3 创建 GlanceAppWidgetReceiver</h4>
+        <p>这是 Glance 版本的 Receiver。</p>
+        <pre><code>
+        class WeatherGlanceWidgetReceiver : GlanceAppWidgetReceiver() {
+    override val glanceAppWidget: GlanceAppWidget = WeatherGlanceWidget()
+}
+        </code></pre>
+        <h4>4.4 配置和注册</h4>
+        <p>配置文件和注册方式与传统方式相同。</p>
+        <pre><code>
+        &lt;!-- res/xml/weather_glance_widget_info.xml --&gt;
+&lt;appwidget-provider
+    xmlns:android="http://schemas.android.com/apk/res/android"
+    android:targetCellWidth="3"
+    android:targetCellHeight="2"
+    android:updatePeriodMillis="1800000"
+    android:resizeMode="horizontal|vertical"
+    android:widgetCategory="home_screen"
+    android:description="@string/widget_description"
+    android:previewLayout="@layout/widget_preview" /&gt;
+        </code></pre>
+        <pre><code>
+        &lt;!-- AndroidManifest.xml --&gt;
+&lt;receiver
+    android:name=".WeatherGlanceWidgetReceiver"
+    android:exported="true"&gt;
+    &lt;intent-filter&gt;
+        &lt;action android:name="android.appwidget.action.APPWIDGET_UPDATE" /&gt;
+    &lt;/intent-filter&gt;
+    &lt;meta-data
+        android:name="android.appwidget.provider"
+        android:resource="@xml/weather_glance_widget_info" /&gt;
+&lt;/receiver&gt;
+        </code></pre>
+        <h4>4.5 Glance vs 标准 Compose 对比</h4>
+        <tr><th>特性</th><th>标准 Compose</th><th>Glance Compose</th></tr>
+        <tr><td><strong>导入包</strong></td><td><code>androidx.compose.ui.*</code></td><td><code>androidx.glance.*</code></td></tr>
+        <tr><td><strong>Modifier</strong></td><td><code>Modifier</code></td><td><code>GlanceModifier</code></td></tr>
+        <tr><td><strong>状态管理</strong></td><td><code>mutableStateOf</code>, <code>remember</code></td><td>不支持实时状态，需用 DataStore</td></tr>
+        <tr><td><strong>布局组件</strong></td><td><code>Box</code>, <code>Row</code>, <code>Column</code> 等</td><td><code>Box</code>, <code>Row</code>, <code>Column</code>（Glance 版）</td></tr>
+        <tr><td><strong>点击事件</strong></td><td><code>onClick = { }</code></td><td><code>onClick = actionRunCallback<>()</code></td></tr>
+        <tr><td><strong>Canvas 绘图</strong></td><td>支持</td><td>不支持</td></tr>
+        <tr><td><strong>动画</strong></td><td>完整支持</td><td>非常有限</td></tr>
+        <h3 id="v-状态管理与数据更新">V. 状态管理与数据更新</h3>
+        <h4>5.1 使用 DataStore 持久化状态</h4>
+        <p>Glance 推荐使用 DataStore 来管理小部件状态。</p>
+        <pre><code>
+        // 定义状态
+data class WeatherWidgetState(
+    val city: String = "Unknown",
+    val temperature: Int = 0,
+    val lastUpdate: Long = 0
+)
+
+// 定义 StateDefinition
+object WeatherStateDefinition : GlanceStateDefinition&lt;WeatherWidgetState&gt; {
+    
+    private const val DATA_STORE_FILE = "weather_widget_state"
+    
+    override suspend fun getDataStore(
+        context: Context,
+        fileKey: String
+    ): DataStore&lt;WeatherWidgetState&gt; {
+        return context.dataStore
+    }
+    
+    override fun getLocation(context: Context, fileKey: String): File {
+        return context.dataStoreFile(DATA_STORE_FILE)
+    }
+    
+    private val Context.dataStore by preferencesDataStore(name = DATA_STORE_FILE)
+}
+
+// 在 GlanceAppWidget 中使用
+class WeatherGlanceWidget : GlanceAppWidget() {
+    
+    override val stateDefinition = WeatherStateDefinition
+    
+    override suspend fun provideGlance(context: Context, id: GlanceId) {
+        provideContent {
+            val state = currentState&lt;WeatherWidgetState&gt;()
+            WeatherWidgetContent(state)
+        }
+    }
+}
+        </code></pre>
+        <h4>5.2 手动触发更新</h4>
+        <pre><code>
+        // 在 Activity 或 Service 中更新小部件
+class UpdateWeatherService : Service() {
+    
+    override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
+        lifecycleScope.launch {
+            val weatherData = fetchWeatherFromApi()
+            
+            // 更新 Glance 小部件
+            WeatherGlanceWidget().updateAll(this@UpdateWeatherService)
+        }
+        return START_NOT_STICKY
+    }
+}
+        </code></pre>
+        <h4>5.3 定期更新策略</h4>
+        <p>由于 <code>updatePeriodMillis</code> 最小为 30 分钟，如果需要更频繁的更新：</p>
+        <p><strong>方式 1：使用 WorkManager</strong></p>
+        <pre><code>
+        val updateRequest = PeriodicWorkRequestBuilder&lt;WeatherUpdateWorker&gt;(
+    15, TimeUnit.MINUTES
+).build()
+
+WorkManager.getInstance(context).enqueueUniquePeriodicWork(
+    "WeatherWidgetUpdate",
+    ExistingPeriodicWorkPolicy.KEEP,
+    updateRequest
+)
+        </code></pre>
+        <p><strong>方式 2：使用 AlarmManager（精确时间）</strong></p>
+        <pre><code>
+        val alarmManager = context.getSystemService&lt;AlarmManager&gt;()
+val intent = Intent(context, WeatherWidgetReceiver::class.java).apply {
+    action = ACTION_UPDATE_WIDGET
+}
+val pendingIntent = PendingIntent.getBroadcast(
+    context, 0, intent, PendingIntent.FLAG_IMMUTABLE
+)
+
+alarmManager?.setRepeating(
+    AlarmManager.RTC,
+    System.currentTimeMillis(),
+    AlarmManager.INTERVAL_FIFTEEN_MINUTES,
+    pendingIntent
+)
+        </code></pre>
+        <h3 id="vi-交互与响应">VI. 交互与响应</h3>
+        <h4>6.1 Glance 中的点击事件</h4>
+        <p>Glance 提供了多种 Action 类型：</p>
+        <pre><code>
+        @Composable
+fun InteractiveWidget() {
+    Column {
+        // 1. 启动 Activity
+        Button(
+            text = "Open App",
+            onClick = actionStartActivity&lt;MainActivity&gt;()
+        )
+        
+        // 2. 运行 Callback（后台任务）
+        Button(
+            text = "Refresh",
+            onClick = actionRunCallback&lt;RefreshCallback&gt;()
+        )
+        
+        // 3. 发送广播
+        Button(
+            text = "Broadcast",
+            onClick = actionSendBroadcast(Intent("com.example.ACTION"))
+        )
+        
+        // 4. 启动 Service
+        Button(
+            text = "Start Service",
+            onClick = actionStartService&lt;UpdateService&gt;()
+        )
+    }
+}
+        </code></pre>
+        <h4>6.2 实现 ActionCallback</h4>
+        <pre><code>
+        class RefreshWeatherCallback : ActionCallback {
+    override suspend fun onAction(
+        context: Context,
+        glanceId: GlanceId,
+        parameters: ActionParameters
+    ) {
+        // 执行后台任务
+        val newData = fetchWeatherFromNetwork()
+        
+        // 更新状态
+        updateAppWidgetState(context, glanceId) { prefs -&gt;
+            prefs[temperatureKey] = newData.temperature
+            prefs[cityKey] = newData.city
+        }
+        
+        // 刷新小部件
+        WeatherGlanceWidget().update(context, glanceId)
+    }
+}
+        </code></pre>
+        <h4>6.3 传统 RemoteViews 中的交互</h4>
+        <pre><code>
+        // 点击跳转 Activity
+val intent = Intent(context, MainActivity::class.java)
+val pendingIntent = PendingIntent.getActivity(
+    context, 0, intent,
+    PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+)
+views.setOnClickPendingIntent(R.id.widget_button, pendingIntent)
+
+// 点击触发广播
+val broadcastIntent = Intent(context, WeatherWidgetProvider::class.java).apply {
+    action = ACTION_REFRESH
+}
+val broadcastPendingIntent = PendingIntent.getBroadcast(
+    context, 0, broadcastIntent,
+    PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+)
+views.setOnClickPendingIntent(R.id.refresh_button, broadcastPendingIntent)
+        </code></pre>
+        <h3 id="vii-性能优化与最佳实践">VII. 性能优化与最佳实践</h3>
+        <h4>7.1 性能优化建议</h4>
+        <p><strong>1. 减少更新频率</strong></p>
+        <div class="code-bad"><pre><code>
+        // ❌ 不推荐：频繁更新
+updatePeriodMillis="60000"  // 1分钟
+
+// ✅ 推荐：合理间隔
+updatePeriodMillis="1800000"  // 30分钟
+        </code></pre></div>
+        <p><strong>2. 懒加载数据</strong></p>
+        <div class="code-good"><pre><code>
+        override suspend fun provideGlance(context: Context, id: GlanceId) {
+    provideContent {
+        // ✅ 只在需要时加载
+        val data = remember { loadData(context) }
+        WidgetContent(data)
+    }
+}
+        </code></pre></div>
+        <p><strong>3. 使用缓存</strong></p>
+        <pre><code>
+        class WeatherRepository {
+    private var cache: WeatherData? = null
+    private var lastFetch: Long = 0
+    
+    suspend fun getWeather(): WeatherData {
+        val now = System.currentTimeMillis()
+        if (cache != null &amp;&amp; now - lastFetch &lt; 10 * 60 * 1000) {
+            return cache!!
+        }
+        
+        cache = fetchFromNetwork()
+        lastFetch = now
+        return cache!!
+    }
+}
+        </code></pre>
+        <h4>7.2 内存和电量优化</h4>
+        <p><strong>避免内存泄漏：</strong></p>
+        <pre><code>
+        override fun onDisabled(context: Context) {
+    super.onDisabled(context)
+    // 取消所有后台任务
+    WorkManager.getInstance(context).cancelUniqueWork("WidgetUpdate")
+    // 清理资源
+    repository.clear()
+}
+        </code></pre>
+        <p><strong>电量优化：</strong></p>
+        <ul>
+        <li>使用 <code>WorkManager</code> 替代 <code>AlarmManager</code></li>
+        <li>合并网络请求</li>
+        <li>避免持续运行的后台服务</li>
+        </ul>
+        <h4>7.3 用户体验最佳实践</h4>
+        <ol>
+        <li><strong>提供加载状态</strong></li>
+        <pre><code>
+        @Composable
+fun WidgetWithLoading(isLoading: Boolean, data: WeatherData?) {
+    if (isLoading) {
+        Box(modifier = GlanceModifier.fillMaxSize()) {
+            CircularProgressIndicator()
+        }
+    } else {
+        WeatherContent(data ?: WeatherData.empty())
+    }
+}
+        </code></pre>
+        </ol>
+        <ol>
+        <li><strong>错误处理</strong></li>
+        <pre><code>
+        sealed class WidgetState {
+    object Loading : WidgetState()
+    data class Success(val data: WeatherData) : WidgetState()
+    data class Error(val message: String) : WidgetState()
+}
+        </code></pre>
+        </ol>
+        <ol>
+        <li><strong>响应式设计</strong></li>
+        <pre><code>
+        @Composable
+fun ResponsiveWidget(size: DpSize) {
+    if (size.width &gt; 200.dp) {
+        LargeWidgetLayout()
+    } else {
+        SmallWidgetLayout()
+    }
+}
+        </code></pre>
+        </ol>
+        <h3 id="viii-高级特性">VIII. 高级特性</h3>
+        <h4>8.1 集合视图 (ListView/GridView)</h4>
+        <p>传统方式中支持显示列表数据：</p>
+        <pre><code>
+        // RemoteViewsService
+class WeatherListService : RemoteViewsService() {
+    override fun onGetViewFactory(intent: Intent): RemoteViewsFactory {
+        return WeatherRemoteViewsFactory(this.applicationContext)
+    }
+}
+
+class WeatherRemoteViewsFactory(
+    private val context: Context
+) : RemoteViewsService.RemoteViewsFactory {
+    
+    private var dataList: List&lt;WeatherItem&gt; = emptyList()
+    
+    override fun onCreate() {
+        // 初始化
+    }
+    
+    override fun onDataSetChanged() {
+        // 数据变化时重新加载
+        dataList = loadWeatherList()
+    }
+    
+    override fun getViewAt(position: Int): RemoteViews {
+        val item = dataList[position]
+        return RemoteViews(context.packageName, R.layout.widget_list_item).apply {
+            setTextViewText(R.id.city_name, item.city)
+            setTextViewText(R.id.temperature, "${item.temp}°C")
+        }
+    }
+    
+    override fun getCount(): Int = dataList.size
+    
+    // 其他必需方法...
+}
+        </code></pre>
+        <h4>8.2 配置 Activity</h4>
+        <p>允许用户在添加小部件时进行配置：</p>
+        <pre><code>
+        class WeatherWidgetConfigActivity : AppCompatActivity() {
+    
+    private var appWidgetId = AppWidgetManager.INVALID_APPWIDGET_ID
+    
+    override fun onCreate(savedInstanceState: Bundle?) {
+        super.onCreate(savedInstanceState)
+        setResult(RESULT_CANCELED)
+        
+        appWidgetId = intent.extras?.getInt(
+            AppWidgetManager.EXTRA_APPWIDGET_ID,
+            AppWidgetManager.INVALID_APPWIDGET_ID
+        ) ?: AppWidgetManager.INVALID_APPWIDGET_ID
+        
+        if (appWidgetId == AppWidgetManager.INVALID_APPWIDGET_ID) {
+            finish()
+            return
+        }
+        
+        setContent {
+            ConfigScreen(
+                onConfirm = { city -&gt;
+                    saveConfiguration(city)
+                    updateWidget()
+                    
+                    val resultValue = Intent().putExtra(
+                        AppWidgetManager.EXTRA_APPWIDGET_ID,
+                        appWidgetId
+                    )
+                    setResult(RESULT_OK, resultValue)
+                    finish()
+                }
+            )
+        }
+    }
+    
+    private fun saveConfiguration(city: String) {
+        val prefs = getSharedPreferences("widget_prefs", MODE_PRIVATE)
+        prefs.edit().putString("city_$appWidgetId", city).apply()
+    }
+}
+        </code></pre>
+        <p>在 AppWidgetProviderInfo 中声明：</p>
+        <pre><code>
+        &lt;appwidget-provider
+    android:configure="com.example.WeatherWidgetConfigActivity"
+    ... /&gt;
+        </code></pre>
+        <h4>8.3 自适应图标和动态颜色 (Android 12+)</h4>
+        <pre><code>
+        @Composable
+fun DynamicColorWidget() {
+    // 使用系统动态颜色
+    Column(
+        modifier = GlanceModifier
+            .fillMaxSize()
+            .background(ColorProvider(day = Color.White, night = Color.Black))
+    ) {
+        Text(
+            text = "Dynamic Colors",
+            style = TextStyle(
+                color = ColorProvider(
+                    day = Color.Black,
+                    night = Color.White
+                )
+            )
+        )
+    }
+}
+        </code></pre>
+        <h4>8.4 多尺寸布局 (Responsive Widgets)</h4>
+        <pre><code>
+        @Composable
+fun ResponsiveWeatherWidget() {
+    val size = LocalSize.current
+    
+    when {
+        size.width &lt; 150.dp -&gt; SmallWidget()
+        size.width &lt; 250.dp -&gt; MediumWidget()
+        else -&gt; LargeWidget()
+    }
+}
+        </code></pre>
+        <h3 id="总结">总结</h3>
+        <p>Android 桌面小部件开发的核心要点：</p>
+        <h4>传统方式 (RemoteViews)</h4>
+        <ul>
+        <li>✅ 兼容性好：支持所有 Android 版本</li>
+        <li>✅ 性能稳定：经过长期验证</li>
+        <li>❌ 开发复杂：XML + RemoteViews API</li>
+        <li>❌ 功能受限：仅支持有限的视图类型</li>
+        </ul>
+        <h4>现代方式 (Glance)</h4>
+        <ul>
+        <li>✅ 开发简单：Compose 风格代码</li>
+        <li>✅ 类型安全：编译时检查</li>
+        <li>✅ 易于维护：声明式 UI</li>
+        <li>❌ 需要学习曲线：Glance 特有 API</li>
+        <li>❌ 功能限制：底层仍是 RemoteViews</li>
+        </ul>
+        <h4>最佳实践</h4>
+        <ul>
+        <li>✅ 使用 WorkManager 管理定期更新</li>
+        <li>✅ 使用 DataStore 持久化状态</li>
+        <li>✅ 提供加载和错误状态</li>
+        <li>✅ 优化更新频率和网络请求</li>
+        <li>✅ 适配 Android 12+ 新特性</li>
+        </ul>
+        <p>---</p>
+        <h3 id="推荐阅读">推荐阅读</h3>
+        <ul>
+        <li><a href="https://developer.android.com/develop/ui/views/appwidgets/overview" target="_blank">App Widgets Overview - Android Developers</a></li>
+        <li><a href="https://developer.android.com/jetpack/androidx/releases/glance" target="_blank">Jetpack Glance - Android Developers</a></li>
+        <li><a href="https://developer.android.com/develop/ui/views/appwidgets" target="_blank">Build an App Widget - Android Developers</a></li>
+        </ul>
+        </tbody></table>
+        <div class="reference">
+            <div class="reference-title">📚 官方参考</div>
+            <a href="https://developer.android.com/develop/ui/views/appwidgets/overview" target="_blank">App Widgets Overview - Android Developers</a><br>
+            <a href="https://developer.android.com/jetpack/androidx/releases/glance" target="_blank">Jetpack Glance - Android Developers</a><br>
+            <a href="https://developer.android.com/develop/ui/views/appwidgets" target="_blank">Build an App Widget - Android Developers</a>
+        </div>
+    </article>
+
+    <footer class="footer">
+        <p>&copy; 2024 Fidroid. <a href="../index.html">返回首页</a></p>
+    </footer>
+</body>
+</html>
